@@ -13,8 +13,8 @@ and nothing needs to be installed alongside it.
 **Status: experimental.** Expect rough edges and missing features.
 
 
-|---|---|
-| [![FrostByte on a Power Mac G5](docs/screenshots/frostbyte-g5.png)](docs/screenshots/frostbyte-g5.png) |
+
+[![FrostByte on a Power Mac G5](docs/screenshots/frostbyte-g5.png)](docs/screenshots/frostbyte-g5.png)
 
 ## Download
 
