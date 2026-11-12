@@ -206,6 +206,23 @@ diff -ruN --no-dereference -x __pycache__ a/Source/cmake/OptionsCommon.cmake b/S
      set(CXX_STDLIB_VARIANT "LIBCPP 19+")
      set(CXX_STDLIB_ASSERTIONS_MACRO _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE)
  else ()
+diff -ruN --no-dereference -x __pycache__ a/Source/cmake/OptionsWPE.cmake b/Source/cmake/OptionsWPE.cmake
+--- a/Source/cmake/OptionsWPE.cmake	2026-10-05 16:46:56.971277000 -0600
++++ b/Source/cmake/OptionsWPE.cmake	2026-11-12 16:09:36.324466067 -0600
+@@ -419,6 +419,13 @@
+ endif ()
+ 
+ add_definitions(-DBUILDING_WPE__=1)
++
++# Leopard (big-endian ppc64): store typed-array elements little-endian, as every other
++# browser host does, so Emscripten/Mandreel-style code that aliases HEAP32 and HEAPU8 works.
++option(LEOPARD_LE_TYPED_ARRAYS "Big-endian hosts: little-endian typed-array element storage" OFF)
++if (LEOPARD_LE_TYPED_ARRAYS)
++    add_definitions(-DLEOPARD_LE_TYPED_ARRAYS=1)
++endif ()
+ add_definitions(-DGETTEXT_PACKAGE="WPE")
+ add_definitions(-DJSC_GLIB_API_ENABLED)
+ 
 diff -ruN --no-dereference -x __pycache__ a/Source/cmake/WebKitCommon.cmake b/Source/cmake/WebKitCommon.cmake
 --- a/Source/cmake/WebKitCommon.cmake	2026-08-09 15:52:19.839517400 -0600
 +++ b/Source/cmake/WebKitCommon.cmake	2026-11-08 14:47:36.804803073 -0600
@@ -1553,8 +1570,8 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
 +#endif // ENABLE(ASSEMBLER) && CPU(PPC64)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h b/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h
 --- a/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h	2026-11-11 21:59:41.884838405 -0600
-@@ -0,0 +1,8353 @@
++++ b/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h	2026-11-12 16:12:57.577377576 -0600
+@@ -0,0 +1,8392 @@
 +/*
 + * Copyright (C) 2026 Justin Bettcher. All rights reserved.
 + *
@@ -2659,11 +2676,45 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
 +        return foldOffsetIntoAddressRegister(resolution, scratch);
 +    }
 +
++    // The X-form operand pair (RA, RB) for a byte-reversed access. A zero-offset
++    // address uses its base as RA directly ((RA|0) is only the literal zero for r0,
++    // which is never a base register), so base + (index << scale) costs one sldi
++    // instead of sldi + add. Anything else falls back to one folded register in RB.
++    struct XFormAddress {
++        RegisterID ra;
++        RegisterID rb;
++    };
++
++    template<typename AddressType>
++    XFormAddress byteReversedXForm(AddressType address, RegisterID scratch)
++    {
++        return { PPC64Registers::r0, byteReversedAddress(address, scratch) };
++    }
++
++    XFormAddress byteReversedXForm(Address address, RegisterID scratch)
++    {
++        if (!address.offset && address.base != PPC64Registers::r0)
++            return { PPC64Registers::r0, address.base };
++        return { PPC64Registers::r0, byteReversedAddress(address, scratch) };
++    }
++
++    XFormAddress byteReversedXForm(BaseIndex address, RegisterID scratch)
++    {
++        if (!address.offset && address.base != PPC64Registers::r0 && scratch != address.base && scratch != address.index) {
++            if (address.scale == TimesOne)
++                return { address.base, address.index };
++            m_assembler.sldi(scratch, address.index, static_cast<uint32_t>(address.scale));
++            return { address.base, scratch };
++        }
++        return { PPC64Registers::r0, byteReversedAddress(address, scratch) };
++    }
++
 +    template<typename AddressType>
 +    void load16ByteReversed(AddressType address, RegisterID dest)
 +    {
 +        auto temp = temps<Memory>();
-+        m_assembler.lhbrx(dest, PPC64Registers::r0, byteReversedAddress(address, temp.memory()));
++        auto x = byteReversedXForm(address, temp.memory());
++        m_assembler.lhbrx(dest, x.ra, x.rb);
 +    }
 +
 +    template<typename AddressType>
@@ -2685,7 +2736,8 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
 +    void load32ByteReversed(AddressType address, RegisterID dest)
 +    {
 +        auto temp = temps<Memory>();
-+        m_assembler.lwbrx(dest, PPC64Registers::r0, byteReversedAddress(address, temp.memory()));
++        auto x = byteReversedXForm(address, temp.memory());
++        m_assembler.lwbrx(dest, x.ra, x.rb);
 +    }
 +
 +    template<typename AddressType>
@@ -2711,7 +2763,8 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
 +        m_assembler.lwbrx(dest, PPC64Registers::r0, addr);
 +        m_assembler.rldimi(dest, PPC64Registers::r0, 32, 0);
 +#else
-+        m_assembler.ldbrx(dest, PPC64Registers::r0, byteReversedAddress(address, temp.memory()));
++        auto x = byteReversedXForm(address, temp.memory());
++        m_assembler.ldbrx(dest, x.ra, x.rb);
 +#endif
 +    }
 +
@@ -2719,14 +2772,16 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
 +    void store16ByteReversed(RegisterID src, AddressType address)
 +    {
 +        auto temp = temps<Memory>();
-+        m_assembler.sthbrx(src, PPC64Registers::r0, byteReversedAddress(address, temp.memory()));
++        auto x = byteReversedXForm(address, temp.memory());
++        m_assembler.sthbrx(src, x.ra, x.rb);
 +    }
 +
 +    template<typename AddressType>
 +    void store32ByteReversed(RegisterID src, AddressType address)
 +    {
 +        auto temp = temps<Memory>();
-+        m_assembler.stwbrx(src, PPC64Registers::r0, byteReversedAddress(address, temp.memory()));
++        auto x = byteReversedXForm(address, temp.memory());
++        m_assembler.stwbrx(src, x.ra, x.rb);
 +    }
 +
 +    template<typename AddressType>
@@ -2744,7 +2799,8 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
 +        m_assembler.addi(temp.memory(), addr, 4);
 +        m_assembler.stwbrx(PPC64Registers::r0, PPC64Registers::r0, temp.memory());
 +#else
-+        m_assembler.stdbrx(src, PPC64Registers::r0, byteReversedAddress(address, temp.memory()));
++        auto x = byteReversedXForm(address, temp.memory());
++        m_assembler.stdbrx(src, x.ra, x.rb);
 +#endif
 +    }
 +
@@ -20746,7 +20802,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/Inlin
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp b/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp
 --- a/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp	2026-07-27 09:40:28.350405200 -0600
-+++ b/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp	2026-11-08 14:47:36.701055076 -0600
++++ b/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp	2026-11-12 16:09:36.326330870 -0600
 @@ -1399,6 +1399,21 @@
  #elif CPU(RISCV64)
      static_assert(!maxFrameExtentForSlowPathCall);
@@ -20769,6 +20825,62 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/Inlin
  #endif
  }
  
+@@ -2306,12 +2321,12 @@
+                     break;
+                 case 2:
+                     if (JSC::isSigned(type))
+-                        jit.load16SignedExtendTo32(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesTwo), valueRegs.payloadGPR());
++                        jit.loadTypedArray16SignedExtendTo32(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesTwo), valueRegs.payloadGPR());
+                     else
+-                        jit.load16(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesTwo), valueRegs.payloadGPR());
++                        jit.loadTypedArray16(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesTwo), valueRegs.payloadGPR());
+                     break;
+                 case 4:
+-                    jit.load32(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesFour), valueRegs.payloadGPR());
++                    jit.loadTypedArray32(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesFour), valueRegs.payloadGPR());
+                     break;
+                 default:
+                     CRASH();
+@@ -2340,11 +2355,11 @@
+                     jit.convertFloat16ToDouble(m_scratchFPR, m_scratchFPR);
+                     break;
+                 case 4:
+-                    jit.loadFloat(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesFour), m_scratchFPR);
++                    jit.loadTypedArrayFloat(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesFour), m_scratchFPR);
+                     jit.convertFloatToDouble(m_scratchFPR, m_scratchFPR);
+                     break;
+                 case 8: {
+-                    jit.loadDouble(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesEight), m_scratchFPR);
++                    jit.loadTypedArrayDouble(CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesEight), m_scratchFPR);
+                     break;
+                 }
+                 default:
+@@ -2865,10 +2880,10 @@
+                     jit.store8(valueRegs.payloadGPR(), CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesOne));
+                     break;
+                 case 2:
+-                    jit.store16(valueRegs.payloadGPR(), CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesTwo));
++                    jit.storeTypedArray16(valueRegs.payloadGPR(), CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesTwo));
+                     break;
+                 case 4:
+-                    jit.store32(valueRegs.payloadGPR(), CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesFour));
++                    jit.storeTypedArray32(valueRegs.payloadGPR(), CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesFour));
+                     break;
+                 default:
+                     CRASH();
+@@ -2884,10 +2899,10 @@
+                 break;
+             case 4:
+                 jit.convertDoubleToFloat(m_scratchFPR, m_scratchFPR);
+-                jit.storeFloat(m_scratchFPR, CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesFour));
++                jit.storeTypedArrayFloat(m_scratchFPR, CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesFour));
+                 break;
+             case 8: {
+-                jit.storeDouble(m_scratchFPR, CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesEight));
++                jit.storeTypedArrayDouble(m_scratchFPR, CCallHelpers::BaseIndex(scratch2GPR, scratchGPR, CCallHelpers::TimesEight));
+                 break;
+             }
+             default:
 @@ -4705,7 +4720,7 @@
          jit.move(CCallHelpers::TrustedImm32(0), valueGPR);
          auto nullCase = jit.branchTestPtr(CCallHelpers::Zero, scratchGPR);
@@ -20919,6 +21031,22 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGArrayMo
      explicit ArrayMode(Array::Type type, Array::Action action)
      {
          u.asWord = 0;
+diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGByteCodeParser.cpp b/Source/JavaScriptCore/dfg/DFGByteCodeParser.cpp
+--- a/Source/JavaScriptCore/dfg/DFGByteCodeParser.cpp	2026-07-27 09:40:28.385495200 -0600
++++ b/Source/JavaScriptCore/dfg/DFGByteCodeParser.cpp	2026-11-12 16:09:36.330330928 -0600
+@@ -3215,6 +3215,12 @@
+         case AtomicsXorIntrinsic: {
+             if (!is64Bit())
+                 return CallOptimizationResult::DidNothing;
++#if USE(LE_TYPED_ARRAYS)
++            // The DFG/FTL atomics CAS on native-order values; with little-endian element
++            // storage they stay calls into AtomicsObject.cpp, which handles the byte order.
++            if (intrinsic != AtomicsIsLockFreeIntrinsic)
++                return CallOptimizationResult::DidNothing;
++#endif
+             
+             NodeType op = LastNodeType;
+             Array::Action action = Array::Write;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGClobberize.h b/Source/JavaScriptCore/dfg/DFGClobberize.h
 --- a/Source/JavaScriptCore/dfg/DFGClobberize.h	2026-07-27 09:40:28.390376300 -0600
 +++ b/Source/JavaScriptCore/dfg/DFGClobberize.h	2026-11-08 14:47:36.705226960 -0600
@@ -21047,7 +21175,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGOperati
      }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp
 --- a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp	2026-07-27 09:40:28.427405000 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp	2026-11-10 18:22:17.748078541 -0600
++++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp	2026-11-12 16:09:36.333504035 -0600
 @@ -103,7 +103,7 @@
              m_gprs.retain(gpr, virtualRegister, SpillOrderSpilled);
              switch (spillFormat) {
@@ -21264,9 +21392,49 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpecula
      add32(TrustedImm32(hashTableStartIndex), scratchGPR1);
      if (entrySize == 3) {
          lshift32(newEntryGPR, TrustedImm32(1), scratchGPR2);
+@@ -9698,11 +9742,11 @@
+             ASSERT(isFloat(type));
+             switch (type) {
+             case TypeFloat32:
+-                loadFloat(BaseIndex(scratch2GPR, indexGPR, TimesFour), resultFPR);
++                loadTypedArrayFloat(BaseIndex(scratch2GPR, indexGPR, TimesFour), resultFPR);
+                 convertFloatToDouble(resultFPR, resultFPR);
+                 break;
+             case TypeFloat64:
+-                loadDouble(BaseIndex(scratch2GPR, indexGPR, TimesEight), resultFPR);
++                loadTypedArrayDouble(BaseIndex(scratch2GPR, indexGPR, TimesEight), resultFPR);
+                 break;
+             default:
+                 RELEASE_ASSERT_NOT_REACHED();
+@@ -9921,10 +9965,10 @@
+                         store8(valueGPR, BaseIndex(scratch2GPR, indexGPR, TimesOne));
+                         break;
+                     case 2:
+-                        store16(valueGPR, BaseIndex(scratch2GPR, indexGPR, TimesTwo));
++                        storeTypedArray16(valueGPR, BaseIndex(scratch2GPR, indexGPR, TimesTwo));
+                         break;
+                     case 4:
+-                        store32(valueGPR, BaseIndex(scratch2GPR, indexGPR, TimesFour));
++                        storeTypedArray32(valueGPR, BaseIndex(scratch2GPR, indexGPR, TimesFour));
+                         break;
+                     default:
+                         RELEASE_ASSERT_NOT_REACHED();
+@@ -9938,10 +9982,10 @@
+             switch (type) {
+             case TypeFloat32:
+                 convertDoubleToFloat(doubleValueFPR, floatScratchFPR);
+-                storeFloat(floatScratchFPR, BaseIndex(scratch2GPR, indexGPR, TimesFour));
++                storeTypedArrayFloat(floatScratchFPR, BaseIndex(scratch2GPR, indexGPR, TimesFour));
+                 break;
+             case TypeFloat64:
+-                storeDouble(doubleValueFPR, BaseIndex(scratch2GPR, indexGPR, TimesEight));
++                storeTypedArrayDouble(doubleValueFPR, BaseIndex(scratch2GPR, indexGPR, TimesEight));
+                 break;
+             default:
+                 RELEASE_ASSERT_NOT_REACHED();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp
 --- a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp	2026-09-17 15:06:42.146497200 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp	2026-11-10 18:22:26.189748508 -0600
++++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp	2026-11-12 16:09:36.337331031 -0600
 @@ -248,6 +248,11 @@
  
  #if CPU(X86_64)
@@ -21288,6 +21456,63 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpecula
  #else
          move(GPRInfo::argumentGPR1, linkRegister);
          untagPtr(NoPtrTag, linkRegister);
+@@ -3546,12 +3553,12 @@
+         break;
+     case 2:
+         if (JSC::isSigned(type))
+-            load16SignedExtendTo32(BaseIndex(storageReg, propertyReg, TimesTwo), resultReg);
++            loadTypedArray16SignedExtendTo32(BaseIndex(storageReg, propertyReg, TimesTwo), resultReg);
+         else
+-            load16(BaseIndex(storageReg, propertyReg, TimesTwo), resultReg);
++            loadTypedArray16(BaseIndex(storageReg, propertyReg, TimesTwo), resultReg);
+         break;
+     case 4:
+-        load32(BaseIndex(storageReg, propertyReg, TimesFour), resultReg);
++        loadTypedArray32(BaseIndex(storageReg, propertyReg, TimesFour), resultReg);
+         break;
+     default:
+         CRASH();
+@@ -3891,10 +3898,10 @@
+         store8(value.gpr(), BaseIndex(storageReg, propertyReg, TimesOne));
+         break;
+     case 2:
+-        store16(value.gpr(), BaseIndex(storageReg, propertyReg, TimesTwo));
++        storeTypedArray16(value.gpr(), BaseIndex(storageReg, propertyReg, TimesTwo));
+         break;
+     case 4:
+-        store32(value.gpr(), BaseIndex(storageReg, propertyReg, TimesFour));
++        storeTypedArray32(value.gpr(), BaseIndex(storageReg, propertyReg, TimesFour));
+         break;
+     default:
+         CRASH();
+@@ -3976,11 +3983,11 @@
+         convertFloat16ToDouble(resultReg, resultReg);
+         break;
+     case 4:
+-        loadFloat(BaseIndex(storageReg, propertyReg, TimesFour), resultReg);
++        loadTypedArrayFloat(BaseIndex(storageReg, propertyReg, TimesFour), resultReg);
+         convertFloatToDouble(resultReg, resultReg);
+         break;
+     case 8: {
+-        loadDouble(BaseIndex(storageReg, propertyReg, TimesEight), resultReg);
++        loadTypedArrayDouble(BaseIndex(storageReg, propertyReg, TimesEight), resultReg);
+         break;
+     }
+     default:
+@@ -4036,11 +4043,11 @@
+     }
+     case 4: {
+         convertDoubleToFloat(valueFPR, scratchFPR);
+-        storeFloat(scratchFPR, BaseIndex(storageReg, propertyReg, TimesFour));
++        storeTypedArrayFloat(scratchFPR, BaseIndex(storageReg, propertyReg, TimesFour));
+         break;
+     }
+     case 8:
+-        storeDouble(valueFPR, BaseIndex(storageReg, propertyReg, TimesEight));
++        storeTypedArrayDouble(valueFPR, BaseIndex(storageReg, propertyReg, TimesEight));
+         break;
+     default:
+         RELEASE_ASSERT_NOT_REACHED();
 @@ -6194,7 +6201,7 @@
          
          done.link(this);
@@ -21772,7 +21997,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLCompile
              jit.untagPtr(NoPtrTag, CCallHelpers::linkRegister);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp b/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp
 --- a/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp	2026-09-17 15:06:42.151497400 -0600
-+++ b/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp	2026-11-10 18:53:55.248520025 -0600
++++ b/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp	2026-11-12 16:09:36.344331134 -0600
 @@ -2358,6 +2358,39 @@
          return result;
      }
@@ -21861,7 +22086,63 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
      }
  
      LValue typedArrayLength(LValue base, bool acceptResizable, std::optional<TypedArrayType> typedArrayType, Edge edge = Edge())
-@@ -10886,7 +10941,7 @@
+@@ -6801,9 +6856,9 @@
+                     case TypeFloat16:
+                         return m_out.loadFloat16AsDouble(pointer);
+                     case TypeFloat32:
+-                        return m_out.floatToDouble(m_out.loadFloat(pointer));
++                        return loadTypedArrayFloatAsDouble(pointer);
+                     case TypeFloat64:
+-                        return m_out.loadDouble(pointer);
++                        return loadTypedArrayDouble(pointer);
+                     default:
+                         DFG_CRASH(m_graph, m_node, "Bad typed array type");
+                     }
+@@ -7086,9 +7141,9 @@
+                     case TypeFloat16:
+                         return m_out.loadFloat16AsDouble(pointer);
+                     case TypeFloat32:
+-                        return m_out.floatToDouble(m_out.loadFloat(pointer));
++                        return loadTypedArrayFloatAsDouble(pointer);
+                     case TypeFloat64:
+-                        return m_out.loadDouble(pointer);
++                        return loadTypedArrayDouble(pointer);
+                     default:
+                         DFG_CRASH(m_graph, m_node, "Bad typed array type");
+                     }
+@@ -7652,14 +7707,8 @@
+                     case TypeFloat16:
+                         m_out.storeDoubleAsFloat16(value, pointer);
+                         break;
+-                    case TypeFloat32:
+-                        m_out.store(m_out.doubleToFloat(value), pointer, storeType(type));
+-                        break;
+-                    case TypeFloat64:
+-                        m_out.store(value, pointer, storeType(type));
+-                        break;
+                     default:
+-                        m_out.store(value, pointer, storeType(type));
++                        storeToTypedArray(value, pointer, type);
+                         break;
+                     }
+                 };
+@@ -7855,14 +7904,8 @@
+                     case TypeFloat16:
+                         m_out.storeDoubleAsFloat16(value, pointer);
+                         break;
+-                    case TypeFloat32:
+-                        m_out.store(m_out.doubleToFloat(value), pointer, storeType(type));
+-                        break;
+-                    case TypeFloat64:
+-                        m_out.store(value, pointer, storeType(type));
+-                        break;
+                     default:
+-                        m_out.store(value, pointer, storeType(type));
++                        storeToTypedArray(value, pointer, type);
+                         break;
+                     }
+                 };
+@@ -10886,7 +10929,7 @@
              // Check deletedEntryCount == 0.
              m_out.appendTo(deletedCheck, sizeCheck);
              LValue length = unboxInt32(aliveEntryCountValue);
@@ -21870,7 +22151,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              m_out.branch(m_out.isZero32(deletedCount), usually(sizeCheck), rarely(slowPath));
  
              // Check length <= MAX_STORAGE_VECTOR_LENGTH.
-@@ -10906,7 +10961,7 @@
+@@ -10906,7 +10949,7 @@
              ValueFromBlock fastResult = m_out.anchor(fastAllocation);
  
              // Compute dataTableStartIndex = hashTableStartIndex + capacity.
@@ -21879,7 +22160,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              LValue dataTableStart = m_out.add(m_out.constInt32(Helper::hashTableStartIndex()), capacity);
  
              ValueFromBlock startIndex = m_out.anchor(m_out.constIntPtr(0));
-@@ -11835,13 +11890,7 @@
+@@ -11835,13 +11878,7 @@
                  m_out.bitOr(kids[0], m_out.constIntPtr(JSString::isRopeInPointer)),
                  m_out.bitAnd(m_out.constIntPtr(JSRopeString::is8BitInPointer), m_out.zeroExtPtr(flagsAndLength.flags))),
              result, m_heaps.JSRopeString_fiber0);
@@ -21894,7 +22175,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
  
          mutatorFence();
          ValueFromBlock fastResult = m_out.anchor(result);
-@@ -12593,12 +12642,23 @@
+@@ -12593,12 +12630,23 @@
              ? data
              : m_out.add(data, m_out.zeroExtPtr(m_out.sub(length, m_out.constInt32(searchLength))));
  
@@ -21919,7 +22200,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              return value;
          };
          auto loadAt = [&](unsigned offset, unsigned width) -> LValue {
-@@ -12683,7 +12743,7 @@
+@@ -12683,7 +12731,7 @@
          LValue base = lowCell(m_node->child2());
          LValue storage = lowStorage(m_node->child1());
          if (m_node->hasDoubleResult()) {
@@ -21928,7 +22209,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              LValue value = unboxRealNumberDouble(boxed, m_node);
              ensureStillAliveHere(base);
              setDouble(value);
-@@ -12748,7 +12808,7 @@
+@@ -12748,7 +12796,7 @@
                  break;
  
              case GetByOffsetMethod::Constant:
@@ -21937,7 +22218,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
                      result = m_out.constDouble(std::bit_cast<double>(JSValue::encode(method.constant()->value())));
                  else
                      result = m_out.constInt64(JSValue::encode(method.constant()->value()));
-@@ -12765,7 +12825,7 @@
+@@ -12765,7 +12813,7 @@
                      propertyBase = m_out.loadPtr(propertyBase, m_heaps.JSObject_butterfly);
  
                  if (m_node->hasDoubleResult())
@@ -21946,7 +22227,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
                  else
                      result = loadProperty(propertyBase, data.identifierNumber, method.offset());
                  break;
-@@ -12785,7 +12845,7 @@
+@@ -12785,7 +12833,7 @@
          ensureStillAliveHere(base);
  
          if (m_node->hasDoubleResult())
@@ -21955,7 +22236,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
          else
              setJSValue(m_out.phi(Int64, results));
      }
-@@ -12798,7 +12858,7 @@
+@@ -12798,7 +12846,7 @@
              LValue value = lowDouble(m_node->child3());
              if (abstractValue(m_node->child3()).couldBeType(SpecDoubleImpureNaN))
                  value = m_out.purifyNaN(value);
@@ -21964,7 +22245,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              return;
          }
  
-@@ -12814,7 +12874,7 @@
+@@ -12814,7 +12862,7 @@
              value = lowDouble(m_node->child2());
              if (abstractValue(m_node->child2()).couldBeType(SpecDoubleImpureNaN))
                  value = m_out.purifyNaN(value);
@@ -21973,7 +22254,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
          } else
              value = lowJSValue(m_node->child2());
  
-@@ -12864,7 +12924,7 @@
+@@ -12864,7 +12912,7 @@
              }
  
              if (m_node->child2().useKind() == DoubleRepUse)
@@ -21982,7 +22263,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              else
                  storeProperty(value, storage, data.identifierNumber, variant.offset());
  
-@@ -13035,7 +13095,7 @@
+@@ -13035,7 +13083,7 @@
      void compileGetGlobalVariable()
      {
          if (m_node->hasDoubleResult()) {
@@ -21991,7 +22272,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              setDouble(unboxRealNumberDouble(boxed, m_node));
              return;
          }
-@@ -13049,7 +13109,7 @@
+@@ -13049,7 +13097,7 @@
              LValue value = lowDouble(m_node->child2());
              if (abstractValue(m_node->child2()).couldBeType(SpecDoubleImpureNaN))
                  value = m_out.purifyNaN(value);
@@ -22000,7 +22281,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              return;
          }
  
-@@ -13082,7 +13142,7 @@
+@@ -13082,7 +13130,7 @@
      void compileSetCallee()
      {
          auto callee = lowCell(m_node->child1());
@@ -22009,7 +22290,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
      }
  
      void compileGetArgumentCountIncludingThis()
-@@ -13132,7 +13192,7 @@
+@@ -13132,7 +13180,7 @@
      {
          LValue base = lowCell(m_node->child1());
          if (m_node->hasDoubleResult()) {
@@ -22018,7 +22299,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              setDouble(unboxRealNumberDouble(boxed, m_node));
              return;
          }
-@@ -13146,7 +13206,7 @@
+@@ -13146,7 +13194,7 @@
              LValue value = lowDouble(m_node->child2());
              if (abstractValue(m_node->child2()).couldBeType(SpecDoubleImpureNaN))
                  value = m_out.purifyNaN(value);
@@ -22027,7 +22308,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              return;
          }
  
-@@ -14966,6 +15026,7 @@
+@@ -14966,6 +15014,7 @@
  
      void compileCallWasm()
      {
@@ -22035,7 +22316,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
          Node* node = m_node;
          WebAssemblyFunction* wasmFunction = node->castOperand<WebAssemblyFunction*>();
  
-@@ -15188,6 +15249,9 @@
+@@ -15188,6 +15237,9 @@
                  break;
              }
          }
@@ -22045,7 +22326,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
      }
  
      void compileCallCustomAccessorGetter()
-@@ -16450,7 +16514,7 @@
+@@ -16450,7 +16502,7 @@
          // Compute the bucketCount = Capacity and bucketIndex = hashTableStartIndex + (hash & bucketCount - 1).
          LBasicBlock lastNext = m_out.appendTo(indexSetUp, loopStart);
          LValue mapStorageData = toButterfly(mapStorage);
@@ -22054,7 +22335,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
          LValue bucketIndex = m_out.add(m_out.constInt32(MapOrSet::Helper::hashTableStartIndex()), m_out.bitAnd(hash, m_out.sub(bucketCount, m_out.int32One)));
  
          // Get the entryKeyIndex JSValue.
-@@ -16766,7 +16830,7 @@
+@@ -16766,7 +16818,7 @@
  
          // Fast path: iterate through entries to find next non-deleted entry
          m_out.appendTo(fastPath, loop);
@@ -22063,7 +22344,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
          LValue dataTableStartIndex = m_out.add(m_out.constInt32(isMapIterator ? JSMap::Helper::hashTableStartIndex() : JSSet::Helper::hashTableStartIndex()), bucketCount);
          LValue entrySize = m_out.constIntPtr(isMapIterator ? JSMap::Helper::EntrySize : JSSet::Helper::EntrySize);
  
-@@ -16825,7 +16889,7 @@
+@@ -16825,7 +16877,7 @@
          LValue entry = lowInt32(m_node->child2());
  
          LValue butterfly = toButterfly(storage);
@@ -22072,7 +22353,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
  
          LValue multiplied;
          int32_t entrySize;
-@@ -16853,7 +16917,7 @@
+@@ -16853,7 +16905,7 @@
          LValue entry = lowInt32(m_node->child2());
  
          LValue butterfly = toButterfly(storage);
@@ -22081,7 +22362,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
  
          static_assert(JSMap::Helper::EntrySize == 3);
          LValue multiplied = m_out.add(entry, m_out.shl(entry, m_out.constInt32(1)));
-@@ -19922,7 +19986,7 @@
+@@ -19922,7 +19974,7 @@
  
          m_out.storePtr(m_callFrame, packet, m_heaps.ShadowChicken_Packet_frame);
          m_out.storePtr(m_out.loadPtr(addressFor(VirtualRegister(0))), packet, m_heaps.ShadowChicken_Packet_callerFrame);
@@ -22090,7 +22371,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
          m_out.storePtr(scope, packet, m_heaps.ShadowChicken_Packet_scope);
      }
  
-@@ -20713,8 +20777,7 @@
+@@ -20713,8 +20765,7 @@
          LValue rope = allocateCell(m_out.constIntPtr(allocator.localAllocator()), vm().stringStructure.get(), substringRopeSlowAlloc);
          LValue baseIs8BitFlag = m_out.bitAnd(m_out.load32(stringImpl, m_heaps.StringImpl_hashAndFlags), m_out.constInt32(StringImpl::flagIs8Bit()));
          m_out.storePtr(m_out.bitOr(m_out.constIntPtr(JSString::isRopeInPointer | JSRopeString::isSubstringInPointer), m_out.zeroExtPtr(baseIs8BitFlag)), rope, m_heaps.JSRopeString_fiber0);
@@ -22100,7 +22381,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
          mutatorFence();
          results.append(m_out.anchor(rope));
          m_out.jump(continuation);
-@@ -21399,8 +21462,18 @@
+@@ -21399,8 +21450,18 @@
          LBasicBlock littleEndianCase = m_out.newBlock();
          LBasicBlock continuation = m_out.newBlock();
  
@@ -22119,7 +22400,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
  
          LBasicBlock lastNext = m_out.appendTo(bigEndianCase, littleEndianCase);
          LValue bigEndianValue = emitBigEndianCode();
-@@ -21430,6 +21503,11 @@
+@@ -21430,6 +21491,11 @@
              isLittleEndian = lowBoolean(m_node->child3());
  
          DataViewData data = m_node->dataViewData();
@@ -22131,7 +22412,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
  
          LValue length = typedArrayLength(dataView, data.isResizable, TypeDataView, m_node->child1());
  
-@@ -21625,6 +21703,11 @@
+@@ -21625,6 +21691,11 @@
              isLittleEndian = lowBoolean(m_graph.varArgChild(m_node, 3));
  
          DataViewData data = m_node->dataViewData();
@@ -22143,7 +22424,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
  
          LValue length = typedArrayLength(dataView, data.isResizable, TypeDataView, m_graph.varArgChild(m_node, 0));
  
-@@ -22705,6 +22788,30 @@
+@@ -22705,6 +22776,30 @@
          return patchpoint;
      }
  
@@ -22174,6 +22455,137 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
      void storeStructure(LValue object, Structure* structure)
      {
          m_out.store32(m_out.constInt32(structure->id().bits()), object, m_heaps.JSCell_structureID);
+@@ -24059,14 +24154,130 @@
+             ));
+     }
+ 
++#if USE(LE_TYPED_ARRAYS)
++    // Typed-array elements are stored little-endian on this big-endian host. B3 has no
++    // byte-reversed memory access, so these are patchpoints that do the access themselves
++    // (lhbrx/lwbrx/ldbrx and stores), with the TypedArrayProperties heap as their effects.
++    enum class ReversedAccess : uint8_t { Int16Signed, Int16, Int32, Float, Double };
++
++    LValue loadTypedArrayByteReversed(TypedPointer pointer, ReversedAccess kind)
++    {
++        B3::Type resultType = kind == ReversedAccess::Float ? B3::Float : kind == ReversedAccess::Double ? B3::Double : B3::Int32;
++        PatchpointValue* patchpoint = m_out.patchpoint(resultType);
++        patchpoint->appendSomeRegister(pointer.value());
++        patchpoint->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
++            CCallHelpers::Address address(params[1].gpr());
++            switch (kind) {
++            case ReversedAccess::Int16Signed:
++                jit.load16SignedExtendTo32ByteReversed(address, params[0].gpr());
++                break;
++            case ReversedAccess::Int16:
++                jit.load16ByteReversed(address, params[0].gpr());
++                break;
++            case ReversedAccess::Int32:
++                jit.load32ByteReversed(address, params[0].gpr());
++                break;
++            case ReversedAccess::Float:
++                jit.loadFloatByteReversed(address, params[0].fpr());
++                break;
++            case ReversedAccess::Double:
++                jit.loadDoubleByteReversed(address, params[0].fpr());
++                break;
++            }
++        });
++        patchpoint->effects = Effects::none();
++        patchpoint->effects.controlDependent = true;
++        m_heaps.decoratePatchpointRead(pointer.heap(), patchpoint);
++        return patchpoint;
++    }
++
++    void storeTypedArrayByteReversed(LValue value, TypedPointer pointer, ReversedAccess kind)
++    {
++        PatchpointValue* patchpoint = m_out.patchpoint(Void);
++        patchpoint->appendSomeRegister(value);
++        patchpoint->appendSomeRegister(pointer.value());
++        patchpoint->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
++            CCallHelpers::Address address(params[1].gpr());
++            switch (kind) {
++            case ReversedAccess::Int16Signed:
++            case ReversedAccess::Int16:
++                jit.store16ByteReversed(params[0].gpr(), address);
++                break;
++            case ReversedAccess::Int32:
++                jit.store32ByteReversed(params[0].gpr(), address);
++                break;
++            case ReversedAccess::Float:
++                jit.storeFloatByteReversed(params[0].fpr(), address);
++                break;
++            case ReversedAccess::Double:
++                jit.storeDoubleByteReversed(params[0].fpr(), address);
++                break;
++            }
++        });
++        patchpoint->effects = Effects::none();
++        patchpoint->effects.controlDependent = true;
++        patchpoint->effects.writes = HeapRange::top(); // narrowed by the decoration below
++        m_heaps.decoratePatchpointWrite(pointer.heap(), patchpoint);
++    }
++#endif
++
++    // Loads and stores of typed-array elements in element storage order.
++    LValue loadTypedArrayFloatAsDouble(TypedPointer pointer)
++    {
++#if USE(LE_TYPED_ARRAYS)
++        return m_out.floatToDouble(loadTypedArrayByteReversed(pointer, ReversedAccess::Float));
++#else
++        return m_out.floatToDouble(m_out.loadFloat(pointer));
++#endif
++    }
++
++    LValue loadTypedArrayDouble(TypedPointer pointer)
++    {
++#if USE(LE_TYPED_ARRAYS)
++        return loadTypedArrayByteReversed(pointer, ReversedAccess::Double);
++#else
++        return m_out.loadDouble(pointer);
++#endif
++    }
++
++    // value is Int32 for integer types, Double for Float32/Float64 (Float16 is handled by the caller).
++    void storeToTypedArray(LValue value, TypedPointer pointer, TypedArrayType type)
++    {
++#if USE(LE_TYPED_ARRAYS)
++        if (elementSize(type) > 1) {
++            switch (type) {
++            case TypeFloat32:
++                storeTypedArrayByteReversed(m_out.doubleToFloat(value), pointer, ReversedAccess::Float);
++                return;
++            case TypeFloat64:
++                storeTypedArrayByteReversed(value, pointer, ReversedAccess::Double);
++                return;
++            default:
++                storeTypedArrayByteReversed(value, pointer, elementSize(type) == 2 ? ReversedAccess::Int16 : ReversedAccess::Int32);
++                return;
++            }
++        }
++#endif
++        if (type == TypeFloat32)
++            m_out.store(m_out.doubleToFloat(value), pointer, storeType(type));
++        else
++            m_out.store(value, pointer, storeType(type));
++    }
++
+     LValue loadFromIntTypedArray(TypedPointer pointer, TypedArrayType type)
+     {
+         switch (elementSize(type)) {
+         case 1:
+             return isSigned(type) ? m_out.load8SignExt32(pointer) : m_out.load8ZeroExt32(pointer);
+         case 2:
++#if USE(LE_TYPED_ARRAYS)
++            return loadTypedArrayByteReversed(pointer, isSigned(type) ? ReversedAccess::Int16Signed : ReversedAccess::Int16);
++#endif
+             return isSigned(type) ? m_out.load16SignExt32(pointer) : m_out.load16ZeroExt32(pointer);
+         case 4:
++#if USE(LE_TYPED_ARRAYS)
++            return loadTypedArrayByteReversed(pointer, ReversedAccess::Int32);
++#endif
+             return m_out.load32(pointer);
+         default:
+             DFG_CRASH(m_graph, m_node, "Bad element size");
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLSlowPathCall.cpp b/Source/JavaScriptCore/ftl/FTLSlowPathCall.cpp
 --- a/Source/JavaScriptCore/ftl/FTLSlowPathCall.cpp	2026-07-27 09:40:28.474452000 -0600
 +++ b/Source/JavaScriptCore/ftl/FTLSlowPathCall.cpp	2026-11-08 14:47:36.723668036 -0600
@@ -22408,8 +22820,16 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHe
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHelpers.h b/Source/JavaScriptCore/jit/AssemblyHelpers.h
 --- a/Source/JavaScriptCore/jit/AssemblyHelpers.h	2026-09-04 08:58:43.214595800 -0600
-+++ b/Source/JavaScriptCore/jit/AssemblyHelpers.h	2026-11-08 14:47:36.726203316 -0600
-@@ -425,7 +425,7 @@
++++ b/Source/JavaScriptCore/jit/AssemblyHelpers.h	2026-11-12 16:09:36.347436317 -0600
+@@ -49,6 +49,7 @@
+ #include <JavaScriptCore/TagRegistersMode.h>
+ #include <JavaScriptCore/TypeofType.h>
+ #include <JavaScriptCore/VM.h>
++#include <wtf/FlipBytes.h>
+ #include <wtf/TZoneMalloc.h>
+ 
+ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+@@ -425,7 +426,7 @@
      void emitSaveThenMaterializeTagRegisters()
      {
  #if USE(JSVALUE64)
@@ -22418,7 +22838,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHe
          pushPair(GPRInfo::numberTagRegister, GPRInfo::notCellMaskRegister);
  #else
          push(GPRInfo::numberTagRegister);
-@@ -438,7 +438,7 @@
+@@ -438,7 +439,7 @@
      void emitRestoreSavedTagRegisters()
      {
  #if USE(JSVALUE64)
@@ -22427,7 +22847,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHe
          popPair(GPRInfo::numberTagRegister, GPRInfo::notCellMaskRegister);
  #else
          pop(GPRInfo::notCellMaskRegister);
-@@ -645,6 +645,47 @@
+@@ -645,6 +646,47 @@
      }
  #endif
  
@@ -22475,7 +22895,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHe
      void getArityPadding(VM&, unsigned numberOfParameters, GPRReg argumentCountIncludingThisGPR, GPRReg paddingOutputGPR, GPRReg scratchGPR0, GPRReg scratchGPR1, JumpList& stackOverflow);
  
      void emitGetFromCallFrameHeaderPtr(VirtualRegister entry, GPRReg to, GPRReg from = GPRInfo::callFrameRegister)
-@@ -1424,6 +1465,14 @@
+@@ -1424,6 +1466,14 @@
              GPRInfo::regT10,
              GPRInfo::regT11,
              GPRInfo::regT12,
@@ -22490,7 +22910,49 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHe
  #endif
          };
  
-@@ -2119,7 +2168,13 @@
+@@ -1902,6 +1952,41 @@
+     // length may be the same register as scratch.
+     JS_EXPORT_PRIVATE void cageConditionally(Gigacage::Kind, GPRReg storage, GPRReg length, GPRReg scratch);
+ 
++    // Typed-array element access in element storage order. With USE(LE_TYPED_ARRAYS)
++    // (big-endian host, little-endian elements) these are the byte-reversed forms
++    // (lhbrx/lwbrx/ldbrx and stores); otherwise the plain loads and stores. 8-bit and
++    // Float16 accesses need no variant (bytes have no order; no JIT Float16 on PPC64).
++#if USE(LE_TYPED_ARRAYS)
++    template<typename A> void loadTypedArray16(A address, GPRReg dest) { load16ByteReversed(address, dest); }
++    template<typename A> void loadTypedArray16SignedExtendTo32(A address, GPRReg dest) { load16SignedExtendTo32ByteReversed(address, dest); }
++    template<typename A> void loadTypedArray32(A address, GPRReg dest) { load32ByteReversed(address, dest); }
++    template<typename A> void loadTypedArray64(A address, GPRReg dest) { load64ByteReversed(address, dest); }
++    template<typename A> void loadTypedArrayFloat(A address, FPRReg dest) { loadFloatByteReversed(address, dest); }
++    template<typename A> void loadTypedArrayDouble(A address, FPRReg dest) { loadDoubleByteReversed(address, dest); }
++    template<typename A> void storeTypedArray16(GPRReg src, A address) { store16ByteReversed(src, address); }
++    template<typename A> void storeTypedArray32(GPRReg src, A address) { store32ByteReversed(src, address); }
++    template<typename A> void storeTypedArray64(GPRReg src, A address) { store64ByteReversed(src, address); }
++    template<typename A> void storeTypedArrayFloat(FPRReg src, A address) { storeFloatByteReversed(src, address); }
++    template<typename A> void storeTypedArrayDouble(FPRReg src, A address) { storeDoubleByteReversed(src, address); }
++    // Constants are swapped at compile time.
++    template<typename A> void storeTypedArray16(TrustedImm32 imm, A address) { store16(TrustedImm32(static_cast<int32_t>(flipBytes(static_cast<uint16_t>(imm.m_value)))), address); }
++    template<typename A> void storeTypedArray32(TrustedImm32 imm, A address) { store32(TrustedImm32(static_cast<int32_t>(flipBytes(static_cast<uint32_t>(imm.m_value)))), address); }
++#else
++    template<typename A> void loadTypedArray16(A address, GPRReg dest) { load16(address, dest); }
++    template<typename A> void loadTypedArray16SignedExtendTo32(A address, GPRReg dest) { load16SignedExtendTo32(address, dest); }
++    template<typename A> void loadTypedArray32(A address, GPRReg dest) { load32(address, dest); }
++    template<typename A> void loadTypedArray64(A address, GPRReg dest) { load64(address, dest); }
++    template<typename A> void loadTypedArrayFloat(A address, FPRReg dest) { loadFloat(address, dest); }
++    template<typename A> void loadTypedArrayDouble(A address, FPRReg dest) { loadDouble(address, dest); }
++    template<typename A> void storeTypedArray16(GPRReg src, A address) { store16(src, address); }
++    template<typename A> void storeTypedArray32(GPRReg src, A address) { store32(src, address); }
++    template<typename A> void storeTypedArray64(GPRReg src, A address) { store64(src, address); }
++    template<typename A> void storeTypedArrayFloat(FPRReg src, A address) { storeFloat(src, address); }
++    template<typename A> void storeTypedArrayDouble(FPRReg src, A address) { storeDouble(src, address); }
++    template<typename A> void storeTypedArray16(TrustedImm32 imm, A address) { store16(imm, address); }
++    template<typename A> void storeTypedArray32(TrustedImm32 imm, A address) { store32(imm, address); }
++#endif
++
+     void emitComputeButterflyIndexingMask(GPRReg vectorLengthGPR, GPRReg scratchGPR, GPRReg resultGPR)
+     {
+         ASSERT(scratchGPR != resultGPR);
+@@ -2119,7 +2204,13 @@
          Allocator allocator = allocatorForConcurrently<JSBigInt>(vm, JSBigInt::allocationSize(1), AllocatorForMode::AllocatorIfExists);
          emitAllocateJSCell(resultGPR, JITAllocator::constant(allocator), scratchGPR1, structure, scratchGPR2, slowCases, SlowAllocationResult::UndefinedBehavior);
  
@@ -22504,7 +22966,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHe
  
          if (isSigned) {
              neg64(valueGPR, scratchGPR1);
-@@ -2228,7 +2283,7 @@
+@@ -2228,7 +2319,7 @@
      }
  
  #if ENABLE(WEBASSEMBLY)
@@ -31023,7 +31485,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/InPlaceI
  void initialize();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h b/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h
 --- a/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h	2026-07-27 09:40:28.569840000 -0600
-+++ b/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h	2026-11-09 10:24:27.191239308 -0600
++++ b/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h	2026-11-12 16:09:36.348210139 -0600
 @@ -40,6 +40,8 @@
  #define OFFLINE_ASM_ARMv7k 0
  #define OFFLINE_ASM_ARMv7s 0
@@ -31054,6 +31516,19 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LLIntOff
  #endif // ENABLE(C_LOOP)
  
  #if USE(JSVALUE64)
+@@ -103,6 +119,12 @@
+ #define OFFLINE_ASM_BIGINT32 0
+ #endif
+ 
++#if USE(LE_TYPED_ARRAYS)
++#define OFFLINE_ASM_LE_TYPED_ARRAYS 1
++#else
++#define OFFLINE_ASM_LE_TYPED_ARRAYS 0
++#endif
++
+ #if USE(LARGE_TYPED_ARRAYS)
+ #define OFFLINE_ASM_LARGE_TYPED_ARRAYS 1
+ #else
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LLIntThunks.cpp b/Source/JavaScriptCore/llint/LLIntThunks.cpp
 --- a/Source/JavaScriptCore/llint/LLIntThunks.cpp	2026-07-27 09:40:28.573404800 -0600
 +++ b/Source/JavaScriptCore/llint/LLIntThunks.cpp	2026-11-08 14:47:36.741904359 -0600
@@ -31284,7 +31759,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevel
      ret
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevelInterpreter.asm b/Source/JavaScriptCore/llint/LowLevelInterpreter.asm
 --- a/Source/JavaScriptCore/llint/LowLevelInterpreter.asm	2026-07-27 09:40:28.573404800 -0600
-+++ b/Source/JavaScriptCore/llint/LowLevelInterpreter.asm	2026-11-08 14:47:36.743609665 -0600
++++ b/Source/JavaScriptCore/llint/LowLevelInterpreter.asm	2026-11-12 16:09:36.348556474 -0600
 @@ -225,7 +225,7 @@
  
  const maxFrameExtentForSlowPathCall = constexpr maxFrameExtentForSlowPathCall
@@ -31507,7 +31982,74 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevel
          subi CallerFrameAndPCSize, temp2
          loadp CallerFrameAndPC::returnPC[cfr], lr
      else
-@@ -1617,16 +1676,16 @@
+@@ -1520,12 +1579,23 @@
+     bia t2, Int16ArrayType - FirstTypedArrayType, .opGetByValUint16Array
+ 
+     # We have Int16ArrayType.
+-    loadhsi [t3, index, 2], t0
++    if LE_TYPED_ARRAYS
++        leap [t3, index, 2], t3
++        ppc64Loadhbr [t3], t0
++        sxh2i t0, t0
++    else
++        loadhsi [t3, index, 2], t0
++    end
+     finishIntGetByVal(t0, t1)
+ 
+ .opGetByValUint16Array:
+     # We have Uint16ArrayType.
+-    loadh [t3, index, 2], t0
++    if LE_TYPED_ARRAYS
++        leap [t3, index, 2], t3
++        ppc64Loadhbr [t3], t0
++    else
++        loadh [t3, index, 2], t0
++    end
+     finishIntGetByVal(t0, t1)
+ 
+ .opGetByValAboveUint16Array:
+@@ -1536,13 +1606,23 @@
+     bia t2, Int32ArrayType - FirstTypedArrayType, .opGetByValUint32Array
+ 
+     # We have Int32ArrayType.
+-    loadi [t3, index, 4], t0
++    if LE_TYPED_ARRAYS
++        leap [t3, index, 4], t3
++        ppc64Loadibr [t3], t0
++    else
++        loadi [t3, index, 4], t0
++    end
+     finishIntGetByVal(t0, t1)
+ 
+ .opGetByValUint32Array:
+     # We have Uint32ArrayType.
+     # This is the hardest part because of large unsigned values.
+-    loadi [t3, index, 4], t0
++    if LE_TYPED_ARRAYS
++        leap [t3, index, 4], t3
++        ppc64Loadibr [t3], t0
++    else
++        loadi [t3, index, 4], t0
++    end
+     bilt t0, 0, slowPath # This case is still awkward to implement in LLInt.
+     finishIntGetByVal(t0, t1)
+ 
+@@ -1552,7 +1632,13 @@
+     bineq t2, Float64ArrayType - FirstTypedArrayType, slowPath
+ 
+     # We have Float64ArrayType.
+-    loadd [t3, index, 8], ft0
++    if LE_TYPED_ARRAYS
++        leap [t3, index, 8], t3
++        ppc64Loadqbr [t3], t3
++        fq2d t3, ft0
++    else
++        loadd [t3, index, 8], ft0
++    end
+     bdnequn ft0, ft0, slowPath
+     finishDoubleGetByVal(ft0, t0, t1, t2)
+ end
+@@ -1617,16 +1703,16 @@
          else
              loadi Callee + TagOffset[cfr], scratch
              bieq scratch, (constexpr JSValue::NativeCalleeTag), .isWasmCallee
@@ -31527,7 +32069,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevel
      convertJSCalleeToVM(vm)
  end
  end
-@@ -1662,7 +1721,7 @@
+@@ -1662,7 +1748,7 @@
          btpz r0, .recover
          move cfr, sp # restore the previous sp
          # pop the callerFrame since we will jump to a function that wants to save it
@@ -31536,7 +32078,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevel
              pop lr, cfr
          elsif ARM64E
              # untagReturnAddress will be performed in Gate::entryOSREntry.
-@@ -2315,6 +2374,19 @@
+@@ -2315,6 +2401,19 @@
          functionPrologue()
          pushCalleeSaves()
  
@@ -31556,7 +32098,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevel
          initPCRelative(kind, t3)
  
          # Include generated bytecode initialization file.
-@@ -2325,6 +2397,16 @@
+@@ -2325,6 +2424,16 @@
          crash()
      .notFrozen:
  
@@ -31573,7 +32115,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevel
          popCalleeSaves()
          functionEpilogue()
          ret
-@@ -2686,7 +2768,7 @@
+@@ -2686,7 +2795,7 @@
          lshifti 3, t1
          negp t1
          addp cfr, t1
@@ -34962,6 +35504,122 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/ppc
 +        end
 +    end
 +end
+diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/AtomicsObject.cpp b/Source/JavaScriptCore/runtime/AtomicsObject.cpp
+--- a/Source/JavaScriptCore/runtime/AtomicsObject.cpp	2026-07-27 09:40:28.597643600 -0600
++++ b/Source/JavaScriptCore/runtime/AtomicsObject.cpp	2026-11-12 16:09:36.349571680 -0600
+@@ -222,12 +222,38 @@
+     return atomicReadModifyWrite(globalObject, globalObject->vm(), args, func);
+ }
+ 
++#if USE(LE_TYPED_ARRAYS)
++// Typed-array elements are stored little-endian on this big-endian host, so an
++// arithmetic read-modify-write cannot use the native atomic op: it is a CAS loop on the
++// stored bits. Bitwise ops, exchange and compare-exchange work on swapped operands.
++template<typename T, typename Op>
++static T leAtomicReadModifyWrite(T* ptr, const Op& op)
++{
++    T stored = WTF::atomicLoadFullyFenced(ptr);
++    for (;;) {
++        T old = typedArrayStorageSwap(stored);
++        T updated = typedArrayStorageSwap(static_cast<T>(op(old)));
++        T witnessed = WTF::atomicCompareExchangeStrong(ptr, stored, updated);
++        if (witnessed == stored)
++            return old;
++        stored = witnessed;
++    }
++}
++template<typename T> using AtomicsUnsigned = std::make_unsigned_t<T>;
++#define LE_ATOMIC_ARITH(T, expr) do { if constexpr (sizeof(T) > 1) return leAtomicReadModifyWrite(ptr, [&](T v) { using U = AtomicsUnsigned<T>; return static_cast<T>(expr); }); } while (0)
++#define LE_ATOMIC_BITWISE(T, call) do { if constexpr (sizeof(T) > 1) return typedArrayStorageSwap(call); } while (0)
++#else
++#define LE_ATOMIC_ARITH(T, expr) do { } while (0)
++#define LE_ATOMIC_BITWISE(T, call) do { } while (0)
++#endif
++
+ struct AddFunc {
+     static constexpr unsigned numExtraArgs = 1;
+     
+     template<typename T>
+     T NODELETE operator()(T* ptr, const T* args) const
+     {
++        LE_ATOMIC_ARITH(T, static_cast<U>(v) + static_cast<U>(args[0]));
+         return WTF::atomicExchangeAdd(ptr, args[0]);
+     }
+ };
+@@ -238,6 +264,7 @@
+     template<typename T>
+     T NODELETE operator()(T* ptr, const T* args) const
+     {
++        LE_ATOMIC_BITWISE(T, WTF::atomicExchangeAnd(ptr, typedArrayStorageSwap(args[0])));
+         return WTF::atomicExchangeAnd(ptr, args[0]);
+     }
+ };
+@@ -250,6 +277,7 @@
+     {
+         T expected = args[0];
+         T newValue = args[1];
++        LE_ATOMIC_BITWISE(T, WTF::atomicCompareExchangeStrong(ptr, typedArrayStorageSwap(expected), typedArrayStorageSwap(newValue)));
+         return WTF::atomicCompareExchangeStrong(ptr, expected, newValue);
+     }
+ };
+@@ -260,6 +288,7 @@
+     template<typename T>
+     T NODELETE operator()(T* ptr, const T* args) const
+     {
++        LE_ATOMIC_BITWISE(T, WTF::atomicExchange(ptr, typedArrayStorageSwap(args[0])));
+         return WTF::atomicExchange(ptr, args[0]);
+     }
+ };
+@@ -270,7 +299,7 @@
+     template<typename T>
+     T operator()(T* ptr, const T*) const
+     {
+-        return WTF::atomicLoadFullyFenced(ptr);
++        return typedArrayStorageSwap(WTF::atomicLoadFullyFenced(ptr));
+     }
+ };
+ 
+@@ -280,6 +309,7 @@
+     template<typename T>
+     T NODELETE operator()(T* ptr, const T* args) const
+     {
++        LE_ATOMIC_BITWISE(T, WTF::atomicExchangeOr(ptr, typedArrayStorageSwap(args[0])));
+         return WTF::atomicExchangeOr(ptr, args[0]);
+     }
+ };
+@@ -290,6 +320,7 @@
+     template<typename T>
+     T NODELETE operator()(T* ptr, const T* args) const
+     {
++        LE_ATOMIC_ARITH(T, static_cast<U>(v) - static_cast<U>(args[0]));
+         return WTF::atomicExchangeSub(ptr, args[0]);
+     }
+ };
+@@ -300,6 +331,7 @@
+     template<typename T>
+     T NODELETE operator()(T* ptr, const T* args) const
+     {
++        LE_ATOMIC_BITWISE(T, WTF::atomicExchangeXor(ptr, typedArrayStorageSwap(args[0])));
+         return WTF::atomicExchangeXor(ptr, args[0]);
+     }
+ };
+@@ -351,7 +383,7 @@
+     if (typedArray->isDetached() || !typedArray->inBounds(accessIndex))
+         return throwVMTypeError(globalObject, scope, typedArrayBufferHasBeenDetachedErrorMessage);
+ 
+-    WTF::atomicStoreFullyFenced(typedArray->typedVector() + accessIndex, extraArg);
++    WTF::atomicStoreFullyFenced(typedArray->typedVector() + accessIndex, typedArrayStorageSwap(extraArg));
+     RELEASE_AND_RETURN(scope, JSValue::encode(value));
+ }
+ 
+@@ -446,6 +478,7 @@
+     auto scope = DECLARE_THROW_SCOPE(vm);
+ 
+     ValueType* ptr = typedArray->typedVector() + accessIndex;
++    expectedValue = typedArrayStorageSwap(expectedValue); // compared against the stored bits
+ 
+     double timeoutInMilliseconds = timeoutValue.toNumber(globalObject);
+     RETURN_IF_EXCEPTION(scope, { });
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/CachedBytecode.cpp b/Source/JavaScriptCore/runtime/CachedBytecode.cpp
 --- a/Source/JavaScriptCore/runtime/CachedBytecode.cpp	2026-07-27 09:40:28.603644400 -0600
 +++ b/Source/JavaScriptCore/runtime/CachedBytecode.cpp	2026-11-11 00:08:57.165388271 -0600
@@ -35129,6 +35787,80 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/ErrorI
      Base::finishCreation(vm);
      ASSERT(inherits(info()));
  
+diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/GenericTypedArrayView.h b/Source/JavaScriptCore/runtime/GenericTypedArrayView.h
+--- a/Source/JavaScriptCore/runtime/GenericTypedArrayView.h	2026-07-27 09:40:28.639100000 -0600
++++ b/Source/JavaScriptCore/runtime/GenericTypedArrayView.h	2026-11-12 16:09:36.350005476 -0600
+@@ -27,6 +27,7 @@
+ 
+ #include <JavaScriptCore/ArrayBuffer.h>
+ #include <JavaScriptCore/ArrayBufferView.h>
++#include <wtf/FlipBytes.h>
+ 
+ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+ 
+@@ -60,6 +61,15 @@
+     
+     bool setRange(const typename Adaptor::Type* data, size_t count, size_t offset)
+     {
++#if USE(LE_TYPED_ARRAYS)
++        if constexpr (sizeof(typename Adaptor::Type) > 1) {
++            if (!checkInboundData(offset, count))
++                return false;
++            for (size_t i = 0; i < count; ++i)
++                setNative(offset + i, data[i]);
++            return true;
++        }
++#endif
+         return setRangeImpl(
+             reinterpret_cast<const char*>(data),
+             count * sizeof(typename Adaptor::Type),
+@@ -86,23 +96,32 @@
+     typename Adaptor::Type item(size_t index) const
+     {
+         ASSERT_WITH_SECURITY_IMPLICATION(index < this->length());
+-        return data()[index];
++        return typedArrayStorageSwap(data()[index]);
+     }
+     
+     void set(size_t index, double value) const
+     {
+         ASSERT_WITH_SECURITY_IMPLICATION(index < this->length());
+-        data()[index] = Adaptor::toNativeFromDouble(value);
++        data()[index] = typedArrayStorageSwap(Adaptor::toNativeFromDouble(value));
+     }
+ 
+     void setNative(size_t index, typename Adaptor::Type value) const
+     {
+         ASSERT_WITH_SECURITY_IMPLICATION(index < this->length());
+-        data()[index] = value;
++        data()[index] = typedArrayStorageSwap(value);
+     }
+ 
+     bool getRange(typename Adaptor::Type* data, size_t count, size_t offset)
+     {
++#if USE(LE_TYPED_ARRAYS)
++        if constexpr (sizeof(typename Adaptor::Type) > 1) {
++            if (!checkInboundData(offset, count))
++                return false;
++            for (size_t i = 0; i < count; ++i)
++                data[i] = item(offset + i);
++            return true;
++        }
++#endif
+         return getRangeImpl(
+             reinterpret_cast<char*>(data),
+             count * sizeof(typename Adaptor::Type),
+diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/GenericTypedArrayViewInlines.h b/Source/JavaScriptCore/runtime/GenericTypedArrayViewInlines.h
+--- a/Source/JavaScriptCore/runtime/GenericTypedArrayViewInlines.h	2026-07-27 09:40:28.639100000 -0600
++++ b/Source/JavaScriptCore/runtime/GenericTypedArrayViewInlines.h	2026-11-12 16:09:36.350340642 -0600
+@@ -80,6 +80,7 @@
+         return nullptr;
+ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+     memcpy(result->data(), array, length * sizeof(typename Adaptor::Type));
++    typedArrayStorageSwapInPlace(result->data(), length); // native values -> element storage order
+ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+     return result;
+ }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSCBytecodeCacheVersion.cpp b/Source/JavaScriptCore/runtime/JSCBytecodeCacheVersion.cpp
 --- a/Source/JavaScriptCore/runtime/JSCBytecodeCacheVersion.cpp	2026-07-27 09:40:28.661404600 -0600
 +++ b/Source/JavaScriptCore/runtime/JSCBytecodeCacheVersion.cpp	2026-11-08 14:47:36.748235197 -0600
@@ -35299,6 +36031,78 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGene
                  };
  
                  for (; cursor + stride <= end; cursor += stride, output += halfStride) {
+diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGenericTypedArrayView.h b/Source/JavaScriptCore/runtime/JSGenericTypedArrayView.h
+--- a/Source/JavaScriptCore/runtime/JSGenericTypedArrayView.h	2026-07-27 09:40:28.670615000 -0600
++++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayView.h	2026-11-12 16:09:36.350585905 -0600
+@@ -27,6 +27,7 @@
+ 
+ #include <JavaScriptCore/JSArrayBufferView.h>
+ #include <JavaScriptCore/ThrowScope.h>
++#include <wtf/FlipBytes.h>
+ 
+ namespace JSC {
+ 
+diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewInlines.h b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewInlines.h
+--- a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewInlines.h	2026-07-27 09:40:28.671303700 -0600
++++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewInlines.h	2026-11-12 16:09:36.351025002 -0600
+@@ -380,10 +380,12 @@
+     }
+     if constexpr (Adaptor::typeValue == TypeUint16 || Adaptor::typeValue == TypeInt16) {
+         WTF::copyElements(spanReinterpretCast<uint16_t>(typedSpan().subspan(offset)), std::span { std::bit_cast<const uint64_t*>(array->butterfly()->contiguous().data() + objectOffset), length });
++        typedArrayStorageSwapInPlace(typedVector() + offset, length);
+         return;
+     }
+     if constexpr (Adaptor::typeValue == TypeUint32 || Adaptor::typeValue == TypeInt32) {
+         WTF::copyElements(spanReinterpretCast<uint32_t>(typedSpan().subspan(offset)), std::span { std::bit_cast<const uint64_t*>(array->butterfly()->contiguous().data() + objectOffset), length });
++        typedArrayStorageSwapInPlace(typedVector() + offset, length);
+         return;
+     }
+     for (size_t i = 0; i < length; ++i) {
+@@ -406,6 +408,7 @@
+ 
+     if constexpr (Adaptor::typeValue == TypeFloat64 || Adaptor::typeValue == TypeFloat32) {
+         WTF::copyElements(typedSpan().subspan(offset), std::span<const double> { array->butterfly()->contiguousDouble().data() + objectOffset, length });
++        typedArrayStorageSwapInPlace(typedVector() + offset, length);
+         return;
+     }
+ 
+@@ -802,7 +805,7 @@
+ template<typename Adaptor> inline typename Adaptor::Type JSGenericTypedArrayView<Adaptor>::getIndexQuicklyAsNativeValue(size_t i) const
+ {
+     ASSERT(inBounds(i));
+-    return typedVector()[i];
++    return typedArrayStorageSwap(typedVector()[i]);
+ }
+ 
+ template<typename Adaptor> inline JSValue JSGenericTypedArrayView<Adaptor>::getIndexQuickly(size_t i) const
+@@ -813,7 +816,7 @@
+ template<typename Adaptor> inline void JSGenericTypedArrayView<Adaptor>::setIndexQuicklyToNativeValue(size_t i, typename Adaptor::Type value)
+ {
+     ASSERT(inBounds(i));
+-    typedVector()[i] = value;
++    typedVector()[i] = typedArrayStorageSwap(value);
+ }
+ 
+ template<typename Adaptor> inline void JSGenericTypedArrayView<Adaptor>::setIndexQuickly(size_t i, JSValue value)
+@@ -870,6 +873,9 @@
+         array = forShared.mutableSpan().data();
+     }
+ 
++    // Sort native values; storage may be little-endian (USE(LE_TYPED_ARRAYS)).
++    typedArrayStorageSwapInPlace(array, length);
++
+     switch (Adaptor::typeValue) {
+     case TypeFloat16:
+         sortFloat<int16_t>(array, array + length);
+@@ -885,6 +891,8 @@
+         break;
+     }
+ 
++    typedArrayStorageSwapInPlace(array, length);
++
+     if (isShared())
+         WTF::copyElements(originalSpan, forShared.span().first(length));
+ 
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototype.cpp b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototype.cpp
 --- a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototype.cpp	2026-07-27 09:40:28.671574000 -0600
 +++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototype.cpp	2026-11-08 14:47:36.749212112 -0600
@@ -35318,6 +36122,135 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGene
              auto merged = SIMD::bitOr(high, low);
              auto masked = SIMD::bitAnd(simde_vreinterpretq_u8_u16(merged), SIMD::splat<uint8_t>(0xf));
              return simde_vqtbl1q_u8(characters, masked);
+diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototypeFunctions.h b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototypeFunctions.h
+--- a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototypeFunctions.h	2026-07-27 09:40:28.671981600 -0600
++++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototypeFunctions.h	2026-11-12 16:09:36.351499869 -0600
+@@ -241,7 +241,7 @@
+             JSValue element = jsUndefined();
+             auto nativeValue = ViewClass::Adaptor::toNativeFromUndefined();
+             if (!thisObject->isDetached()) [[likely]] {
+-                nativeValue = (hasStableVector ? array : thisObject->typedVector())[index];
++                nativeValue = typedArrayStorageSwap((hasStableVector ? array : thisObject->typedVector())[index]);
+                 element = ViewClass::Adaptor::toJSValue(globalObject, nativeValue);
+                 RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, { });
+             }
+@@ -256,7 +256,7 @@
+         JSValue element = jsUndefined();
+         auto nativeValue = ViewClass::Adaptor::toNativeFromUndefined();
+         if (!thisObject->isDetached() && thisObject->inBounds(index)) [[likely]] {
+-            nativeValue = thisObject->typedVector()[index];
++            nativeValue = typedArrayStorageSwap(thisObject->typedVector()[index]);
+             element = ViewClass::Adaptor::toJSValue(globalObject, nativeValue);
+             RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, { });
+         }
+@@ -366,6 +366,21 @@
+     if (index >= length)
+         return WTF::notFound;
+ 
++#if USE(LE_TYPED_ARRAYS)
++    // Integers compare bitwise, so search for the target in storage order. Floats need
++    // numeric equality (+0 == -0), so compare native values one by one.
++    if constexpr (ViewClass::elementSize > 1) {
++        if constexpr (ViewClass::Adaptor::isFloat) {
++            for (; index < length; ++index) {
++                if (static_cast<double>(typedArrayStorageSwap(array[index])) == static_cast<double>(target))
++                    return index;
++            }
++            return WTF::notFound;
++        } else
++            target = typedArrayStorageSwap(target);
++    }
++#endif
++
+     if constexpr (ViewClass::Adaptor::isInteger) {
+         if constexpr (ViewClass::elementSize == 1) {
+             auto* result = std::bit_cast<typename ViewClass::ElementType*>(WTF::find8(std::bit_cast<const uint8_t*>(array + index), target, length - index));
+@@ -429,6 +444,19 @@
+     if (!searchLength)
+         return WTF::notFound;
+ 
++#if USE(LE_TYPED_ARRAYS)
++    if constexpr (ViewClass::elementSize > 1) {
++        if constexpr (ViewClass::Adaptor::isFloat) {
++            for (size_t index = searchLength; index--;) {
++                if (static_cast<double>(typedArrayStorageSwap(array[index])) == static_cast<double>(target))
++                    return index;
++            }
++            return WTF::notFound;
++        } else
++            target = typedArrayStorageSwap(target);
++    }
++#endif
++
+     if constexpr (ViewClass::Adaptor::isInteger) {
+         if constexpr (ViewClass::elementSize == 1) {
+             auto* result = std::bit_cast<typename ViewClass::ElementType*>(WTF::reverseFind8(std::bit_cast<const uint8_t*>(array), target, searchLength));
+@@ -531,7 +559,7 @@
+         if constexpr (ViewClass::elementSize == 2) {
+             if (std::isnan(*targetOption)) {
+                 for (; index < searchLength; ++index) {
+-                    if (std::isnan(array[index]))
++                    if (std::isnan(typedArrayStorageSwap(array[index])))
+                         return JSValue::encode(jsBoolean(true));
+                 }
+                 return JSValue::encode(jsBoolean(false));
+@@ -539,7 +567,7 @@
+         } else {
+             if (std::isnan(static_cast<double>(*targetOption))) {
+                 for (; index < searchLength; ++index) {
+-                    if (std::isnan(static_cast<double>(array[index])))
++                    if (std::isnan(static_cast<double>(typedArrayStorageSwap(array[index]))))
+                         return JSValue::encode(jsBoolean(true));
+                 }
+                 return JSValue::encode(jsBoolean(false));
+@@ -692,6 +720,7 @@
+     size_t count = end - start;
+     typename ViewClass::ElementType* underlyingVector = thisObject->typedVector();
+     ASSERT_UNUSED(count, count <= length);
++    nativeValue = typedArrayStorageSwap(nativeValue);
+ 
+ #if OS(DARWIN)
+     if constexpr (ViewClass::elementSize == 8) {
+@@ -968,12 +997,13 @@
+                 } \
+             } else if constexpr (requires { WTF::copyElements(to, from); }) { \
+                 WTF::copyElements(to, from); \
++                typedArrayStorageSwapInPlace(to.data(), to.size()); \
+                 break; \
+             } \
+             size_t index = 0; \
+             using Adaptor = typename JS##name##Array::Adaptor; \
+             for (auto value : from) \
+-                to[index++] = ViewClass::Adaptor::template convertTo<Adaptor>(value); \
++                to[index++] = typedArrayStorageSwap(ViewClass::Adaptor::template convertTo<Adaptor>(value)); \
+         } \
+         break; \
+     }
+@@ -1744,6 +1774,7 @@
+     ASSERT(workingSet.size() == length);
+     ASSERT(originalSpan.size() == length);
+     WTF::copyElements(src, spanConstCast<const typename ViewClass::ElementType>(originalSpan));
++    typedArrayStorageSwapInPlace(src.data(), src.size());
+ 
+     auto result = src;
+ 
+@@ -1796,6 +1827,7 @@
+     // The comparator may trigger FastTypedArray -> WastefulTypedArray transition via .buffer access,
+     // which relocates the backing store. Do not reuse originalSpan here.
+     size_t copyLength = std::min<size_t>(thisObject->length(), result.size());
++    typedArrayStorageSwapInPlace(result.data(), result.size());
+     WTF::copyElements(thisObject->typedSpan().first(copyLength), spanConstCast<const typename ViewClass::ElementType>(result.first(copyLength)));
+ 
+     return JSValue::encode(thisObject);
+@@ -2182,7 +2214,7 @@
+     } else {
+         auto to = result->typedSpan();
+         WTF::copyElements(to, maybeUpdatedSpan);
+-        to[replaceIndex] = nativeValue;
++        to[replaceIndex] = typedArrayStorageSwap(nativeValue);
+     }
+ 
+     return JSValue::encode(result);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSModuleLoader.cpp b/Source/JavaScriptCore/runtime/JSModuleLoader.cpp
 --- a/Source/JavaScriptCore/runtime/JSModuleLoader.cpp	2026-07-27 09:40:28.679404700 -0600
 +++ b/Source/JavaScriptCore/runtime/JSModuleLoader.cpp	2026-11-08 14:47:36.749543647 -0600
@@ -39864,6 +40797,369 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/domjit/DOMJITHelpers.
  }
  
  template<typename WrappedType, typename ToJSFunction>
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/AudioBuffer.cpp b/Source/WebCore/Modules/webaudio/AudioBuffer.cpp
+--- a/Source/WebCore/Modules/webaudio/AudioBuffer.cpp	2026-07-27 09:40:36.878759600 -0600
++++ b/Source/WebCore/Modules/webaudio/AudioBuffer.cpp	2026-11-12 16:10:43.434464005 -0600
+@@ -42,6 +42,7 @@
+ #include "WebCoreOpaqueRoot.h"
+ #include <JavaScriptCore/JSCInlines.h>
+ #include <JavaScriptCore/TypedArrayInlines.h>
++#include <wtf/FlipBytes.h>
+ #include <wtf/CheckedArithmetic.h>
+ #include <wtf/StdLibExtras.h>
+ #include <wtf/TZoneMallocInlines.h>
+@@ -357,8 +358,13 @@
+     if (!m_noiseInjectionMultiplier)
+         return;
+ 
+-    for (auto& channel : m_channels)
+-        AudioUtilities::applyNoise(channel->typedMutableSpan(), m_noiseInjectionMultiplier);
++    for (auto& channel : m_channels) {
++        // The channel arrays hold JS typed-array storage (little-endian under USE(LE_TYPED_ARRAYS)).
++        auto samples = channel->typedMutableSpan();
++        typedArrayStorageSwapInPlace(samples.data(), samples.size());
++        AudioUtilities::applyNoise(samples, m_noiseInjectionMultiplier);
++        typedArrayStorageSwapInPlace(samples.data(), samples.size());
++    }
+ 
+     m_noiseInjectionMultiplier = 0;
+ }
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/AudioBufferSourceNode.cpp b/Source/WebCore/Modules/webaudio/AudioBufferSourceNode.cpp
+--- a/Source/WebCore/Modules/webaudio/AudioBufferSourceNode.cpp	2026-07-27 09:40:36.880242300 -0600
++++ b/Source/WebCore/Modules/webaudio/AudioBufferSourceNode.cpp	2026-11-12 16:10:16.338936103 -0600
+@@ -39,6 +39,7 @@
+ #include "ScriptExecutionContext.h"
+ #include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
+ #include <algorithm>
++#include <wtf/FlipBytes.h>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ namespace WebCore {
+@@ -52,16 +53,23 @@
+ // to minimize linear interpolation aliasing.
+ const double MaxRate = 1024;
+ 
++// The source channels are an AudioBuffer's Float32Arrays, which hold JS typed-array storage
++// (little-endian under USE(LE_TYPED_ARRAYS)); typedArrayStorageSwap gives the native sample.
++static ALWAYS_INLINE float sourceSample(std::span<const float> source, size_t index)
++{
++    return typedArrayStorageSwap(source[index]);
++}
++
+ static float NODELETE computeSampleUsingLinearInterpolation(std::span<const float> source, unsigned readIndex, unsigned readIndex2, float interpolationFactor)
+ {
+     if (readIndex == readIndex2 && readIndex >= 1) {
+         // We're at the end of the buffer, so just linearly extrapolate from the last two samples.
+-        float sample1 = source[readIndex - 1];
+-        float sample2 = source[readIndex];
++        float sample1 = sourceSample(source, readIndex - 1);
++        float sample2 = sourceSample(source, readIndex);
+         return sample2 + (sample2 - sample1) * interpolationFactor;
+     }
+-    float sample1 = source[readIndex];
+-    float sample2 = source[readIndex2];
++    float sample1 = sourceSample(source, readIndex);
++    float sample2 = sourceSample(source, readIndex2);
+     return sample1 + interpolationFactor * (sample2 - sample1);
+ }
+ 
+@@ -286,8 +294,10 @@
+             int framesThisTime = std::min(framesToProcess, framesToEnd);
+             framesThisTime = std::max(0, framesThisTime);
+ 
+-            for (unsigned i = 0; i < numberOfChannels; ++i) 
++            for (unsigned i = 0; i < numberOfChannels; ++i) {
+                 memcpySpan(m_destinationChannels[i].subspan(writeIndex), m_sourceChannels[i].subspan(readIndex).first(framesThisTime));
++                typedArrayStorageSwapInPlace(m_destinationChannels[i].subspan(writeIndex).data(), framesThisTime);
++            }
+ 
+             writeIndex += framesThisTime;
+             readIndex += framesThisTime;
+@@ -319,7 +329,7 @@
+                     auto destination = m_destinationChannels[i];
+                     auto source = m_sourceChannels[i];
+ 
+-                    destination[writeIndex] = source[readIndex];
++                    destination[writeIndex] = sourceSample(source, readIndex);
+                 }
+ 
+                 ++writeIndex;
+@@ -347,7 +357,7 @@
+             return false;
+ 
+         for (unsigned i = 0; i < numberOfChannels; ++i)
+-            std::ranges::fill(m_destinationChannels[i].subspan(writeIndex).first(framesToProcess), m_sourceChannels[i][readIndex]);
++            std::ranges::fill(m_destinationChannels[i].subspan(writeIndex).first(framesToProcess), sourceSample(m_sourceChannels[i], readIndex));
+ 
+         virtualReadIndex = readIndex;
+     } else if (reverse) {
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/AudioWorkletProcessor.cpp b/Source/WebCore/Modules/webaudio/AudioWorkletProcessor.cpp
+--- a/Source/WebCore/Modules/webaudio/AudioWorkletProcessor.cpp	2026-07-27 09:40:36.892358300 -0600
++++ b/Source/WebCore/Modules/webaudio/AudioWorkletProcessor.cpp	2026-11-12 16:11:27.845536452 -0600
+@@ -45,6 +45,7 @@
+ #include <JavaScriptCore/JSGlobalObjectInlines.h>
+ #include <JavaScriptCore/JSTypedArrays.h>
+ #include <JavaScriptCore/ObjectConstructor.h>
++#include <wtf/FlipBytes.h>
+ #include <wtf/GetPtr.h>
+ #include <wtf/StdLibExtras.h>
+ #include <wtf/TZoneMallocInlines.h>
+@@ -92,8 +93,10 @@
+     constexpr bool isResizableOrGrowableShared = false;
+     auto* jsArray = JSFloat32Array::create(&globalObject, globalObject.typedArrayStructure(TypeFloat32, isResizableOrGrowableShared), length);
+     RETURN_IF_EXCEPTION(scope, nullptr);
+-    if (!data.empty())
++    if (!data.empty()) {
+         memcpySpan(jsArray->typedSpan(), data.first(length));
++        typedArrayStorageSwapInPlace(jsArray->typedVector(), length); // to JS typed-array storage order
++    }
+     return jsArray;
+ }
+ 
+@@ -168,9 +171,10 @@
+             auto* channel = bus->channel(j);
+             auto* jsChannelData = getArrayAtIndex<JSFloat32Array>(*channelsArray, globalObject, j);
+             RETURN_IF_EXCEPTION(scope, void());
+-            if (jsChannelData && !jsChannelData->isShared() && jsChannelData->length() == channel->length()) [[likely]]
++            if (jsChannelData && !jsChannelData->isShared() && jsChannelData->length() == channel->length()) [[likely]] {
+                 memcpySpan(channel->mutableSpan(), jsChannelData->typedSpan().first(channel->length()));
+-            else
++                typedArrayStorageSwapInPlace(channel->mutableSpan().data(), channel->length()); // from JS storage order
++            } else
+                 channel->zero();
+         }
+     }
+@@ -197,6 +201,7 @@
+             if (!jsChannelArray || jsChannelArray->isShared() || jsChannelArray->length() != channel->length())
+                 return false;
+             memcpySpan(jsChannelArray->typedSpan(), channel->mutableSpan().first(jsChannelArray->length()));
++            typedArrayStorageSwapInPlace(jsChannelArray->typedVector(), jsChannelArray->length()); // to JS storage order
+         }
+     }
+     return true;
+@@ -218,6 +223,7 @@
+         if (jsTypedArray->length() != expectedLength)
+             return false;
+         memcpySpan(jsTypedArray->typedSpan(), pair.value->span().first(jsTypedArray->length()));
++        typedArrayStorageSwapInPlace(jsTypedArray->typedVector(), jsTypedArray->length()); // to JS storage order
+     }
+     return true;
+ }
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/BiquadFilterNode.cpp b/Source/WebCore/Modules/webaudio/BiquadFilterNode.cpp
+--- a/Source/WebCore/Modules/webaudio/BiquadFilterNode.cpp	2026-07-27 09:40:36.896729200 -0600
++++ b/Source/WebCore/Modules/webaudio/BiquadFilterNode.cpp	2026-11-12 16:11:27.844272993 -0600
+@@ -32,6 +32,7 @@
+ #include "BaseAudioContext.h"
+ #include "ExceptionOr.h"
+ #include <JavaScriptCore/Float32Array.h>
++#include <wtf/FlipBytes.h>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ namespace WebCore {
+@@ -86,8 +87,18 @@
+     if (magResponse->length() != length || phaseResponse->length() != length)
+         return Exception { ExceptionCode::InvalidAccessError, "The arrays passed as arguments must have the same length"_s };
+ 
+-    if (length)
++    if (length) {
++#if USE(LE_TYPED_ARRAYS)
++        // JS typed-array storage is little-endian: work on native copies.
++        Vector<float> frequencies(frequencyHz->typedSpan());
++        typedArrayStorageSwapInPlace(frequencies.mutableSpan().data(), frequencies.size());
++        protect(biquadProcessor())->getFrequencyResponse(length, frequencies.span(), magResponse->typedMutableSpan(), phaseResponse->typedMutableSpan());
++        typedArrayStorageSwapInPlace(magResponse->typedMutableSpan().data(), length);
++        typedArrayStorageSwapInPlace(phaseResponse->typedMutableSpan().data(), length);
++#else
+         protect(biquadProcessor())->getFrequencyResponse(length, frequencyHz->typedSpan(), magResponse->typedMutableSpan(), phaseResponse->typedMutableSpan());
++#endif
++    }
+     return { };
+ }
+ 
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/ConvolverNode.cpp b/Source/WebCore/Modules/webaudio/ConvolverNode.cpp
+--- a/Source/WebCore/Modules/webaudio/ConvolverNode.cpp	2026-07-27 09:40:36.900850000 -0600
++++ b/Source/WebCore/Modules/webaudio/ConvolverNode.cpp	2026-11-12 16:10:33.366171065 -0600
+@@ -37,6 +37,7 @@
+ #include "ExceptionOr.h"
+ #include "Reverb.h"
+ #include <JavaScriptCore/TypedArrays.h>
++#include <wtf/FlipBytes.h>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ // Note about empirical tuning:
+@@ -135,9 +136,20 @@
+ 
+     // Wrap the AudioBuffer by an AudioBus. It's an efficient pointer set and not a memcpySpan().
+     // This memory is simply used in the Reverb constructor and no reference to it is kept for later use in that class.
++#if USE(LE_TYPED_ARRAYS)
++    // The AudioBuffer holds little-endian JS typed-array storage: give the Reverb native samples.
++    auto bufferBus = AudioBus::create(numberOfChannels, bufferLength, true);
++    for (unsigned i = 0; i < numberOfChannels; ++i) {
++        auto destination = bufferBus->channel(i)->mutableSpan();
++        auto source = buffer->channelData(i)->typedSpan().first(bufferLength);
++        for (size_t j = 0; j < bufferLength; ++j)
++            destination[j] = typedArrayStorageSwap(source[j]);
++    }
++#else
+     auto bufferBus = AudioBus::create(numberOfChannels, bufferLength, false);
+     for (unsigned i = 0; i < numberOfChannels; ++i)
+         bufferBus->setChannelMemory(i, buffer->channelData(i)->typedMutableSpan().first(bufferLength));
++#endif
+ 
+     bufferBus->setSampleRate(buffer->sampleRate());
+ 
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/IIRFilterNode.cpp b/Source/WebCore/Modules/webaudio/IIRFilterNode.cpp
+--- a/Source/WebCore/Modules/webaudio/IIRFilterNode.cpp	2026-07-27 09:40:36.905589600 -0600
++++ b/Source/WebCore/Modules/webaudio/IIRFilterNode.cpp	2026-11-12 16:11:27.844631628 -0600
+@@ -35,6 +35,7 @@
+ #include "ScriptExecutionContext.h"
+ #include <JavaScriptCore/ConsoleTypes.h>
+ #include <JavaScriptCore/TypedArrays.h>
++#include <wtf/FlipBytes.h>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ namespace WebCore {
+@@ -129,8 +130,18 @@
+         return Exception { ExceptionCode::InvalidAccessError, "Arrays must have the same length"_s };
+ 
+     // Nothing to do if the length is 0.
+-    if (expectedLength > 0)
++    if (expectedLength > 0) {
++#if USE(LE_TYPED_ARRAYS)
++        // JS typed-array storage is little-endian: work on native copies.
++        Vector<float> frequencies(frequencyHz.typedSpan());
++        typedArrayStorageSwapInPlace(frequencies.mutableSpan().data(), frequencies.size());
++        iirProcessor()->getFrequencyResponse(expectedLength, frequencies.span(), magResponse.typedMutableSpan(), phaseResponse.typedMutableSpan());
++        typedArrayStorageSwapInPlace(magResponse.typedMutableSpan().data(), expectedLength);
++        typedArrayStorageSwapInPlace(phaseResponse.typedMutableSpan().data(), expectedLength);
++#else
+         iirProcessor()->getFrequencyResponse(expectedLength, frequencyHz.typedSpan(), magResponse.typedMutableSpan(), phaseResponse.typedMutableSpan());
++#endif
++    }
+ 
+     return { };
+ }
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/OfflineAudioDestinationNode.cpp b/Source/WebCore/Modules/webaudio/OfflineAudioDestinationNode.cpp
+--- a/Source/WebCore/Modules/webaudio/OfflineAudioDestinationNode.cpp	2026-07-27 09:40:36.910916800 -0600
++++ b/Source/WebCore/Modules/webaudio/OfflineAudioDestinationNode.cpp	2026-11-12 16:10:33.367305309 -0600
+@@ -42,6 +42,7 @@
+ #include <JavaScriptCore/GenericTypedArrayViewInlines.h>
+ #include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
+ #include <algorithm>
++#include <wtf/FlipBytes.h>
+ #include <wtf/MainThread.h>
+ #include <wtf/StdLibExtras.h>
+ #include <wtf/TZoneMallocInlines.h>
+@@ -187,6 +188,7 @@
+             auto source = m_renderBus->channel(channelIndex)->span().first(framesAvailableToCopy);
+             auto destination = m_renderTarget->channelData(channelIndex)->typedMutableSpan();
+             memcpySpan(destination.subspan(m_destinationOffset), source);
++            typedArrayStorageSwapInPlace(destination.subspan(m_destinationOffset).data(), framesAvailableToCopy); // JS typed-array storage order
+         }
+         
+         m_destinationOffset += framesAvailableToCopy;
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/PeriodicWave.cpp b/Source/WebCore/Modules/webaudio/PeriodicWave.cpp
+--- a/Source/WebCore/Modules/webaudio/PeriodicWave.cpp	2026-07-27 09:40:36.914259400 -0600
++++ b/Source/WebCore/Modules/webaudio/PeriodicWave.cpp	2026-11-12 16:11:27.845192837 -0600
+@@ -39,6 +39,7 @@
+ #include "VectorMath.h"
+ #include <algorithm>
+ #include <numbers>
++#include <wtf/FlipBytes.h>
+ #include <wtf/StdLibExtras.h>
+ 
+ // The number of bands per octave. Each octave will have this many entries in the wave tables.
+@@ -57,7 +58,11 @@
+     ASSERT(real.length() == imaginary.length());
+ 
+     auto waveTable = adoptRef(*new PeriodicWave(sampleRate));
+-    waveTable->createBandLimitedTables(real.typedSpan(), imaginary.typedSpan());
++    Vector<float> nativeReal(real.typedSpan());
++    Vector<float> nativeImaginary(imaginary.typedSpan());
++    typedArrayStorageSwapInPlace(nativeReal.mutableSpan().data(), nativeReal.size()); // from JS typed-array storage order
++    typedArrayStorageSwapInPlace(nativeImaginary.mutableSpan().data(), nativeImaginary.size());
++    waveTable->createBandLimitedTables(nativeReal.span(), nativeImaginary.span());
+     return waveTable;
+ }
+ 
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/RealtimeAnalyser.cpp b/Source/WebCore/Modules/webaudio/RealtimeAnalyser.cpp
+--- a/Source/WebCore/Modules/webaudio/RealtimeAnalyser.cpp	2026-07-27 09:40:36.915206400 -0600
++++ b/Source/WebCore/Modules/webaudio/RealtimeAnalyser.cpp	2026-11-12 16:10:52.848857180 -0600
+@@ -38,6 +38,7 @@
+ #include <algorithm>
+ #include <complex>
+ #include <numbers>
++#include <wtf/FlipBytes.h>
+ #include <wtf/MainThread.h>
+ #include <wtf/MathExtras.h>
+ #include <wtf/TZoneMallocInlines.h>
+@@ -191,6 +192,7 @@
+     // Convert from linear magnitude to floating-point decibels.
+     size_t length = std::min<size_t>(magnitudeBuffer().size(), destinationArray.length());
+     VectorMath::linearToDecibels(magnitudeBuffer().span().first(length), destinationArray.typedMutableSpan());
++    typedArrayStorageSwapInPlace(destinationArray.typedMutableSpan().data(), length); // JS typed-array storage order
+ }
+ 
+ void RealtimeAnalyser::getByteFrequencyData(Uint8Array& destinationArray)
+@@ -248,7 +250,7 @@
+         
+         for (size_t i = 0; i < length; ++i) {
+             // Buffer access is protected due to modulo operation.
+-            destination[i] = inputBuffer[(i + writeIndex - fftSize + InputBufferSize) % InputBufferSize];
++            destination[i] = typedArrayStorageSwap(inputBuffer[(i + writeIndex - fftSize + InputBufferSize) % InputBufferSize]);
+         }
+     }
+ }
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/ScriptProcessorNode.cpp b/Source/WebCore/Modules/webaudio/ScriptProcessorNode.cpp
+--- a/Source/WebCore/Modules/webaudio/ScriptProcessorNode.cpp	2026-07-27 09:40:36.915621500 -0600
++++ b/Source/WebCore/Modules/webaudio/ScriptProcessorNode.cpp	2026-11-12 16:10:33.366981394 -0600
+@@ -40,6 +40,7 @@
+ #include "EventTargetInlines.h"
+ #include "ExceptionOr.h"
+ #include <JavaScriptCore/Float32Array.h>
++#include <wtf/FlipBytes.h>
+ #include <wtf/MainThread.h>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+@@ -197,9 +198,15 @@
+     if (numberOfInputChannels)
+         m_internalInputBus->copyFrom(inputBus);
+ 
++    // The AudioBuffers are JS typed-array storage (little-endian under USE(LE_TYPED_ARRAYS)).
++    for (unsigned i = 0; i < numberOfInputChannels; i++)
++        typedArrayStorageSwapInPlace(inputBuffer->rawChannelData(i).subspan(m_bufferReadWriteIndex).data(), framesToProcess);
++
+     // Copy from the output buffer to the output. 
+-    for (unsigned i = 0; i < numberOfOutputChannels; ++i)
++    for (unsigned i = 0; i < numberOfOutputChannels; ++i) {
+         memcpySpan(outputBus.channel(i)->mutableSpan(), outputBuffer->rawChannelData(i).subspan(m_bufferReadWriteIndex, framesToProcess));
++        typedArrayStorageSwapInPlace(outputBus.channel(i)->mutableSpan().data(), framesToProcess);
++    }
+ 
+     // Update the buffering index.
+     m_bufferReadWriteIndex = (m_bufferReadWriteIndex + framesToProcess) % bufferSize();
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/WaveShaperNode.cpp b/Source/WebCore/Modules/webaudio/WaveShaperNode.cpp
+--- a/Source/WebCore/Modules/webaudio/WaveShaperNode.cpp	2026-07-27 09:40:36.917148800 -0600
++++ b/Source/WebCore/Modules/webaudio/WaveShaperNode.cpp	2026-11-12 16:11:27.844911113 -0600
+@@ -33,6 +33,7 @@
+ #include <JavaScriptCore/JSCInlines.h>
+ #include <JavaScriptCore/TypedArrayInlines.h>
+ #include <JavaScriptCore/TypedArrays.h>
++#include <wtf/FlipBytes.h>
+ #include <wtf/MainThread.h>
+ #include <wtf/TZoneMallocInlines.h>
+ 
+@@ -83,7 +84,9 @@
+ 
+     // The specification states that we should maintain an internal copy of the curve so that
+     // subsequent modifications of the contents of the array have no effect.
+-    waveShaperProcessor()->setCurveForBindings(curve ? Vector<float>(curve->typedSpan()) : Vector<float>());
++    Vector<float> nativeCurve = curve ? Vector<float>(curve->typedSpan()) : Vector<float>();
++    typedArrayStorageSwapInPlace(nativeCurve.mutableSpan().data(), nativeCurve.size()); // from JS typed-array storage order
++    waveShaperProcessor()->setCurveForBindings(WTF::move(nativeCurve));
+     return { };
+ }
+ 
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/page/Crypto.cpp b/Source/WebCore/page/Crypto.cpp
 --- a/Source/WebCore/page/Crypto.cpp	2026-07-27 09:40:38.543388400 -0600
 +++ b/Source/WebCore/page/Crypto.cpp	2026-11-08 15:13:58.692596499 -0600
@@ -41308,6 +42604,47 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/CurrentTime.cpp b/Sou
  {
  #if OS(DARWIN)
      return fromMachContinuousApproximateTime(mach_continuous_approximate_time());
+diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/FlipBytes.h b/Source/WTF/wtf/FlipBytes.h
+--- a/Source/WTF/wtf/FlipBytes.h	2026-07-27 09:40:36.195392100 -0600
++++ b/Source/WTF/wtf/FlipBytes.h	2026-11-12 16:09:36.352407313 -0600
+@@ -64,8 +64,37 @@
+     return value;
+ }
+ 
++// Typed-array element storage order. With USE(LE_TYPED_ARRAYS) on a big-endian host,
++// multi-byte typed-array elements are stored little-endian; this converts between the
++// stored form and a native value (the conversion is its own inverse). Identity otherwise.
++template<typename T>
++ALWAYS_INLINE T typedArrayStorageSwap(T value)
++{
++#if USE(LE_TYPED_ARRAYS)
++    if constexpr (sizeof(T) > 1)
++        return flipBytes(value);
++#endif
++    return value;
++}
++
++template<typename T>
++ALWAYS_INLINE void typedArrayStorageSwapInPlace(T* data, size_t count)
++{
++#if USE(LE_TYPED_ARRAYS)
++    if constexpr (sizeof(T) > 1) {
++        for (size_t i = 0; i < count; ++i)
++            data[i] = flipBytes(data[i]);
++    }
++#else
++    UNUSED_PARAM(data);
++    UNUSED_PARAM(count);
++#endif
++}
++
+ } // namespace WTF
+ 
++using WTF::typedArrayStorageSwap;
++using WTF::typedArrayStorageSwapInPlace;
+ using WTF::flipBytes;
+ using WTF::flipBytesIfLittleEndian;
+ using WTF::needToFlipBytesIfLittleEndian;
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/Function.h b/Source/WTF/wtf/Function.h
 --- a/Source/WTF/wtf/Function.h	2026-07-27 09:40:36.196392000 -0600
 +++ b/Source/WTF/wtf/Function.h	2026-11-08 14:47:36.775092263 -0600
@@ -41642,7 +42979,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformRegisters.h b
  #elif OS(WINDOWS)
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformUse.h b/Source/WTF/wtf/PlatformUse.h
 --- a/Source/WTF/wtf/PlatformUse.h	2026-07-27 09:40:36.232392000 -0600
-+++ b/Source/WTF/wtf/PlatformUse.h	2026-11-08 14:47:36.777985628 -0600
++++ b/Source/WTF/wtf/PlatformUse.h	2026-11-12 16:09:36.352723948 -0600
 @@ -123,7 +123,7 @@
  #define USE_PTHREADS 1
  #endif
@@ -41652,6 +42989,18 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformUse.h b/Sourc
  #define USE_ACCELERATE 1
  #endif
  
+@@ -407,3 +407,11 @@
+ #if PLATFORM(IOS) || PLATFORM(VISION)
+ #define USE_ITP_TCC_CHECK 1
+ #endif
++
++/* Leopard ppc64 (big-endian): store typed-array elements little-endian, the byte order
++   every mainstream browser host has, so code that aliases HEAP32 with HEAPU8 (Emscripten,
++   Mandreel, glTF/binary parsers, canvas Uint32 pixel tricks) behaves as it does elsewhere.
++   Build option LEOPARD_LE_TYPED_ARRAYS (cmake -DLEOPARD_LE_TYPED_ARRAYS=ON). */
++#if CPU(BIG_ENDIAN) && defined(LEOPARD_LE_TYPED_ARRAYS) && LEOPARD_LE_TYPED_ARRAYS
++#define USE_LE_TYPED_ARRAYS 1
++#endif
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformWPE.cmake b/Source/WTF/wtf/PlatformWPE.cmake
 --- a/Source/WTF/wtf/PlatformWPE.cmake	2026-10-02 07:10:08.881806600 -0600
 +++ b/Source/WTF/wtf/PlatformWPE.cmake	2026-11-08 14:56:09.956846565 -0600

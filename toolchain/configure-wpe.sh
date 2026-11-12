@@ -36,6 +36,9 @@ exec cmake -S "$SRC" -B "$B" -G Ninja \
   -DCMAKE_SHARED_LINKER_FLAGS="-m64 -static-libgcc -static-libstdc++ -L$WPE_SYSROOT/lib -Wl,-unexported_symbols_list,$S/toolchain/hide-libstdcxx.exp$TARGET_LDFLAGS" \
   -DCMAKE_MODULE_LINKER_FLAGS="-m64 -static-libgcc -static-libstdc++ -L$WPE_SYSROOT/lib -Wl,-unexported_symbols_list,$S/toolchain/hide-libstdcxx.exp$TARGET_LDFLAGS" \
   -DDEVELOPER_MODE=OFF -DDEVELOPER_MODE_FATAL_WARNINGS=OFF \
+  `# Little-endian typed-array element storage (all targets): the web assumes an LE host` \
+  `# (Emscripten/Mandreel heaps, binary parsers); JSC byte-swaps typed-array loads/stores.` \
+  -DLEOPARD_LE_TYPED_ARRAYS=ON \
   -DENABLE_JIT=ON -DENABLE_C_LOOP=OFF -DENABLE_DFG_JIT=ON -DENABLE_FTL_JIT=ON -DENABLE_WEBASSEMBLY_BBQJIT=ON -DENABLE_WEBASSEMBLY_OMGJIT=OFF \
   -DENABLE_WEBASSEMBLY=ON -DENABLE_SAMPLING_PROFILER=OFF \
   -DUSE_SYSTEM_MALLOC=OFF -DUSE_MIMALLOC=ON \
