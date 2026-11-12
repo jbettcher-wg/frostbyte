@@ -254,6 +254,22 @@ def main():
                     err(f'{rel}: instructions the {a.isa} target lacks: ' +
                         ', '.join(f'{m} x{c}' for m, c in sorted(bad.items(), key=lambda kv: -kv[1])[:12]))
 
+    # The bundle's environment overrides only work if each library reads the variable that the shell sets
+    # (fb-hardware.m setupBundledRuntime). A library built before its patch silently falls back to /opt/wpe.
+    # v0.3's e6500 bundle shipped a pre-0003 GIO TLS module, so every HTTPS load failed without /opt/wpe.
+    env_needed = {
+        'Contents/Frameworks/gio/modules/libgiognutls.so': [b'LEOPARD_TLS_CA_FILE', b'LEOPARD_TLS_INTERMEDIATES'],
+    }
+    for rel, keys in env_needed.items():
+        p = os.path.join(app, rel)
+        if not os.path.isfile(p):
+            err(f'{rel}: missing')
+            continue
+        data = open(p, 'rb').read()
+        for k in keys:
+            if k not in data:
+                err(f'{rel}: does not read {k.decode()} (stale build: falls back to /opt/wpe at run time)')
+
     for rel, hits in sorted(opt_strings.items()):
         warnings.append(f'{rel}: {hits} compiled-in /opt/wpe string(s) (defaults; overridden by the environment)')
     print(f'{app}: {nmacho} Mach-O files ({nexe} executables), {len(sysrefs)} distinct system libraries')
