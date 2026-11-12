@@ -9,7 +9,9 @@ S="$(cd "$(dirname "$0")/.." && pwd)"
 . "$S/toolchain/wpe-env.sh"
 # Dependencies probe libc honestly: no forced leopard-compat.h include (it
 # breaks autoconf/meson function checks); packages use their own fallbacks.
-export CFLAGS="-O2 -I$WPE_SYSROOT/include" CXXFLAGS="-O2 -I$WPE_SYSROOT/include" CPPFLAGS="-I$WPE_SYSROOT/include"
+# toolchain/sdkfix only fixes SDK header bugs (LP64 CMSG_*: GLib's GSocket fd passing), so probes are unaffected.
+SDKFIX="-isystem $S/toolchain/sdkfix"
+export CFLAGS="-O2 $SDKFIX -I$WPE_SYSROOT/include" CXXFLAGS="-O2 $SDKFIX -I$WPE_SYSROOT/include" CPPFLAGS="$SDKFIX -I$WPE_SYSROOT/include"
 DL="$LEOPARD_DL/deps"
 SRC="$LEOPARD_BUILD/deps/src"; OBJ="$LEOPARD_BUILD/deps$LEOPARD_SUFFIX/obj"; LOGS="$LEOPARD_BUILD/deps$LEOPARD_SUFFIX"
 CROSS="$LEOPARD_MESON_CROSS"   # generated for this target by toolchain/wpe-env.sh

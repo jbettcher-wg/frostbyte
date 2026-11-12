@@ -103,6 +103,15 @@ static inline int leopard_pthread_threadid_np(pthread_t thread, uint64_t* tid)
 typedef char uuid_string_t[37];
 #endif /* __ASSEMBLER__ */
 
+/* ---- 10.5 SDK bug: LP64 CMSG_* (fd passing) ---- */
+/* The SDK pads a 64-bit program's cmsghdr to 16 bytes; Leopard's kernel and the 10.6+ headers use
+ * the packed 12-byte layout. Including <sys/socket.h> here first means every later include of it is
+ * a no-op and the 10.6 macros from leopard-cmsg.h stay in force, whatever a source includes. */
+#ifndef __ASSEMBLER__
+#include <sys/socket.h>
+#include "leopard-cmsg.h"
+#endif
+
 /* GCC 15.3 powerpc-apple-darwin9 -m64 ICE workaround switch, consulted by
  * WTF's time classes (MonotonicTime.h and friends, CurrentTime.cpp). */
 #if defined(__GNUC__) && !defined(__clang__) && defined(__ppc64__)

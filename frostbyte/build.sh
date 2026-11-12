@@ -11,7 +11,8 @@ CC1="${CC% *}"
 # from 256 before WebKit starts (fb-hardware.m).
 TARGET_DEFS=""
 [ "$LEOPARD_TARGET" = t4240 ] || TARGET_DEFS="-DFROSTBYTE_GL_ANY_ACCELERATED=1 -DFROSTBYTE_RAISE_FD_LIMIT=1"
-CF="-m64 $LEOPARD_CPU_FLAGS $TARGET_DEFS -std=gnu11 -O2 -Wall -fno-strict-aliasing $(pkg-config --cflags wpe-webkit-2.0 wpe-platform-2.0 epoxy)"
+# toolchain/sdkfix: 10.5 SDK header bug fixes (LP64 CMSG_*), the same ones WebKit and the deps get.
+CF="-m64 $LEOPARD_CPU_FLAGS $TARGET_DEFS -isystem $F/../toolchain/sdkfix -std=gnu11 -O2 -Wall -fno-strict-aliasing $(pkg-config --cflags wpe-webkit-2.0 wpe-platform-2.0 epoxy)"
 O="$F/build$LEOPARD_SUFFIX"
 mkdir -p "$O"
 $CC1 $CF -fnext-runtime -fobjc-abi-version=2 -c "$F/platform/wpe-cocoa.m" -o "$O/wpe-cocoa.o"
