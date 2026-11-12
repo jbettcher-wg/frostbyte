@@ -12,9 +12,9 @@ and nothing needs to be installed alongside it.
 
 **Status: experimental.** Expect rough edges and missing features.
 
-| Power Mac G5 | NXP T4240 (e6500) |
+
 |---|---|
-| [![FrostByte on a Power Mac G5](docs/screenshots/frostbyte-g5.png)](docs/screenshots/frostbyte-g5.png) | [![FrostByte on an e6500 system](docs/screenshots/frostbyte-e6500.png)](docs/screenshots/frostbyte-e6500.png) |
+| [![FrostByte on a Power Mac G5](docs/screenshots/frostbyte-g5.png)](docs/screenshots/frostbyte-g5.png) |
 
 ## Download
 
