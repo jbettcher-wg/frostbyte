@@ -16,6 +16,8 @@ and nothing needs to be installed alongside it.
 
 [![FrostByte on a Power Mac G5](docs/screenshots/frostbyte-g5.png)](docs/screenshots/frostbyte-g5.png)
 
+[![FrostByte on an NXP T4240 (e6500)](docs/screenshots/frostbyte-e6500.png)](docs/screenshots/frostbyte-e6500.png)
+
 ## Download
 
 Version 0.3, from the [v0.3 release](https://github.com/jbettcher-wg/frostbyte/releases/tag/v0.3):
