@@ -1,0 +1,13 @@
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/gst-plugins-bad-1.28.9/meson.build src/gst-plugins-bad-1.28.9/meson.build
+--- a/meson.build	2026-11-06 06:54:37.000000000 -0600
++++ b/meson.build	2026-11-08 22:52:26.413064798 -0600
+@@ -55,7 +55,8 @@
+ 
+ if host_system == 'darwin'
+   have_objc = add_languages('objc', native: false)
+-  have_objcpp = add_languages('objcpp', native: false)
++  # Leopard cross toolchain (GCC 15) has no Objective-C++ front end
++  have_objcpp = add_languages('objcpp', native: false, required: false)
+ else
+   have_objc = false
+   have_objcpp = false

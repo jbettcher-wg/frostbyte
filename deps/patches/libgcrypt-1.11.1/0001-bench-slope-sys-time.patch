@@ -1,0 +1,11 @@
+diff -ruN pristine/libgcrypt-1.11.1/tests/bench-slope.c src/libgcrypt-1.11.1/tests/bench-slope.c
+--- a/tests/bench-slope.c	2025-03-17 03:55:03.000000000 -0600
++++ b/tests/bench-slope.c	2026-11-08 14:16:33.623350912 -0600
+@@ -27,6 +27,7 @@
+ #include <assert.h>
+ #include <float.h>
+ #include <time.h>
++#include <sys/time.h>  /* gettimeofday: implicit on glibc, not on Mac OS X 10.5 */
+ #ifdef _WIN32
+ #include <windows.h>
+ #endif

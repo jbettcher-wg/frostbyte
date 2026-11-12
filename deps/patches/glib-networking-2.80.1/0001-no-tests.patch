@@ -1,0 +1,20 @@
+diff -ruN pristine/glib-networking-2.80.1/proxy/meson.build src/glib-networking-2.80.1/proxy/meson.build
+--- a/proxy/meson.build	2025-01-08 14:51:06.000000000 -0700
++++ b/proxy/meson.build	2026-11-08 14:19:27.916487437 -0600
+@@ -10,4 +10,5 @@
+   subdir('environment')
+ endif
+ 
+-subdir('tests')
++# Leopard port: tests need clock_gettime (10.12+)
++# subdir('tests')
+diff -ruN pristine/glib-networking-2.80.1/tls/meson.build src/glib-networking-2.80.1/tls/meson.build
+--- a/tls/meson.build	2025-01-08 14:51:06.000000000 -0700
++++ b/tls/meson.build	2026-11-08 14:19:27.914446287 -0600
+@@ -14,4 +14,5 @@
+   subdir('openssl')
+ endif
+ 
+-subdir('tests')
++# Leopard port: tests need clock_gettime (10.12+)
++# subdir('tests')

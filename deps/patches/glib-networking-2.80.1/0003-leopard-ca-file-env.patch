@@ -1,0 +1,16 @@
+--- a/tls/gnutls/gtlsdatabase-gnutls.c	2026-11-11 20:54:29.359067599 -0600
++++ b/tls/gnutls/gtlsdatabase-gnutls.c	2026-11-11 20:54:29.360287449 -0600
+@@ -699,7 +699,12 @@
+                                            gnutls_x509_trust_list_t   trust_list,
+                                            GError                   **error)
+ {
+-  int gerr = gnutls_x509_trust_list_add_system_trust (trust_list, 0, 0);
++  /* Leopard: a self-contained FrostByte.app carries its own CA bundle, so the trust store
++   * compiled into GnuTLS (/opt/wpe/etc/ssl/cert.pem) can be replaced at run time. */
++  const gchar *ca_file = g_getenv ("LEOPARD_TLS_CA_FILE");
++  int gerr = ca_file && *ca_file
++    ? gnutls_x509_trust_list_add_trust_file (trust_list, ca_file, NULL, GNUTLS_X509_FMT_PEM, 0, 0)
++    : gnutls_x509_trust_list_add_system_trust (trust_list, 0, 0);
+   if (gerr == GNUTLS_E_UNIMPLEMENTED_FEATURE)
+     {
+       g_set_error_literal (error, G_TLS_ERROR, G_TLS_ERROR_MISC,

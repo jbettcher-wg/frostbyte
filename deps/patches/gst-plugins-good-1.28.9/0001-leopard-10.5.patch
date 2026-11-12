@@ -1,0 +1,91 @@
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/gst-plugins-good-1.28.9/meson.build src/gst-plugins-good-1.28.9/meson.build
+--- a/meson.build	2026-11-06 06:54:37.000000000 -0600
++++ b/meson.build	2026-11-08 22:45:29.716027883 -0600
+@@ -51,7 +51,8 @@
+ 
+ if host_system == 'darwin'
+   have_objc = add_languages('objc', native: false)
+-  have_objcpp = add_languages('objcpp', native: false)
++  # Leopard cross toolchain (GCC 15) has no Objective-C++ front end
++  have_objcpp = add_languages('objcpp', native: false, required: false)
+ 
+   if not have_objc
+     error('Building on MacOS/iOS/etc requires an ObjC compiler')
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/gst-plugins-good-1.28.9/sys/osxaudio/gstosxaudio.c src/gst-plugins-good-1.28.9/sys/osxaudio/gstosxaudio.c
+--- a/sys/osxaudio/gstosxaudio.c	2026-11-06 06:54:37.000000000 -0600
++++ b/sys/osxaudio/gstosxaudio.c	2026-11-08 22:47:12.634923668 -0600
+@@ -30,8 +30,10 @@
+ #include "gstosxaudioelement.h"
+ #include "gstosxaudiosink.h"
+ #include "gstosxaudiosrc.h"
++#ifndef GST_OSXAUDIO_NO_AUDIOTOOLBOX_CODECS
+ #include "gstatdec.h"
+ #include "gstatenc.h"
++#endif
+ #if TARGET_OS_OSX
+ #include "gstosxaudiodeviceprovider.h"
+ #endif
+@@ -43,8 +45,10 @@
+ 
+   ret |= GST_ELEMENT_REGISTER (osxaudiosrc, plugin);
+   ret |= GST_ELEMENT_REGISTER (osxaudiosink, plugin);
++#ifndef GST_OSXAUDIO_NO_AUDIOTOOLBOX_CODECS
+   ret |= GST_ELEMENT_REGISTER (atdec, plugin);
+   ret |= GST_ELEMENT_REGISTER (atenc, plugin);
++#endif
+ #if TARGET_OS_OSX
+   ret |= GST_DEVICE_PROVIDER_REGISTER (osxaudiodeviceprovider, plugin);
+ #endif
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/gst-plugins-good-1.28.9/sys/osxaudio/gstosxcoreaudio.h src/gst-plugins-good-1.28.9/sys/osxaudio/gstosxcoreaudio.h
+--- a/sys/osxaudio/gstosxcoreaudio.h	2026-11-06 06:54:37.000000000 -0600
++++ b/sys/osxaudio/gstosxcoreaudio.h	2026-11-08 22:46:56.684657399 -0600
+@@ -47,6 +47,19 @@
+ #endif
+ #include <AudioUnit/AudioUnit.h>
+ #include <mach/mach_time.h>
++
++/* Mac OS X 10.5 SDK gaps (constants/types added in 10.6+; values from later SDKs) */
++#include <AvailabilityMacros.h>
++#if TARGET_OS_OSX && MAC_OS_X_VERSION_MAX_ALLOWED < 1060
++#define kAudioChannelLayoutTag_AAC_7_1_B ((183U << 16) | 8)
++#define kAudioChannelLayoutTag_AAC_7_1_C ((184U << 16) | 8)
++#define kAudioDeviceTransportTypeUnknown 0
++#define kLinearPCMFormatFlagsSampleFractionMask (0x3FU << 7)
++typedef UInt32 AudioTimeStampFlags;
++#endif
++#ifndef __nullable
++#define __nullable
++#endif
+ #include "gstosxaudioelement.h"
+ 
+ 
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/gst-plugins-good-1.28.9/sys/osxaudio/meson.build src/gst-plugins-good-1.28.9/sys/osxaudio/meson.build
+--- a/sys/osxaudio/meson.build	2026-11-06 06:54:37.000000000 -0600
++++ b/sys/osxaudio/meson.build	2026-11-08 22:47:12.634733785 -0600
+@@ -64,10 +64,24 @@
+   endif
+   osxaudio_dep = dependency('appleframeworks', modules : modules)
+ 
++  osxaudio_args = gst_plugins_good_args
++  if subsystem == 'macos' and not cc.has_header_symbol('TargetConditionals.h', 'TARGET_OS_OSX')
++    # Mac OS X 10.5's TargetConditionals.h predates TARGET_OS_OSX/TARGET_OS_IPHONE
++    osxaudio_args += ['-DTARGET_OS_OSX=1', '-DTARGET_OS_IPHONE=0']
++    # atdec/atenc need AudioQueue offline rendering, absent from the 10.5 ppc64 AudioToolbox
++    osxaudio_args += ['-DGST_OSXAUDIO_NO_AUDIOTOOLBOX_CODECS']
++    _srcs = []
++    foreach f : osxaudio_sources
++      if f not in ['gstatdec.c', 'gstatenc.c']
++        _srcs += f
++      endif
++    endforeach
++    osxaudio_sources = _srcs
++  endif
+   gstosxaudio = library('gstosxaudio',
+     osxaudio_sources,
+-    c_args : gst_plugins_good_args,
+-    objc_args : gst_plugins_good_args,
++    c_args : osxaudio_args,
++    objc_args : osxaudio_args,
+     include_directories : [configinc, libsinc],
+     dependencies : [gstaudio_dep, gstpbutils_dep, osxaudio_dep],
+     install : true,

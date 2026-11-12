@@ -1,0 +1,22 @@
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/ffmpeg-8.0.3/configure src/ffmpeg-8.0.3/configure
+--- a/configure	2026-06-18 10:32:15.000000000 -0600
++++ b/configure	2026-11-08 22:56:25.305714288 -0600
+@@ -3012,7 +3012,7 @@
+ h263i_decoder_select="h263_decoder"
+ h263p_decoder_select="h263_decoder"
+ h263p_encoder_select="h263_encoder"
+-h264_decoder_select="cabac golomb h264chroma h264dsp h264parse h264pred h264qpel h264_sei videodsp"
++h264_decoder_select="bswapdsp cabac golomb h264chroma h264dsp h264parse h264pred h264qpel h264_sei videodsp"
+ h264_decoder_suggest="error_resilience"
+ hap_decoder_select="snappy texturedsp"
+ hap_encoder_deps="libsnappy"
+@@ -6799,7 +6799,8 @@
+ #
+ # some configurations also require linking to libatomic, so try
+ # both with -latomic and without
+-for LATOMIC in "-latomic" ""; do
++# Leopard ppc64: prefer no libatomic (native word atomics; the toolchain's libatomic is not on the target)
++for LATOMIC in "" "-latomic"; do
+     check_builtin stdatomic stdatomic.h                                \
+         "atomic_int foo, bar = -1; atomic_store(&foo, 0); foo += bar"  \
+         $LATOMIC && eval stdatomic_extralibs="\$LATOMIC" && break

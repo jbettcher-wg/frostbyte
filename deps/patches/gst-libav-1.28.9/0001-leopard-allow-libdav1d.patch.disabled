@@ -1,0 +1,17 @@
+Leopard/PowerPC: register avdec_libdav1d (AV1 via FFmpeg's libdav1d wrapper; the native dav1ddec is Rust-only in 1.28).
+
+diff -ruN a/ext/libav/gstavviddec.c b/ext/libav/gstavviddec.c
+--- a/ext/libav/gstavviddec.c	2026-11-06 06:54:37.000000000 -0600
++++ b/ext/libav/gstavviddec.c	2026-11-09 22:47:08.080487435 -0600
+@@ -3026,7 +3026,10 @@
+     /* No decoders depending on external libraries (we don't build them, but
+      * people who build against an external ffmpeg might have them.
+      * We have native gstreamer plugins for all of those libraries anyway. */
+-    if (!strncmp (in_plugin->name, "lib", 3)) {
++    /* Leopard/PowerPC: dav1d (AV1) is used through FFmpeg's libdav1d wrapper; GStreamer 1.28's native dav1ddec
++     * is in gst-plugins-rs, which does not build for this target. */
++    if (!strncmp (in_plugin->name, "lib", 3)
++        && strcmp (in_plugin->name, "libdav1d")) {
+       GST_DEBUG
+           ("Not using external library decoder %s. Use the gstreamer-native ones instead.",
+           in_plugin->name);

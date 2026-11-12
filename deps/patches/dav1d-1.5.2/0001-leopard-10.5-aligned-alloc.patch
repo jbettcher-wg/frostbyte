@@ -1,0 +1,29 @@
+Mac OS X 10.5: aligned allocation without posix_memalign/memalign/aligned_alloc (over-allocate, keep the malloc pointer).
+
+diff -ruN a/src/mem.h b/src/mem.h
+--- a/src/mem.h	2025-10-27 13:44:47.000000000 -0600
++++ b/src/mem.h	2026-11-09 22:28:58.654880108 -0600
+@@ -100,6 +100,14 @@
+     // The C11 standard specifies that the size parameter
+     // must be an integral multiple of alignment.
+     return aligned_alloc(align, ROUND_UP(sz, align));
++#elif defined(__APPLE__)
++    // Mac OS X 10.5 has none of the above (posix_memalign is 10.6+). Over-allocate and keep the
++    // malloc() pointer just below the aligned block; dav1d_free_aligned_internal() undoes it.
++    void *const raw = malloc(sz + align + sizeof(void *));
++    if (!raw) return NULL;
++    void **const ptr = (void **)ROUND_UP((uintptr_t)raw + sizeof(void *), align);
++    ptr[-1] = raw;
++    return ptr;
+ #else
+ #error No aligned allocation functions are available
+ #endif
+@@ -108,6 +116,8 @@
+ static inline void dav1d_free_aligned_internal(void *ptr) {
+ #ifdef _WIN32
+     _aligned_free(ptr);
++#elif !HAVE_POSIX_MEMALIGN && !HAVE_MEMALIGN && !HAVE_ALIGNED_ALLOC && defined(__APPLE__)
++    if (ptr) free(((void **)ptr)[-1]);
+ #else
+     free(ptr);
+ #endif

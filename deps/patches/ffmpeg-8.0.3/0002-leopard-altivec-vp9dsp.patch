@@ -1,0 +1,684 @@
+Leopard/PowerPC: AltiVec VP9 DSP (8-bit 8-tap MC put/avg h/v/hv for all block sizes, all loop filters).
+Generic AltiVec (G4/G5/e6500, no VSX), big-endian, gated on HAVE_ALTIVEC and PPC_ALTIVEC(av_get_cpu_flags()).
+Bit-exact with the C code (checkasm vp9dsp, 50+ seeds; md5 of decoded clips). A/B: LEOPARD_VP9_NO_ALTIVEC_MC=1,
+LEOPARD_VP9_NO_ALTIVEC_LPF=1. See docs/altivec-media-audit.md.
+
+diff -ruN a/libavcodec/ppc/Makefile b/libavcodec/ppc/Makefile
+--- a/libavcodec/ppc/Makefile	2026-06-18 10:32:07.000000000 -0600
++++ b/libavcodec/ppc/Makefile	2026-11-09 22:51:58.444032257 -0600
+@@ -26,3 +26,4 @@
+ OBJS-$(CONFIG_SVQ1_ENCODER)            += ppc/svq1enc_altivec.o
+ OBJS-$(CONFIG_VORBIS_DECODER)          += ppc/vorbisdsp_altivec.o
+ OBJS-$(CONFIG_VP7_DECODER)             += ppc/vp8dsp_altivec.o
++OBJS-$(CONFIG_VP9_DECODER)             += ppc/vp9dsp_altivec.o
+diff -ruN a/libavcodec/ppc/vp9dsp_altivec.c b/libavcodec/ppc/vp9dsp_altivec.c
+--- a/libavcodec/ppc/vp9dsp_altivec.c	1969-12-31 17:00:00.000000000 -0700
++++ b/libavcodec/ppc/vp9dsp_altivec.c	2026-11-09 22:51:58.442997908 -0600
+@@ -0,0 +1,646 @@
++/*
++ * VP9 DSP functions for PowerPC AltiVec/VMX (8-bit): 8-tap sub-pixel motion compensation (put/avg, h/v/hv)
++ * and the 8- and 16-wide loop filters. Generic AltiVec: G4, G5 and e6500, 32- or 64-bit, big-endian; no VSX.
++ *
++ * Bit-exact with the C code in vp9dsp_template.c:
++ *  - MC: every VP9 sub-pixel filter has non-negative centre taps (3, 4) and its six outer taps sum to at most
++ *    54*255 = 13770 in magnitude, so the outer taps accumulate exactly in 16 bits (modular vmladduhm) and the
++ *    two centre products are added with signed saturation. A saturated sum is outside [0, 32767] only when the
++ *    exact sum is too, and both clip to the same pixel after (s + 64) >> 7.
++ *  - Loop filter: the C arithmetic in 16-bit lanes (all intermediates fit in [-1020, 1020+]); the clip to
++ *    int8 range (av_clip_intp2(x, 7)) and to pixels are explicit.
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++#include "config.h"
++
++#include <stdint.h>
++#include <stdlib.h>
++
++#include "libavutil/attributes.h"
++#include "libavutil/cpu.h"
++#include "libavutil/mem_internal.h"
++#include "libavutil/ppc/cpu.h"
++#include "libavutil/ppc/util_altivec.h"
++
++#include "libavcodec/vp9dsp.h"
++
++#if HAVE_ALTIVEC && HAVE_BIGENDIAN
++
++typedef vector unsigned char  vu8;
++typedef vector signed char    vs8;
++typedef vector unsigned short vu16;
++typedef vector signed short   vs16;
++typedef vector signed int     vs32;
++typedef vector unsigned int   vu32;
++
++/* Load n (1..16) bytes from p, unaligned, without touching any 16-byte block outside [p, p+n). The bytes past
++ * n in the result are unspecified. */
++static av_always_inline vu8 load_n(const uint8_t *p, int n)
++{
++    vu8 a = vec_ld(0, p);
++    vu8 b = vec_ld(n - 1, p);
++    return vec_perm(a, b, vec_lvsl(0, p));
++}
++
++/* Store the first n (4, 8 or 16) bytes of v at p without touching any other byte: stvx when aligned, else
++ * element stores of the rotated vector. */
++static av_always_inline void store_n(uint8_t *p, vu8 v, int n)
++{
++    uintptr_t a = (uintptr_t)p;
++    if (n == 16 && !(a & 15)) {
++        vec_st(v, 0, p);
++        return;
++    }
++    v = vec_perm(v, v, vec_lvsr(0, p));
++    if (!(a & 3)) {
++        for (int i = 0; i < n; i += 4)
++            vec_ste((vu32)v, i, (uint32_t *)p);
++    } else if (!(a & 1)) {
++        for (int i = 0; i < n; i += 2)
++            vec_ste((vu16)v, i, (uint16_t *)p);
++    } else {
++        for (int i = 0; i < n; i++)
++            vec_ste(v, i, p);
++    }
++}
++
++/* ---- 8-tap sub-pixel MC -------------------------------------------------------------------------------- */
++
++typedef struct Taps {
++    vs16 f[8];
++} Taps;
++
++static av_always_inline void load_taps(Taps *t, const int16_t *filter)
++{
++    for (int i = 0; i < 8; i++)
++        t->f[i] = vec_splats((short)filter[i]);
++}
++
++/* One output vector of 16 pixels from the 8 input vectors in[0..7] (in[i] holds the pixel at tap i). */
++static av_always_inline vu8 filter8(const vu8 in[8], const Taps *t)
++{
++    const vu8  zero = vec_splat_u8(0);
++    const vs16 z16  = vec_splat_s16(0);
++    const vs16 r64  = vec_splats((short)64);
++    const vu16 sh7  = vec_splat_u16(7);
++    vs16 hi[8], lo[8];
++    for (int i = 0; i < 8; i++) {
++        hi[i] = (vs16)vec_mergeh(zero, in[i]);
++        lo[i] = (vs16)vec_mergel(zero, in[i]);
++    }
++    vs16 ph = vec_mladd(hi[0], t->f[0], z16), pl = vec_mladd(lo[0], t->f[0], z16);
++    ph = vec_mladd(hi[1], t->f[1], ph);       pl = vec_mladd(lo[1], t->f[1], pl);
++    ph = vec_mladd(hi[2], t->f[2], ph);       pl = vec_mladd(lo[2], t->f[2], pl);
++    ph = vec_mladd(hi[5], t->f[5], ph);       pl = vec_mladd(lo[5], t->f[5], pl);
++    ph = vec_mladd(hi[6], t->f[6], ph);       pl = vec_mladd(lo[6], t->f[6], pl);
++    ph = vec_mladd(hi[7], t->f[7], ph);       pl = vec_mladd(lo[7], t->f[7], pl);
++    ph = vec_adds(ph, vec_mladd(hi[3], t->f[3], z16));
++    pl = vec_adds(pl, vec_mladd(lo[3], t->f[3], z16));
++    ph = vec_adds(ph, vec_mladd(hi[4], t->f[4], z16));
++    pl = vec_adds(pl, vec_mladd(lo[4], t->f[4], z16));
++    ph = vec_sra(vec_adds(ph, r64), sh7);
++    pl = vec_sra(vec_adds(pl, r64), sh7);
++    return vec_packsu(ph, pl);
++}
++
++/* Horizontal taps for n (4, 8 or 16) output pixels at src: reads exactly src[-3 .. n+4), as the C code. */
++static av_always_inline void htaps(vu8 in[8], const uint8_t *src, int n)
++{
++    vu8 a = load_n(src - 3, n == 16 ? 16 : n + 7);
++    vu8 b = n == 16 ? load_n(src + 13, 7) : a;
++    in[0] = a;
++    in[1] = vec_sld(a, b, 1);
++    in[2] = vec_sld(a, b, 2);
++    in[3] = vec_sld(a, b, 3);
++    in[4] = vec_sld(a, b, 4);
++    in[5] = vec_sld(a, b, 5);
++    in[6] = vec_sld(a, b, 6);
++    in[7] = vec_sld(a, b, 7);
++}
++
++static av_always_inline void out_n(uint8_t *dst, vu8 v, int n, int avg)
++{
++    if (avg)
++        v = vec_avg(v, load_n(dst, n));
++    store_n(dst, v, n);
++}
++
++/* Narrow blocks (w = 4 or 8): R = 16 / w rows share one vector, so each filter8() call produces R rows.
++ * pack_rows() gathers bytes [off, off + w) of each of the R row vectors into one vector. */
++static av_always_inline vu8 pack_rows(const vu8 *rows, int w, int off)
++{
++    vu8 perm2;   /* byte i: row (i / w) % 2, column off + i % w */
++    for (int i = 0; i < 16; i++)
++        perm2[i] = (i % w) + off + ((i / w) % 2) * 16;
++    if (w == 8)
++        return vec_perm(rows[0], rows[1], perm2);
++    /* w == 4: rows 0,1 -> bytes 0..7, rows 2,3 -> bytes 8..15 */
++    vu8 lo = vec_perm(rows[0], rows[1], perm2);
++    vu8 hi = vec_perm(rows[2], rows[3], perm2);
++    const vu8 cat = { 0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23 };
++    return vec_perm(lo, hi, cat);
++}
++
++static av_always_inline void out_rows(uint8_t *dst, ptrdiff_t dst_stride, vu8 v, int w, int avg)
++{
++    int R = 16 / w;
++    if (avg) {
++        vu8 d[4];
++        for (int j = 0; j < R; j++)
++            d[j] = load_n(dst + j * dst_stride, w);
++        v = vec_avg(v, pack_rows(d, w, 0));
++    }
++    for (int j = 0; j < R; j++)
++        store_n(dst + j * dst_stride, vec_perm(v, v, vec_lvsl(j * w, (const uint8_t *)NULL)), w);  /* rotate by j*w */
++}
++
++static av_always_inline void mc_h(uint8_t *dst, ptrdiff_t dst_stride, const uint8_t *src, ptrdiff_t src_stride,
++                                  int w, int h, const int16_t *filter, int avg)
++{
++    Taps t;
++    load_taps(&t, filter);
++    if (w < 16) {
++        const int R = 16 / w;
++        for (; h >= R; h -= R) {
++            vu8 a[4], in[8];
++            for (int j = 0; j < R; j++)
++                a[j] = load_n(src + j * src_stride - 3, w + 7);
++            for (int k = 0; k < 8; k++)
++                in[k] = pack_rows(a, w, k);
++            out_rows(dst, dst_stride, filter8(in, &t), w, avg);
++            dst += R * dst_stride;
++            src += R * src_stride;
++        }
++        for (; h > 0; h--) {     /* odd row counts (the hv first pass runs h + 7 rows) */
++            vu8 in[8];
++            htaps(in, src, w);
++            out_n(dst, filter8(in, &t), w, avg);
++            dst += dst_stride;
++            src += src_stride;
++        }
++        return;
++    }
++    do {
++        for (int x = 0; x < w; x += 16) {
++            vu8 in[8];
++            htaps(in, src + x, 16);
++            out_n(dst + x, filter8(in, &t), 16, avg);
++        }
++        dst += dst_stride;
++        src += src_stride;
++    } while (--h);
++}
++
++static av_always_inline void mc_v(uint8_t *dst, ptrdiff_t dst_stride, const uint8_t *src, ptrdiff_t src_stride,
++                                  int w, int h, const int16_t *filter, int avg)
++{
++    Taps t;
++    load_taps(&t, filter);
++    if (w < 16) {
++        /* h is a multiple of 4 for every VP9 block size, so R rows at a time always divide it */
++        const int R = 16 / w;
++        const uint8_t *s = src - 3 * src_stride;
++        vu8 row[12];
++        for (int i = 0; i < 7; i++)
++            row[i] = load_n(s + i * src_stride, w);
++        s += 7 * src_stride;
++        for (int y = 0; y < h; y += R) {
++            vu8 in[8];
++            for (int j = 0; j < R; j++)
++                row[7 + j] = load_n(s + j * src_stride, w);
++            for (int k = 0; k < 8; k++)
++                in[k] = pack_rows(row + k, w, 0);
++            out_rows(dst, dst_stride, filter8(in, &t), w, avg);
++            for (int i = 0; i < 7; i++)
++                row[i] = row[i + R];
++            s += R * src_stride;
++            dst += R * dst_stride;
++        }
++        return;
++    }
++    for (int x = 0; x < w; x += 16) {
++        const uint8_t *s = src + x - 3 * src_stride;
++        uint8_t *d = dst + x;
++        vu8 in[8];
++        for (int i = 0; i < 7; i++)
++            in[i] = load_n(s + i * src_stride, 16);
++        s += 7 * src_stride;
++        for (int y = 0; y < h; y++) {
++            in[7] = load_n(s, 16);
++            out_n(d, filter8(in, &t), 16, avg);
++            for (int i = 0; i < 7; i++)
++                in[i] = in[i + 1];
++            s += src_stride;
++            d += dst_stride;
++        }
++    }
++}
++
++static av_always_inline void mc_hv(uint8_t *dst, ptrdiff_t dst_stride, const uint8_t *src, ptrdiff_t src_stride,
++                                   int w, int h, const int16_t *fx, const int16_t *fy, int avg)
++{
++    DECLARE_ALIGNED(16, uint8_t, tmp)[64 * 71];
++    mc_h(tmp, 64, src - 3 * src_stride, src_stride, w, h + 7, fx, 0);
++    mc_v(dst, dst_stride, tmp + 3 * 64, 64, w, h, fy, avg);
++}
++
++#define MC_FUNCS(sz)                                                                                          \
++static void put_h_##sz(uint8_t *dst, ptrdiff_t ds, const uint8_t *src, ptrdiff_t ss, int h,                  \
++                       const int16_t *f)              { mc_h(dst, ds, src, ss, sz, h, f, 0); }               \
++static void avg_h_##sz(uint8_t *dst, ptrdiff_t ds, const uint8_t *src, ptrdiff_t ss, int h,                  \
++                       const int16_t *f)              { mc_h(dst, ds, src, ss, sz, h, f, 1); }               \
++static void put_v_##sz(uint8_t *dst, ptrdiff_t ds, const uint8_t *src, ptrdiff_t ss, int h,                  \
++                       const int16_t *f)              { mc_v(dst, ds, src, ss, sz, h, f, 0); }               \
++static void avg_v_##sz(uint8_t *dst, ptrdiff_t ds, const uint8_t *src, ptrdiff_t ss, int h,                  \
++                       const int16_t *f)              { mc_v(dst, ds, src, ss, sz, h, f, 1); }               \
++static void put_hv_##sz(uint8_t *dst, ptrdiff_t ds, const uint8_t *src, ptrdiff_t ss, int h,                 \
++                        const int16_t *fx, const int16_t *fy) { mc_hv(dst, ds, src, ss, sz, h, fx, fy, 0); } \
++static void avg_hv_##sz(uint8_t *dst, ptrdiff_t ds, const uint8_t *src, ptrdiff_t ss, int h,                 \
++                        const int16_t *fx, const int16_t *fy) { mc_hv(dst, ds, src, ss, sz, h, fx, fy, 1); }
++
++MC_FUNCS(64)
++MC_FUNCS(32)
++MC_FUNCS(16)
++MC_FUNCS(8)
++MC_FUNCS(4)
++
++/* The vp9_mc_func entry points, one per (filter type, size, op, direction). */
++#define MC_ENTRY(type, type_idx, sz, op)                                                                      \
++static void op##_8tap_##type##_##sz##h_altivec(uint8_t *dst, ptrdiff_t ds, const uint8_t *src, ptrdiff_t ss,  \
++                                               int h, int mx, int my)                                         \
++{ op##_h_##sz(dst, ds, src, ss, h, ff_vp9_subpel_filters[type_idx][mx]); }                                    \
++static void op##_8tap_##type##_##sz##v_altivec(uint8_t *dst, ptrdiff_t ds, const uint8_t *src, ptrdiff_t ss,  \
++                                               int h, int mx, int my)                                         \
++{ op##_v_##sz(dst, ds, src, ss, h, ff_vp9_subpel_filters[type_idx][my]); }                                    \
++static void op##_8tap_##type##_##sz##hv_altivec(uint8_t *dst, ptrdiff_t ds, const uint8_t *src, ptrdiff_t ss, \
++                                                int h, int mx, int my)                                        \
++{ op##_hv_##sz(dst, ds, src, ss, h, ff_vp9_subpel_filters[type_idx][mx],                                      \
++               ff_vp9_subpel_filters[type_idx][my]); }
++
++#define MC_ENTRIES_TYPE(type, type_idx, op) \
++    MC_ENTRY(type, type_idx, 64, op)        \
++    MC_ENTRY(type, type_idx, 32, op)        \
++    MC_ENTRY(type, type_idx, 16, op)        \
++    MC_ENTRY(type, type_idx, 8, op)         \
++    MC_ENTRY(type, type_idx, 4, op)
++
++#define MC_ENTRIES(op)                                       \
++    MC_ENTRIES_TYPE(regular, FILTER_8TAP_REGULAR, op)        \
++    MC_ENTRIES_TYPE(smooth,  FILTER_8TAP_SMOOTH,  op)        \
++    MC_ENTRIES_TYPE(sharp,   FILTER_8TAP_SHARP,   op)
++
++MC_ENTRIES(put)
++MC_ENTRIES(avg)
++
++/* ---- loop filter ----------------------------------------------------------------------------------------- */
++
++/*
++ * lf16() filters 16 lanes, one edge position each: p[0..7] are the pixels before the edge (p[0] nearest) and
++ * q[0..7] after it. For a column edge ("h") 16 rows are transposed into this layout; for a row edge ("v") the
++ * lanes are 16 consecutive pixels. M masks the lanes that may be filtered (two 8-lane edges with different
++ * widths run as two passes). Per-lane thresholds allow the mix2 forms (two 8-lane edges, two threshold sets).
++ */
++
++typedef struct LFThr {
++    vu8 E, I, H, M;
++} LFThr;
++
++static av_always_inline vu8 absd(vu8 a, vu8 b)
++{
++    return vec_sub(vec_max(a, b), vec_min(a, b));
++}
++
++static av_always_inline vu8 le(vu8 d, vu8 t)      /* lanes where d <= t (unsigned) */
++{
++    vu8 gt = (vu8)vec_cmpgt(d, t);
++    return vec_nor(gt, gt);
++}
++
++static av_always_inline vs8 tos(vu8 a)            /* pixel - 128 */
++{
++    return (vs8)vec_xor(a, vec_splats((unsigned char)0x80));
++}
++
++static av_always_inline vu8 tou(vs8 a)
++{
++    return vec_xor((vu8)a, vec_splats((unsigned char)0x80));
++}
++
++static av_always_inline vu16 wide(vu8 v, int half)
++{
++    const vu8 z = vec_splat_u8(0);
++    return (vu16)(half ? vec_mergel(z, v) : vec_mergeh(z, v));
++}
++
++/* The flat filters: X[0..2n-1] = p[n-1..0], q[0..n-1]; output k (1..2n-2) is
++ * (sum_{d=-(n-1)}^{n-1} X[clamp(k+d)] + X[k] + n) >> log2(2n), as in vp9dsp_template.c. The window sum is
++ * kept running: S(k+1) = S(k) - X[clamp(k-n+1)] + X[clamp(k+n)]. out[k-1] receives output k. */
++static av_always_inline void flat_filter(const vu8 *P, const vu8 *Q, int n, int shift, vu8 *out)
++{
++    vu16 o[2][14];
++    for (int h = 0; h < 2; h++) {
++        vu16 X[16];
++        for (int i = 0; i < n; i++) {
++            X[n - 1 - i] = wide(P[i], h);
++            X[n + i]     = wide(Q[i], h);
++        }
++        vu16 S = vec_splats((unsigned short)n);         /* rounding */
++        for (int d = -(n - 1); d <= n - 1; d++) {
++            int j = 1 + d;
++            S = vec_add(S, X[j < 0 ? 0 : j]);
++        }
++        const vu16 sh = vec_splats((unsigned short)shift);
++        for (int k = 1; k <= 2 * n - 2; k++) {
++            o[h][k - 1] = vec_sr(vec_add(S, X[k]), sh);
++            int jo = k - n + 1, ji = k + n;
++            S = vec_add(vec_sub(S, X[jo < 0 ? 0 : jo]), X[ji > 2 * n - 1 ? 2 * n - 1 : ji]);
++        }
++    }
++    for (int k = 0; k < 2 * n - 2; k++)
++        out[k] = vec_packsu(o[0][k], o[1][k]);
++}
++
++static av_always_inline void lf16(vu8 p[8], vu8 q[8], int wd, const LFThr *t)
++{
++    const vu8 zero = vec_splat_u8(0), one = vec_splat_u8(1);
++    vu8 p0 = p[0], p1 = p[1], p2 = p[2], p3 = p[3];
++    vu8 q0 = q[0], q1 = q[1], q2 = q[2], q3 = q[3];
++
++    vu8 mx = vec_max(vec_max(absd(p3, p2), absd(p2, p1)), vec_max(absd(p1, p0), absd(q1, q0)));
++    mx = vec_max(mx, vec_max(absd(q2, q1), absd(q3, q2)));
++    vu8 fm = vec_and(le(mx, t->I), t->M);
++    {   /* |p0-q0|*2 + (|p1-q1|>>1) <= E, in 16 bits */
++        vu8 a = absd(p0, q0), b = vec_sr(absd(p1, q1), one);
++        vu16 ok[2];
++        for (int h = 0; h < 2; h++) {
++            vu16 s = vec_add(vec_add(wide(a, h), wide(a, h)), wide(b, h));
++            vu16 gt = (vu16)vec_cmpgt(s, wide(t->E, h));
++            ok[h] = vec_nor(gt, gt);
++        }
++        fm = vec_and(fm, (vu8)vec_pack(ok[0], ok[1]));
++    }
++    if (vec_all_eq(fm, zero))
++        return;
++
++    vu8 flat8in = zero, flat8out = zero;
++    if (wd >= 8) {
++        vu8 m = vec_max(vec_max(absd(p3, p0), absd(p2, p0)), absd(p1, p0));
++        m = vec_max(m, vec_max(vec_max(absd(q3, q0), absd(q2, q0)), absd(q1, q0)));
++        flat8in = le(m, one);
++    }
++    if (wd >= 16) {
++        vu8 m = vec_max(vec_max(absd(p[7], p0), absd(p[6], p0)), vec_max(absd(p[5], p0), absd(p[4], p0)));
++        m = vec_max(m, vec_max(vec_max(absd(q[7], q0), absd(q[6], q0)), vec_max(absd(q[5], q0), absd(q[4], q0))));
++        flat8out = le(m, one);
++    }
++    vu8 use16 = vec_and(fm, vec_and(flat8in, flat8out));
++    vu8 use8  = vec_andc(vec_and(fm, flat8in), use16);
++    vu8 use4  = vec_andc(fm, flat8in);
++
++    vu8 np[8], nq[8];
++    for (int i = 0; i < 8; i++) {
++        np[i] = p[i];
++        nq[i] = q[i];
++    }
++
++    if (wd >= 16 && !vec_all_eq(use16, zero)) {
++        vu8 o[14];
++        flat_filter(p, q, 8, 4, o);
++        for (int k = 1; k <= 14; k++) {
++            if (k < 8)
++                np[7 - k] = vec_sel(np[7 - k], o[k - 1], use16);
++            else
++                nq[k - 8] = vec_sel(nq[k - 8], o[k - 1], use16);
++        }
++    }
++
++    if (wd >= 8 && !vec_all_eq(use8, zero)) {
++        vu8 o[6];
++        flat_filter(p, q, 4, 3, o);
++        for (int k = 1; k <= 6; k++) {
++            if (k < 4)
++                np[3 - k] = vec_sel(np[3 - k], o[k - 1], use8);
++            else
++                nq[k - 4] = vec_sel(nq[k - 4], o[k - 1], use8);
++        }
++    }
++
++    if (!vec_all_eq(use4, zero)) {
++        vu8 hev = vec_or((vu8)vec_cmpgt(absd(p1, p0), t->H), (vu8)vec_cmpgt(absd(q1, q0), t->H));
++        vs8 sp1 = tos(p1), sp0 = tos(p0), sq0 = tos(q0), sq1 = tos(q1);
++        /* f = hev ? clip8(p1 - q1) : 0; f = clip8(3 * (q0 - p0) + f) (saturating steps: same result) */
++        vs8 f = vec_and(vec_subs(sp1, sq1), (vs8)hev);
++        vs8 d = vec_subs(sq0, sp0);
++        f = vec_adds(vec_adds(vec_adds(f, d), d), d);
++        vs8 f1 = vec_sra(vec_adds(f, vec_splat_s8(4)), vec_splat_u8(3));
++        vs8 f2 = vec_sra(vec_adds(f, vec_splat_s8(3)), vec_splat_u8(3));
++        vs8 f3 = vec_sra(vec_adds(f1, vec_splat_s8(1)), vec_splat_u8(1));
++        np[0] = vec_sel(np[0], tou(vec_adds(sp0, f2)), use4);
++        nq[0] = vec_sel(nq[0], tou(vec_subs(sq0, f1)), use4);
++        vu8 nhev4 = vec_andc(use4, hev);
++        np[1] = vec_sel(np[1], tou(vec_adds(sp1, f3)), nhev4);
++        nq[1] = vec_sel(nq[1], tou(vec_subs(sq1, f3)), nhev4);
++    }
++
++    for (int i = 0; i < 8; i++) {
++        p[i] = np[i];
++        q[i] = nq[i];
++    }
++}
++
++static const vu8 hi8 = { 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
++
++/* Thresholds: mix = 0 the same in all lanes; mix = 1 lanes 0..7 from the low byte, 8..15 from the next. */
++static av_always_inline void thr(LFThr *t, int E, int I, int H, int mix)
++{
++    if (!mix) {
++        t->E = vec_splats((unsigned char)E);
++        t->I = vec_splats((unsigned char)I);
++        t->H = vec_splats((unsigned char)H);
++    } else {
++        t->E = vec_sel(vec_splats((unsigned char)(E & 0xff)), vec_splats((unsigned char)(E >> 8)), hi8);
++        t->I = vec_sel(vec_splats((unsigned char)(I & 0xff)), vec_splats((unsigned char)(I >> 8)), hi8);
++        t->H = vec_sel(vec_splats((unsigned char)(H & 0xff)), vec_splats((unsigned char)(H >> 8)), hi8);
++    }
++    t->M = vec_splat_u8(-1);
++}
++
++/* Row edge ("v"), n (8 or 16) pixels wide. Reads rows -4..3 (wd < 16) or -8..7; writes only the rows the
++ * filter can change (-2..1, -3..2 or -7..6). */
++static av_always_inline void lf_v(uint8_t *dst, ptrdiff_t stride, int wd, int n, const LFThr *t)
++{
++    vu8 p[8], q[8];
++    int r = wd == 16 ? 8 : 4;
++    for (int i = 0; i < r; i++) {
++        p[i] = load_n(dst - (i + 1) * stride, n);
++        q[i] = load_n(dst + i * stride, n);
++    }
++    for (int i = r; i < 8; i++)
++        p[i] = q[i] = vec_splat_u8(0);
++    lf16(p, q, wd, t);
++    int w = wd == 16 ? 7 : wd == 8 ? 3 : 2;
++    for (int i = 0; i < w; i++) {
++        store_n(dst - (i + 1) * stride, p[i], n);
++        store_n(dst + i * stride, q[i], n);
++    }
++}
++
++/* 16x16 byte transpose of r[0..15] in place. */
++static av_always_inline void transpose16(vu8 r[16])
++{
++    vu8 a[16];
++    for (int s = 0; s < 4; s++) {
++        for (int i = 0; i < 8; i++) {
++            a[2 * i]     = vec_mergeh(r[i], r[i + 8]);
++            a[2 * i + 1] = vec_mergel(r[i], r[i + 8]);
++        }
++        for (int i = 0; i < 16; i++)
++            r[i] = a[i];
++    }
++}
++
++/* Column edge ("h"), rows 0..rows-1 (8 or 16). wd 16: columns -8..7 are read and written (the outer two are
++ * written unchanged); wd 4/8: columns -4..3 are read and written. Rows past `rows` are padding lanes. */
++static av_always_inline void lf_h(uint8_t *dst, ptrdiff_t stride, int wd, int rows, const LFThr *t)
++{
++    vu8 r[16], p[8], q[8];
++    for (int i = 0; i < rows; i++)
++        r[i] = wd == 16 ? load_n(dst - 8 + i * stride, 16)
++                        : vec_sld(vec_splat_u8(0), load_n(dst - 4 + i * stride, 8), 12);  /* cols -4..3 at 4..11 */
++    for (int i = rows; i < 16; i++)
++        r[i] = r[rows - 1];
++    transpose16(r);
++    for (int i = 0; i < 8; i++) {
++        p[i] = r[7 - i];
++        q[i] = r[8 + i];
++    }
++    lf16(p, q, wd, t);
++    for (int i = 0; i < 8; i++) {
++        r[7 - i] = p[i];
++        r[8 + i] = q[i];
++    }
++    transpose16(r);
++    for (int i = 0; i < rows; i++) {
++        if (wd == 16)
++            store_n(dst - 8 + i * stride, r[i], 16);
++        else
++            store_n(dst - 4 + i * stride, vec_sld(r[i], r[i], 4), 8);
++    }
++}
++
++#define LF_8(wd)                                                                                              \
++static void loop_filter_h_##wd##_8_altivec(uint8_t *dst, ptrdiff_t stride, int E, int I, int H)               \
++{ LFThr t; thr(&t, E, I, H, 0); lf_h(dst, stride, wd, 8, &t); }                                               \
++static void loop_filter_v_##wd##_8_altivec(uint8_t *dst, ptrdiff_t stride, int E, int I, int H)               \
++{ LFThr t; thr(&t, E, I, H, 0); lf_v(dst, stride, wd, 8, &t); }
++
++LF_8(4)
++LF_8(8)
++LF_8(16)
++
++static void loop_filter_h_16_16_altivec(uint8_t *dst, ptrdiff_t stride, int E, int I, int H)
++{
++    LFThr t; thr(&t, E, I, H, 0); lf_h(dst, stride, 16, 16, &t);
++}
++static void loop_filter_v_16_16_altivec(uint8_t *dst, ptrdiff_t stride, int E, int I, int H)
++{
++    LFThr t; thr(&t, E, I, H, 0); lf_v(dst, stride, 16, 16, &t);
++}
++
++/* mix2: two 8-lane edges (lanes 0..7 and 8..15) with widths wa, wb and thresholds in the low two bytes. Mixed
++ * widths run twice, each pass masked to its own lanes; lanes are independent, so the order doesn't matter. */
++static av_always_inline void lf_mix2(uint8_t *dst, ptrdiff_t stride, int E, int I, int H, int wa, int wb, int h)
++{
++    LFThr t;
++    thr(&t, E, I, H, 1);
++    if (wa == wb) {
++        if (h) lf_h(dst, stride, wa, 16, &t); else lf_v(dst, stride, wa, 16, &t);
++        return;
++    }
++    LFThr ta = t, tb = t;
++    ta.M = vec_andc(t.M, hi8);
++    tb.M = hi8;
++    if (h) {
++        lf_h(dst, stride, wa, 16, &ta);
++        lf_h(dst, stride, wb, 16, &tb);
++    } else {
++        lf_v(dst, stride, wa, 16, &ta);
++        lf_v(dst, stride, wb, 16, &tb);
++    }
++}
++
++#define LF_MIX(a, b)                                                                                          \
++static void loop_filter_h_##a##b##_16_altivec(uint8_t *dst, ptrdiff_t stride, int E, int I, int H)            \
++{ lf_mix2(dst, stride, E, I, H, a, b, 1); }                                                                   \
++static void loop_filter_v_##a##b##_16_altivec(uint8_t *dst, ptrdiff_t stride, int E, int I, int H)            \
++{ lf_mix2(dst, stride, E, I, H, a, b, 0); }
++
++LF_MIX(4, 4)
++LF_MIX(4, 8)
++LF_MIX(8, 4)
++LF_MIX(8, 8)
++
++#endif /* HAVE_ALTIVEC && HAVE_BIGENDIAN */
++
++av_cold void ff_vp9dsp_init_ppc(VP9DSPContext *dsp, int bpp)
++{
++#if HAVE_ALTIVEC && HAVE_BIGENDIAN
++    if (!PPC_ALTIVEC(av_get_cpu_flags()) || bpp != 8)
++        return;
++
++#define INIT_MC(idx, sz, type, type_idx)                                                       \
++    dsp->mc[idx][type_idx][0][1][0] = put_8tap_##type##_##sz##h_altivec;                       \
++    dsp->mc[idx][type_idx][0][0][1] = put_8tap_##type##_##sz##v_altivec;                       \
++    dsp->mc[idx][type_idx][0][1][1] = put_8tap_##type##_##sz##hv_altivec;                      \
++    dsp->mc[idx][type_idx][1][1][0] = avg_8tap_##type##_##sz##h_altivec;                       \
++    dsp->mc[idx][type_idx][1][0][1] = avg_8tap_##type##_##sz##v_altivec;                       \
++    dsp->mc[idx][type_idx][1][1][1] = avg_8tap_##type##_##sz##hv_altivec
++#define INIT_MC_TYPES(idx, sz)                                                                 \
++    INIT_MC(idx, sz, regular, FILTER_8TAP_REGULAR);                                            \
++    INIT_MC(idx, sz, smooth,  FILTER_8TAP_SMOOTH);                                             \
++    INIT_MC(idx, sz, sharp,   FILTER_8TAP_SHARP)
++
++    if (!getenv("LEOPARD_VP9_NO_ALTIVEC_MC")) {
++        INIT_MC_TYPES(0, 64);
++        INIT_MC_TYPES(1, 32);
++        INIT_MC_TYPES(2, 16);
++        INIT_MC_TYPES(3, 8);
++        INIT_MC_TYPES(4, 4);
++    }
++
++    if (!getenv("LEOPARD_VP9_NO_ALTIVEC_LPF")) {
++        dsp->loop_filter_8[0][0] = loop_filter_h_4_8_altivec;
++        dsp->loop_filter_8[0][1] = loop_filter_v_4_8_altivec;
++        dsp->loop_filter_8[1][0] = loop_filter_h_8_8_altivec;
++        dsp->loop_filter_8[1][1] = loop_filter_v_8_8_altivec;
++        dsp->loop_filter_8[2][0] = loop_filter_h_16_8_altivec;
++        dsp->loop_filter_8[2][1] = loop_filter_v_16_8_altivec;
++        dsp->loop_filter_16[0]   = loop_filter_h_16_16_altivec;
++        dsp->loop_filter_16[1]   = loop_filter_v_16_16_altivec;
++        dsp->loop_filter_mix2[0][0][0] = loop_filter_h_44_16_altivec;
++        dsp->loop_filter_mix2[0][0][1] = loop_filter_v_44_16_altivec;
++        dsp->loop_filter_mix2[0][1][0] = loop_filter_h_48_16_altivec;
++        dsp->loop_filter_mix2[0][1][1] = loop_filter_v_48_16_altivec;
++        dsp->loop_filter_mix2[1][0][0] = loop_filter_h_84_16_altivec;
++        dsp->loop_filter_mix2[1][0][1] = loop_filter_v_84_16_altivec;
++        dsp->loop_filter_mix2[1][1][0] = loop_filter_h_88_16_altivec;
++        dsp->loop_filter_mix2[1][1][1] = loop_filter_v_88_16_altivec;
++    }
++#endif
++}
+diff -ruN a/libavcodec/vp9dsp.c b/libavcodec/vp9dsp.c
+--- a/libavcodec/vp9dsp.c	2026-06-18 10:32:07.000000000 -0600
++++ b/libavcodec/vp9dsp.c	2026-11-09 22:51:58.445041526 -0600
+@@ -108,5 +108,7 @@
+     ff_vp9dsp_init_mips(dsp, bpp);
+ #elif ARCH_LOONGARCH
+     ff_vp9dsp_init_loongarch(dsp, bpp);
++#elif ARCH_PPC
++    ff_vp9dsp_init_ppc(dsp, bpp);
+ #endif
+ }
+diff -ruN a/libavcodec/vp9dsp.h b/libavcodec/vp9dsp.h
+--- a/libavcodec/vp9dsp.h	2026-06-16 20:17:51.000000000 -0600
++++ b/libavcodec/vp9dsp.h	2026-11-09 22:51:58.446053565 -0600
+@@ -135,5 +135,6 @@
+ void ff_vp9dsp_init_x86(VP9DSPContext *dsp, int bpp, int bitexact);
+ void ff_vp9dsp_init_mips(VP9DSPContext *dsp, int bpp);
+ void ff_vp9dsp_init_loongarch(VP9DSPContext *dsp, int bpp);
++void ff_vp9dsp_init_ppc(VP9DSPContext *dsp, int bpp);
+ 
+ #endif /* AVCODEC_VP9DSP_H */

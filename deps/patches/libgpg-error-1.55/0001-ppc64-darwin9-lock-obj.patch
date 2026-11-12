@@ -1,0 +1,33 @@
+diff -ruN pristine/libgpg-error-1.55/src/syscfg/lock-obj-pub.powerpc64-apple-darwin9.h src/libgpg-error-1.55/src/syscfg/lock-obj-pub.powerpc64-apple-darwin9.h
+--- a/src/syscfg/lock-obj-pub.powerpc64-apple-darwin9.h	1969-12-31 17:00:00.000000000 -0700
++++ b/src/syscfg/lock-obj-pub.powerpc64-apple-darwin9.h	2026-11-08 14:15:48.113223481 -0600
+@@ -0,0 +1,29 @@
++## lock-obj-pub.powerpc64-apple-darwin9.h
++## Mac OS X 10.5 ppc64 (big-endian LP64). Hand-written from the 10.5 SDK:
++## pthread_mutex_t = { long __sig; char __opaque[56]; }, size 64, and
++## PTHREAD_MUTEX_INITIALIZER = { 0x32AAABA7, {0} } -> __sig stored big-endian.
++
++typedef struct
++{
++    long _vers;
++    union {
++        volatile char _priv[64];
++        long _x_align;
++        long *_xp_align;
++    } u;
++} gpgrt_lock_t;
++
++#define GPGRT_LOCK_INITIALIZER {1,{{0,0,0,0,50,170,171,167, \
++0,0,0,0,0,0,0,0, \
++0,0,0,0,0,0,0,0, \
++0,0,0,0,0,0,0,0, \
++0,0,0,0,0,0,0,0, \
++0,0,0,0,0,0,0,0, \
++0,0,0,0,0,0,0,0, \
++0,0,0,0,0,0,0,0}}}
++##
++## Local Variables:
++## mode: c
++## buffer-read-only: t
++## End:
++##

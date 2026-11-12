@@ -1,0 +1,40 @@
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ -x gl-headers pristine/gst-plugins-base-1.28.9/ext/gl/meson.build src/gst-plugins-base-1.28.9/ext/gl/meson.build
+--- a/ext/gl/meson.build	2026-11-06 06:54:37.000000000 -0600
++++ b/ext/gl/meson.build	2026-11-08 23:10:40.125874538 -0600
+@@ -176,7 +176,8 @@
+   optional_deps += [allocators_dep, libdrm_dep]
+ endif
+ 
+-if host_system == 'darwin'
++# Leopard (GCC Objective-C, no ARC): only the Cocoa window system brings ObjC sources here
++if host_system == 'darwin' and glconf.get('GST_GL_HAVE_WINDOW_COCOA', 0) == 1
+   if not have_objc
+     error('No ObjC compiler found')
+   endif
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ -x gl-headers pristine/gst-plugins-base-1.28.9/gst-libs/gst/gl/meson.build src/gst-plugins-base-1.28.9/gst-libs/gst/gl/meson.build
+--- a/gst-libs/gst/gl/meson.build	2026-11-06 06:54:37.000000000 -0600
++++ b/gst-libs/gst/gl/meson.build	2026-11-08 23:10:40.127070147 -0600
+@@ -842,7 +842,8 @@
+   endif
+ endif
+ 
+-if host_system == 'darwin'
++# Leopard (GCC Objective-C, no ARC): an EGL-only build (gl_platform=egl, gl_winsys=egl) compiles no ObjC
++if host_system == 'darwin' and (need_platform_cgl != 'no' or need_win_cocoa != 'no')
+   if not have_objc
+     error('No ObjC compiler found')
+   endif
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ -x gl-headers pristine/gst-plugins-base-1.28.9/meson.build src/gst-plugins-base-1.28.9/meson.build
+--- a/meson.build	2026-11-06 06:54:37.000000000 -0600
++++ b/meson.build	2026-11-08 23:10:40.127728507 -0600
+@@ -31,7 +31,9 @@
+ have_cxx = add_languages('cpp', native: false, required: false)
+ 
+ if host_system == 'darwin'
+-  have_objc = add_languages('objc', 'objcpp', native: false)
++  have_objc = add_languages('objc', native: false)
++  # Leopard cross toolchain (GCC 15) has no Objective-C++ front end; only Qt examples use it
++  add_languages('objcpp', native: false, required: false)
+ else
+   have_objc = false
+ endif

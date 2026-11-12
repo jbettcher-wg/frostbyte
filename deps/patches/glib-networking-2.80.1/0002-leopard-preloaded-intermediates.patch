@@ -1,0 +1,227 @@
+--- a/tls/gnutls/gtlsdatabase-gnutls.c	2025-01-08 14:51:06.000000000 -0700
++++ b/tls/gnutls/gtlsdatabase-gnutls.c	2026-11-08 22:18:03.011431237 -0600
+@@ -32,6 +32,7 @@
+ #include <gio/gio.h>
+ #include <glib/gi18n-lib.h>
+ #include <gnutls/x509.h>
++#include <string.h>
+ 
+ #include "gtlscertificate-gnutls.h"
+ #include "gtlshttp.h"
+@@ -510,6 +511,108 @@
+   return gnutls_chain;
+ }
+ 
++/*
++ * Intermediate preloading (Leopard/FrostByte, as Firefox does): many servers send only their leaf
++ * certificate and rely on browsers to know the intermediate. When GnuTLS cannot find an issuer,
++ * complete the presented chain from a bundled list of public intermediates (Mozilla CCADB:
++ * non-revoked intermediates chaining to Mozilla roots) and verify again. The roots are unchanged:
++ * the completed chain must still verify, signature by signature, to a trust anchor.
++ * File: $LEOPARD_TLS_INTERMEDIATES, else LEOPARD_TLS_INTERMEDIATES_FILE (set at build time).
++ */
++#define LEOPARD_STR_(x) #x
++#define LEOPARD_STR(x) LEOPARD_STR_(x)
++#if defined(LEOPARD_TLS_INTERMEDIATES_DIR)   /* -DLEOPARD_TLS_INTERMEDIATES_DIR=/opt/wpe/etc/ssl */
++#define LEOPARD_TLS_INTERMEDIATES_FILE LEOPARD_STR(LEOPARD_TLS_INTERMEDIATES_DIR) "/intermediates.pem"
++#else
++#define LEOPARD_TLS_INTERMEDIATES_FILE NULL
++#endif
++
++static gnutls_x509_crt_t *preloaded_intermediates;
++static unsigned int n_preloaded_intermediates;
++
++static gpointer
++load_preloaded_intermediates (gpointer data)
++{
++  const gchar *path = g_getenv ("LEOPARD_TLS_INTERMEDIATES");
++  gchar *contents = NULL;
++  gsize length = 0;
++  gnutls_datum_t datum;
++
++  (void) data;
++  if (!path)
++    path = LEOPARD_TLS_INTERMEDIATES_FILE;
++  if (!path || !g_file_get_contents (path, &contents, &length, NULL))
++    return NULL;
++  datum.data = (unsigned char *) contents;
++  datum.size = length;
++  if (gnutls_x509_crt_list_import2 (&preloaded_intermediates, &n_preloaded_intermediates, &datum,
++                                    GNUTLS_X509_FMT_PEM, 0) < 0)
++    {
++      preloaded_intermediates = NULL;
++      n_preloaded_intermediates = 0;
++    }
++  g_free (contents);
++  if (g_getenv ("LEOPARD_TLS_DEBUG"))
++    g_printerr ("leopard-tls: %u preloaded intermediates from %s\n", n_preloaded_intermediates, path);
++  return NULL;
++}
++
++/* Is candidate the issuer of cert? Subject DN must match; key identifiers too when both exist. */
++static gboolean
++preloaded_issues (gnutls_x509_crt_t cert, gnutls_x509_crt_t candidate)
++{
++  unsigned char akid[64], skid[64];
++  size_t akid_size = sizeof akid, skid_size = sizeof skid;
++  unsigned int critical;
++
++  if (!gnutls_x509_crt_check_issuer (cert, candidate))
++    return FALSE;
++  if (gnutls_x509_crt_get_authority_key_id (cert, akid, &akid_size, &critical) >= 0 &&
++      gnutls_x509_crt_get_subject_key_id (candidate, skid, &skid_size, &critical) >= 0)
++    return akid_size == skid_size && memcmp (akid, skid, akid_size) == 0;
++  return TRUE;
++}
++
++/* Appends up to four preloaded issuers to *certs (g_malloc'd, *length entries; reallocated).
++ * The appended certificates belong to the preloaded list: callers must not deinit them.
++ * Returns how many were added. */
++guint
++g_tls_leopard_complete_chain (gnutls_x509_crt_t **certs, guint *length)
++{
++  static GOnce once = G_ONCE_INIT;
++  guint added = 0;
++
++  g_once (&once, load_preloaded_intermediates, NULL);
++  if (!n_preloaded_intermediates || !*length)
++    return 0;
++
++  while (added < 4)
++    {
++      gnutls_x509_crt_t last = (*certs)[*length - 1];
++      gnutls_x509_crt_t found = NULL;
++      unsigned int i;
++
++      if (gnutls_x509_crt_check_issuer (last, last))
++        break;                                   /* self-issued: nothing above it */
++      for (i = 0; i < n_preloaded_intermediates && !found; i++)
++        if (preloaded_issues (last, preloaded_intermediates[i]))
++          found = preloaded_intermediates[i];
++      if (!found)
++        break;
++      *certs = g_renew (gnutls_x509_crt_t, *certs, *length + 1);
++      (*certs)[(*length)++] = found;
++      added++;
++      if (g_getenv ("LEOPARD_TLS_DEBUG"))
++        {
++          gnutls_datum_t dn = { NULL, 0 };
++          gnutls_x509_crt_get_dn3 (found, &dn, 0);
++          g_printerr ("leopard-tls: appended %s\n", dn.data ? (const char *) dn.data : "?");
++          gnutls_free (dn.data);
++        }
++    }
++  return added;
++}
++
+ static GTlsCertificateFlags
+ g_tls_database_gnutls_verify_chain (GTlsDatabase             *database,
+                                     GTlsCertificate          *chain,
+@@ -539,6 +642,15 @@
+   gerr = gnutls_x509_trust_list_verify_crt (priv->trust_list,
+                                             gnutls_chain->chain, gnutls_chain->length,
+                                             0, &gnutls_result, NULL);
++  if (g_getenv ("LEOPARD_TLS_DEBUG"))
++    g_printerr ("leopard-tls: verify chain of %u: gerr %d status 0x%x\n", gnutls_chain->length, gerr, gnutls_result);
++  if (gerr == 0 && (gnutls_result & GNUTLS_CERT_SIGNER_NOT_FOUND) &&
++      g_tls_leopard_complete_chain (&gnutls_chain->chain, &gnutls_chain->length) > 0)
++    gerr = gnutls_x509_trust_list_verify_crt (priv->trust_list,
++                                              gnutls_chain->chain, gnutls_chain->length,
++                                              0, &gnutls_result, NULL);
++  if (g_getenv ("LEOPARD_TLS_DEBUG"))
++    g_printerr ("leopard-tls: final chain of %u: gerr %d status 0x%x\n", gnutls_chain->length, gerr, gnutls_result);
+   g_mutex_unlock (&priv->mutex);
+ 
+   if (gerr != 0 || g_cancellable_set_error_if_cancelled (cancellable, error))
+--- a/tls/gnutls/gtlsdatabase-gnutls.h	2025-01-08 14:51:06.000000000 -0700
++++ b/tls/gnutls/gtlsdatabase-gnutls.h	2026-11-08 22:18:03.011850294 -0600
+@@ -63,4 +63,8 @@
+ GGnutlsCertificateCredentials *g_gnutls_certificate_credentials_ref   (GGnutlsCertificateCredentials *credentials);
+ void                           g_gnutls_certificate_credentials_unref (GGnutlsCertificateCredentials *credentials);
+ 
++/* Leopard/FrostByte: complete a certificate chain from the preloaded intermediates
++ * (see gtlsdatabase-gnutls.c). */
++guint g_tls_leopard_complete_chain (gnutls_x509_crt_t **certs, guint *length);
++
+ G_END_DECLS
+--- a/tls/gnutls/gtlsconnection-gnutls.c	2025-01-08 14:51:06.000000000 -0700
++++ b/tls/gnutls/gtlsconnection-gnutls.c	2026-11-08 22:18:03.012317222 -0600
+@@ -983,6 +983,69 @@
+   return status;
+ }
+ 
++/* Leopard/FrostByte: the server did not send (all of) its intermediates. Complete the presented
++ * chain from the preloaded intermediates and verify again against the session's own trust list,
++ * with the same hostname and TLS server key purpose. Returns the new status, or the original one if
++ * the chain could not be completed. (Stapled OCSP is not re-checked on this path.) */
++static unsigned int
++leopard_verify_with_preloaded (gnutls_session_t session, const char *hostname, unsigned int status)
++{
++  const gnutls_datum_t *raw;
++  unsigned int n_raw = 0, i, new_status = status;
++  gnutls_x509_crt_t *certs;
++  guint length = 0;
++  gnutls_certificate_credentials_t credentials = NULL;
++  gnutls_x509_trust_list_t trust_list = NULL;
++  gnutls_typed_vdata_st data[2];
++  unsigned int n_data = 0;
++
++  raw = gnutls_certificate_get_peers (session, &n_raw);
++  if (!raw || !n_raw ||
++      gnutls_credentials_get (session, GNUTLS_CRD_CERTIFICATE, (void **) &credentials) < 0 || !credentials)
++    return status;
++  gnutls_certificate_get_trust_list (credentials, &trust_list);
++  if (!trust_list)
++    return status;
++
++  certs = g_new0 (gnutls_x509_crt_t, n_raw);
++  for (i = 0; i < n_raw; i++)
++    {
++      if (gnutls_x509_crt_init (&certs[length]) < 0)
++        break;
++      if (gnutls_x509_crt_import (certs[length], &raw[i], GNUTLS_X509_FMT_DER) < 0)
++        {
++          gnutls_x509_crt_deinit (certs[length]);
++          break;
++        }
++      length++;
++    }
++
++  if (length == n_raw && g_tls_leopard_complete_chain (&certs, &length) > 0)
++    {
++      if (hostname)
++        {
++          data[n_data].type = GNUTLS_DT_DNS_HOSTNAME;
++          data[n_data].data = (void *) hostname;
++          data[n_data].size = 0;
++          n_data++;
++        }
++      data[n_data].type = GNUTLS_DT_KEY_PURPOSE_OID;
++      data[n_data].data = (void *) GNUTLS_KP_TLS_WWW_SERVER;
++      data[n_data].size = 0;
++      n_data++;
++      if (gnutls_x509_trust_list_verify_crt2 (trust_list, certs, length, data, n_data, 0, &new_status, NULL) < 0)
++        new_status = status;
++      if (g_getenv ("LEOPARD_TLS_DEBUG"))
++        g_printerr ("leopard-tls: %s: completed chain of %u, status 0x%x -> 0x%x\n",
++                    hostname ? hostname : "?", length, status, new_status);
++    }
++
++  for (i = 0; i < n_raw && i < length; i++)   /* only the ones we imported */
++    gnutls_x509_crt_deinit (certs[i]);
++  g_free (certs);
++  return new_status;
++}
++
+ static GTlsCertificateFlags
+ g_tls_connection_gnutls_verify_chain (GTlsConnectionBase       *tls,
+                                       GTlsCertificate          *chain,
+@@ -1059,6 +1122,8 @@
+     }
+ 
+   ret = gnutls_certificate_verify_peers3 (priv->session, hostname, &gnutls_result);
++  if (ret == 0 && (gnutls_result & GNUTLS_CERT_SIGNER_NOT_FOUND))
++    gnutls_result = leopard_verify_with_preloaded (priv->session, hostname, gnutls_result);
+   if (ret != 0)
+     errors |= G_TLS_CERTIFICATE_GENERIC_ERROR;
+   else

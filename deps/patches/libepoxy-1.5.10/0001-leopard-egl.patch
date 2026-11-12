@@ -1,0 +1,28 @@
+diff -ruN pristine/libepoxy-1.5.10/src/dispatch_common.c src/libepoxy-1.5.10/src/dispatch_common.c
+--- a/src/dispatch_common.c	2022-02-17 05:56:12.000000000 -0700
++++ b/src/dispatch_common.c	2026-11-08 14:29:31.310290708 -0600
+@@ -176,8 +176,10 @@
+ #if defined(__APPLE__)
+ #define GLX_LIB "/opt/X11/lib/libGL.1.dylib"
+ #define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"
+-#define GLES1_LIB "libGLESv1_CM.so"
+-#define GLES2_LIB "libGLESv2.so"
++/* Leopard port: LeopardEGL lives next to libepoxy (/opt/wpe/lib or App/Contents/Frameworks). */
++#define EGL_LIB "@loader_path/libEGL.1.dylib"
++#define GLES1_LIB "@loader_path/libGLESv1_CM.1.dylib"
++#define GLES2_LIB "@loader_path/libGLESv2.2.dylib"
+ #elif defined(__ANDROID__)
+ #define GLX_LIB "libGLESv2.so"
+ #define EGL_LIB "libEGL.so"
+diff -ruN pristine/libepoxy-1.5.10/src/dispatch_common.h src/libepoxy-1.5.10/src/dispatch_common.h
+--- a/src/dispatch_common.h	2022-02-17 05:56:12.000000000 -0700
++++ b/src/dispatch_common.h	2026-11-08 14:29:31.309906572 -0600
+@@ -28,7 +28,7 @@
+ #define PLATFORM_HAS_GLX ENABLE_GLX
+ #define PLATFORM_HAS_WGL 1
+ #elif defined(__APPLE__)
+-#define PLATFORM_HAS_EGL 0 
++#define PLATFORM_HAS_EGL ENABLE_EGL  /* Leopard port: LeopardEGL (EGL over CGL) */
+ #define PLATFORM_HAS_GLX ENABLE_GLX
+ #define PLATFORM_HAS_WGL 0
+ #elif defined(ANDROID)

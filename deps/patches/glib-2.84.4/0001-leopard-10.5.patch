@@ -1,0 +1,223 @@
+diff -ruN pristine/glib-2.84.4/gio/gfile.c src/glib-2.84.4/gio/gfile.c
+--- a/gio/gfile.c	2025-08-08 10:43:22.000000000 -0600
++++ b/gio/gfile.c	2026-11-08 13:55:03.535297409 -0600
+@@ -77,6 +77,12 @@
+ #include "gioerror.h"
+ #include "glibintl.h"
+ 
++#ifndef O_CLOEXEC
++/* Mac OS X 10.5 has no O_CLOEXEC; this file only passes it to
++ * g_unix_open_pipe(), which accepts FD_CLOEXEC and applies it via fcntl(). */
++#define O_CLOEXEC FD_CLOEXEC
++#endif
++
+ /* Linux defines loff_t as a way to simplify the offset types for calls like
+  * splice() and copy_file_range(). BSD has copy_file_range() but doesn’t define
+  * loff_t. Abstract that. */
+diff -ruN pristine/glib-2.84.4/gio/gsocket.c src/glib-2.84.4/gio/gsocket.c
+--- a/gio/gsocket.c	2025-08-08 10:43:22.000000000 -0600
++++ b/gio/gsocket.c	2026-11-08 16:14:22.499664514 -0600
+@@ -4863,9 +4863,26 @@
+         cmsg = CMSG_NXTHDR (_msg, cmsg); \
+       } \
+     g_assert (cmsg == NULL); \
++    /* Leopard (Mac OS X 10.5) ppc64: the SDK aligns cmsgs to 8 bytes (CMSG_SPACE(4) = 24, \
++     * CMSG_LEN(4) = 20) but xnu's SCM_RIGHTS code requires cmsg_len == msg_controllen, so the \
++     * trailing alignment padding makes sendmsg() fail with EINVAL. Drop that padding. */ \
++    G_SOCKET_TRIM_LAST_CMSG_PADDING (_message, _msg); \
+   } \
+ } G_STMT_END
+ 
++#ifdef __APPLE__
++#define G_SOCKET_TRIM_LAST_CMSG_PADDING(message, msg) \
++  G_STMT_START { \
++    if ((message)->num_control_messages > 0) \
++      { \
++        gsize _last = g_socket_control_message_get_size ((message)->control_messages[(message)->num_control_messages - 1]); \
++        (msg)->msg_controllen -= CMSG_SPACE (_last) - CMSG_LEN (_last); \
++      } \
++  } G_STMT_END
++#else
++#define G_SOCKET_TRIM_LAST_CMSG_PADDING(message, msg) G_STMT_START { } G_STMT_END
++#endif
++
+ #define input_message_to_msghdr(message, msg) \
+ G_STMT_START { \
+   const GInputMessage  *_message = (message); \
+@@ -6321,6 +6338,9 @@
+       }
+   }
+ #elif G_CREDENTIALS_USE_APPLE_XUCRED
++#ifndef SOL_LOCAL
++#define SOL_LOCAL 0  /* Mac OS X 10.5 SDK lacks it; later <sys/un.h> defines 0 */
++#endif
+   {
+     struct xucred cred;
+     socklen_t optlen = sizeof (cred);
+diff -ruN pristine/glib-2.84.4/gio/gtestdbus.c src/glib-2.84.4/gio/gtestdbus.c
+--- a/gio/gtestdbus.c	2025-08-08 10:43:22.000000000 -0600
++++ b/gio/gtestdbus.c	2026-11-08 13:55:03.537034701 -0600
+@@ -51,6 +51,12 @@
+ #ifdef G_OS_UNIX
+ #include "glib-unix.h"
+ #include "glib-unixprivate.h"
++
++#ifndef O_CLOEXEC
++/* Mac OS X 10.5 has no O_CLOEXEC; this file only passes it to
++ * g_unix_open_pipe(), which accepts FD_CLOEXEC and applies it via fcntl(). */
++#define O_CLOEXEC FD_CLOEXEC
++#endif
+ #endif
+ 
+ /* -------------------------------------------------------------------------- */
+diff -ruN pristine/glib-2.84.4/glib/gfileutils.c src/glib-2.84.4/glib/gfileutils.c
+--- a/glib/gfileutils.c	2025-08-08 10:43:22.000000000 -0600
++++ b/glib/gfileutils.c	2026-11-08 13:55:03.558247618 -0600
+@@ -2989,7 +2989,7 @@
+   /* Check that getcwd() nul-terminated the string. It should do, but the specs
+    * don’t actually explicitly state that:
+    * https://pubs.opengroup.org/onlinepubs/9699919799/functions/getcwd.html */
+-  g_assert (dir == NULL || strnlen (dir, buffer_size) < buffer_size);
++  g_assert (dir == NULL || memchr (dir, '\0', buffer_size) != NULL);  /* strnlen: 10.7+ */
+ 
+   if (!dir || !*buffer)
+     {
+diff -ruN pristine/glib-2.84.4/glib/glib-unix.c src/glib-2.84.4/glib/glib-unix.c
+--- a/glib/glib-unix.c	2025-08-08 10:43:22.000000000 -0600
++++ b/glib/glib-unix.c	2026-11-08 13:55:21.578021983 -0600
+@@ -65,6 +65,12 @@
+ #include <sys/proc_info.h>
+ #endif
+ 
++#ifndef O_CLOEXEC
++/* Mac OS X 10.5 has no O_CLOEXEC; this file only passes it to
++ * g_unix_open_pipe(), which accepts FD_CLOEXEC and applies it via fcntl(). */
++#define O_CLOEXEC FD_CLOEXEC
++#endif
++
+ G_STATIC_ASSERT (sizeof (ssize_t) == GLIB_SIZEOF_SSIZE_T);
+ G_STATIC_ASSERT (G_ALIGNOF (gssize) == G_ALIGNOF (ssize_t));
+ G_STATIC_ASSERT (G_SIGNEDNESS_OF (ssize_t) == 1);
+diff -ruN pristine/glib-2.84.4/glib/gmem.c src/glib-2.84.4/glib/gmem.c
+--- a/glib/gmem.c	2025-08-08 10:43:22.000000000 -0600
++++ b/glib/gmem.c	2026-11-08 13:55:03.557428867 -0600
+@@ -52,6 +52,9 @@
+ #endif
+ 
+ #include <stdlib.h>
++#ifdef __APPLE__
++#include <unistd.h>
++#endif
+ #include <string.h>
+ #include <signal.h>
+ 
+@@ -681,6 +684,16 @@
+   res = aligned_alloc (alignment, real_size);
+ #elif defined(HAVE_MEMALIGN)
+   res = memalign (alignment, real_size);
++#elif defined(__APPLE__)
++  /* Mac OS X 10.5 has no posix_memalign(). malloc() is 16-byte aligned and
++   * valloc() page-aligned; free() releases both. */
++  if (alignment <= 16)
++    res = malloc (real_size);
++  else if (alignment <= (gsize) getpagesize ())
++    res = valloc (real_size);
++  else
++    g_error ("%s: alignment %"G_GSIZE_FORMAT" exceeds the page size",
++             G_STRLOC, alignment);
+ #else
+ # error "This platform does not have an aligned memory allocator."
+ #endif
+diff -ruN pristine/glib-2.84.4/glib/gspawn-posix.c src/glib-2.84.4/glib/gspawn-posix.c
+--- a/glib/gspawn-posix.c	2025-08-08 10:43:22.000000000 -0600
++++ b/glib/gspawn-posix.c	2026-11-08 13:55:03.537563278 -0600
+@@ -1275,7 +1275,11 @@
+   GPid pid = -1;
+   GUnixPipe child_err_report_pipe = G_UNIX_PIPE_INIT;
+   GUnixPipe child_pid_report_pipe = G_UNIX_PIPE_INIT;
++#ifdef HAVE_O_CLOEXEC
+   guint pipe_flags = cloexec_pipes ? O_CLOEXEC : 0;
++#else
++  guint pipe_flags = cloexec_pipes ? FD_CLOEXEC : 0;  /* Mac OS X 10.5 */
++#endif
+   gint status;
+   const gchar *chosen_search_path;
+   gchar *search_path_buffer = NULL;
+diff -ruN pristine/glib-2.84.4/glib/gstdioprivate.h src/glib-2.84.4/glib/gstdioprivate.h
+--- a/glib/gstdioprivate.h	2025-08-08 10:43:22.000000000 -0600
++++ b/glib/gstdioprivate.h	2026-11-08 13:56:53.205455392 -0600
+@@ -89,7 +89,7 @@
+ #include <sys/cdefs.h>
+ #include <unistd.h>
+ # if !__DARWIN_NON_CANCELABLE
+-#  if !__DARWIN_ONLY_UNIX_CONFORMANCE
++#  if !__DARWIN_ONLY_UNIX_CONFORMANCE && !defined(__LP64__) /* 10.5 ppc64: plain close$NOCANCEL */
+ #   define close close$NOCANCEL$UNIX2003
+ int close$NOCANCEL$UNIX2003 (int fd);
+ #  else
+diff -ruN pristine/glib-2.84.4/glib/gtester.c src/glib-2.84.4/glib/gtester.c
+--- a/glib/gtester.c	2025-08-08 10:43:22.000000000 -0600
++++ b/glib/gtester.c	2026-11-08 13:55:03.531272849 -0600
+@@ -30,6 +30,12 @@
+ #include <errno.h>
+ #include <signal.h>
+ 
++#ifndef O_CLOEXEC
++/* Mac OS X 10.5 has no O_CLOEXEC; this file only passes it to
++ * g_unix_open_pipe(), which accepts FD_CLOEXEC and applies it via fcntl(). */
++#define O_CLOEXEC FD_CLOEXEC
++#endif
++
+ /* the read buffer size in bytes */
+ #define READ_BUFFER_SIZE 4096
+ 
+diff -ruN pristine/glib-2.84.4/glib/gwakeup.c src/glib-2.84.4/glib/gwakeup.c
+--- a/glib/gwakeup.c	2025-08-08 10:43:22.000000000 -0600
++++ b/glib/gwakeup.c	2026-11-08 13:55:46.867784270 -0600
+@@ -37,6 +37,12 @@
+ 
+ #include "gwakeup.h"
+ 
++#ifndef O_CLOEXEC
++/* Mac OS X 10.5 has no O_CLOEXEC; this file only passes it to
++ * g_unix_open_pipe(), which accepts FD_CLOEXEC and applies it via fcntl(). */
++#define O_CLOEXEC FD_CLOEXEC
++#endif
++
+ /*< private >
+  * GWakeup:
+  *
+diff -ruN pristine/glib-2.84.4/meson.build src/glib-2.84.4/meson.build
+--- a/meson.build	2025-08-08 10:43:22.000000000 -0600
++++ b/meson.build	2026-11-08 13:53:28.071943510 -0600
+@@ -985,13 +985,7 @@
+ if host_system == 'darwin'
+   add_languages('objc', native: false, required: true)
+   objcc = meson.get_compiler('objc')
+-  if not objcc.compiles('''#include <AvailabilityMacros.h>
+-                           #if MAC_OS_X_VERSION_MIN_REQUIRED < 101300
+-                           #error message "GLib requires macOS 10.13 or later."
+-                           #endif''',
+-                         name : 'macOS 10.13 or later')
+-    error('GLib requires macOS 10.13 or later.')
+-  endif
++  # Leopard (10.5) port: no minimum-version gate; Cocoa/Carbon backends disabled below.
+ 
+   add_project_arguments(objcc.get_supported_arguments(warning_objc_args), language: 'objc')
+ 
+@@ -1000,6 +994,7 @@
+                                        #include <CoreServices/CoreServices.h>''',
+                                     name : 'Mac OS X Carbon support')
+ 
++  glib_have_carbon = false  # Leopard port: modern CoreServices APIs only
+   if glib_have_carbon
+     glib_conf.set('HAVE_CARBON', true)
+   endif
+@@ -1011,6 +1006,7 @@
+                                       #endif''',
+                                    name : 'Mac OS X Cocoa support')
+ 
++  glib_have_cocoa = false  # Leopard port: NSUserNotification/UTType/NSWorkspace need >= 10.6
+   if glib_have_cocoa
+     glib_conf.set('HAVE_COCOA', true)
+     osx_ldflags += ['-Wl,-framework,Foundation', '-Wl,-framework,AppKit']

@@ -1,0 +1,52 @@
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/orc-0.4.42/orc/orcpowerpc.c src/orc-0.4.42/orc/orcpowerpc.c
+--- a/orc/orcpowerpc.c	2026-01-08 05:20:30.000000000 -0700
++++ b/orc/orcpowerpc.c	2026-11-08 22:49:03.632742711 -0600
+@@ -432,7 +432,7 @@
+   int size = code->code_size;
+ 
+   ptr = code->code;
+-#if defined(__powerpc64__) && (!defined(_CALL_ELF) || _CALL_ELF == 1)
++#if defined(__powerpc64__) && !defined(__APPLE__) && (!defined(_CALL_ELF) || _CALL_ELF == 1) /* Darwin ppc64: no function descriptors */
+   *(unsigned char **) ptr = (unsigned char *) code->exec + 24;
+ #endif
+   for (i=0;i<size;i+=cache_line_size) {
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/orc-0.4.42/orc/orcprogram-altivec.c src/orc-0.4.42/orc/orcprogram-altivec.c
+--- a/orc/orcprogram-altivec.c	2026-01-08 05:20:30.000000000 -0700
++++ b/orc/orcprogram-altivec.c	2026-11-08 23:05:11.896169013 -0600
+@@ -31,7 +31,7 @@
+   ORC_ASM_CODE (compiler, "%s:\n", compiler->program->name);
+ 
+   if (compiler->is_64bit) {
+-#if !defined(_CALL_ELF) || _CALL_ELF == 1
++#if !defined(__APPLE__) && (!defined(_CALL_ELF) || _CALL_ELF == 1) /* Darwin ppc64: no function descriptors */
+     ORC_ASM_CODE (compiler, " .quad .%s,.TOC.@tocbase,0\n",
+                   compiler->program->name);
+     ORC_ASM_CODE (compiler, ".%s:\n", compiler->program->name);
+@@ -44,6 +44,16 @@
+     powerpc_emit_stwu (compiler, POWERPC_R1, POWERPC_R1, -16);
+   }
+ 
++#ifdef __APPLE__
++  /* Darwin ABI: VRSAVE marks the live vector registers, and xnu only saves/restores
++   * those on a context switch. Mark all 32 live for the duration of the program
++   * (old value kept in r2, which is volatile on Darwin and never allocated here). */
++  ORC_ASM_CODE (compiler, "  mfspr r2, 256\n  li r0, -1\n  mtspr 256, r0\n");
++  powerpc_emit (compiler, 0x7c4042a6);
++  powerpc_emit (compiler, 0x3800ffff);
++  powerpc_emit (compiler, 0x7c0043a6);
++#endif
++
+   for(i=POWERPC_R13;i<=POWERPC_R31;i++){
+     if (compiler->used_regs[i]) {
+       /* powerpc_emit_push (compiler, 4, i); */
+@@ -62,6 +72,10 @@
+     }
+   }
+ 
++#ifdef __APPLE__
++  ORC_ASM_CODE (compiler, "  mtspr 256, r2\n");
++  powerpc_emit (compiler, 0x7c4043a6);
++#endif
+   powerpc_emit_addi (compiler, POWERPC_R1, POWERPC_R1, 16);
+   ORC_ASM_CODE(compiler,"  blr\n");
+   powerpc_emit(compiler, 0x4e800020);

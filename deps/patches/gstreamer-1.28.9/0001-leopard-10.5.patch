@@ -1,0 +1,108 @@
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/gstreamer-1.28.9/gst/gstmacos.m src/gstreamer-1.28.9/gst/gstmacos.m
+--- a/gst/gstmacos.m	2026-11-06 06:54:37.000000000 -0600
++++ b/gst/gstmacos.m	2026-11-08 22:49:22.588196500 -0600
+@@ -14,13 +14,26 @@
+   gboolean nsapp_running;
+ };
+ 
++/* Leopard: NSApplicationDelegate is an informal protocol before 10.6 */
++#if MAC_OS_X_VERSION_MAX_ALLOWED < 1060
++@interface GstCocoaApplicationDelegate : NSObject
++#else
+ @interface GstCocoaApplicationDelegate : NSObject <NSApplicationDelegate>
++#endif
++{
++  /* 32/64-bit legacy runtime (GCC): synthesized properties need declared ivars */
++  GMutex *nsapp_mutex;
++  GCond *nsapp_cond;
++  gboolean *nsapp_running;
++}
+ @property (assign) GMutex *nsapp_mutex;
+ @property (assign) GCond *nsapp_cond;
+ @property (assign) gboolean *nsapp_running;
+ @end
+ 
+ @implementation GstCocoaApplicationDelegate
++/* GCC's Objective-C does not auto-synthesize properties */
++@synthesize nsapp_mutex, nsapp_cond, nsapp_running;
+ 
+ - (void)applicationDidFinishLaunching:(NSNotification *)notification
+ {
+@@ -50,7 +63,13 @@
+     ret = ((GstMainFunc) args->main_func) (args->argc, args->argv, args->user_data);
+   }
+ 
+-  /* Post a message so we'll break out of the message loop */
++  /* Post a message so we'll break out of the message loop.
++   * This thread has no autorelease pool (Leopard logs _NSAutoreleaseNoPool). */
++  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
++#if MAC_OS_X_VERSION_MAX_ALLOWED < 1060
++#define NSEventTypeApplicationDefined NSApplicationDefined
++#define NSEventSubtypeApplicationActivated 1
++#endif
+   NSEvent *event = [NSEvent otherEventWithType: NSEventTypeApplicationDefined
+                        location: NSZeroPoint
+                   modifierFlags: 0
+@@ -63,6 +82,7 @@
+ 
+   [NSApp stop:nil];
+   [NSApp postEvent:event atStart:YES];
++  [pool release];
+ 
+   return ret;
+ }
+@@ -78,6 +98,8 @@
+   g_cond_init (&args.nsapp_cond);
+   args.nsapp_running = FALSE;
+ 
++  /* No pool is in place yet on this thread (Leopard logs _NSAutoreleaseNoPool) */
++  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+   [NSApplication sharedApplication];
+   delegate = [[GstCocoaApplicationDelegate alloc] init];
+   delegate.nsapp_mutex = &args.nsapp_mutex;
+@@ -86,9 +108,11 @@
+   [NSApp setDelegate:delegate];
+ 
+   /* This lets us show an icon in the dock and correctly focus opened windows */
++#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1060   /* activation policies are 10.6+ */
+   if ([NSApp activationPolicy] == NSApplicationActivationPolicyProhibited) {
+     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+   }
++#endif
+ 
+   gst_thread = g_thread_new ("macos-gst-thread", (GThreadFunc) gst_thread_func, &args);
+   [NSApp run];
+@@ -96,6 +120,7 @@
+ 
+   g_mutex_clear (&args.nsapp_mutex);
+   g_cond_clear (&args.nsapp_cond);
++  [pool release];
+ 
+   return result;
+ }
+diff -ruN -x '*.orig' -x '*.rej' -x __pycache__ pristine/gstreamer-1.28.9/gst/gstregistrychunks.c src/gstreamer-1.28.9/gst/gstregistrychunks.c
+--- a/gst/gstregistrychunks.c	2026-11-06 06:54:37.000000000 -0600
++++ b/gst/gstregistrychunks.c	2026-11-08 22:44:02.270884483 -0600
+@@ -45,6 +45,22 @@
+ 
+ #include <gst/gstregistrychunks.h>
+ 
++#ifdef __APPLE__
++#include <AvailabilityMacros.h>
++#if MAC_OS_X_VERSION_MAX_ALLOWED < 1070
++/* strnlen(3) is 10.7+; Leopard's libc lacks it */
++static size_t
++leopard_strnlen (const char *s, size_t maxlen)
++{
++  size_t n = 0;
++  while (n < maxlen && s[n])
++    n++;
++  return n;
++}
++#define strnlen leopard_strnlen
++#endif
++#endif
++
+ #define GST_CAT_DEFAULT GST_CAT_REGISTRY
+ 
+ /* count string length, but return -1 if we hit the eof */
