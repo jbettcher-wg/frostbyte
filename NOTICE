@@ -1,0 +1,99 @@
+FrostByte
+Copyright (c) 2026 Jordan Bettcher. FrostByte's own code is under the MIT licence
+(LICENSE).
+
+FrostByte.app also contains the third-party software below, built from the
+source releases pinned in config/sources.lock with the patches in patches/ and
+deps/patches/. Each keeps its own licence. The full licence texts are in each
+source release (the file named in the last column) and are copied into
+FrostByte.app/Contents/Resources/Licenses/ by the packaging step.
+
+Source: everything needed to rebuild FrostByte.app exactly is this repository
+plus the upstream releases listed in config/sources.lock, which ./build.sh
+downloads. For the components under the GNU LGPL, that is the corresponding
+source the licence requires; you may also ask Jordan Bettcher for a copy. The
+LGPL libraries are shipped as separate dynamic libraries in
+FrostByte.app/Contents/Frameworks, so they can be replaced with modified
+versions (relink by rebuilding them with this repository's scripts).
+
+Component                    Version      Licence                                  Licence file in the source
+---------------------------  -----------  ---------------------------------------  --------------------------
+WPE WebKit (WebCore, WebKit, 2.54.1       GNU LGPL 2 and 2.1 (WebCore, WebKit,     Source/WebCore/LICENSE-LGPL-2.1,
+  JavaScriptCore, WTF)                    JavaScriptCore), BSD 2-clause and        Source/WebCore/LICENSE-APPLE,
+                                          3-clause (much of JavaScriptCore, WTF,   Source/JavaScriptCore/COPYING.LIB,
+                                          WebCore)                                 per-file headers
+  Skia (in WebKit)                        BSD 3-clause                             Source/ThirdParty/skia/LICENSE
+  ANGLE headers (in WebKit)               BSD 3-clause; Khronos headers: Apache    Source/ThirdParty/ANGLE/LICENSE
+                                          2.0 / MIT (Khronos)
+  xdgmime (in WebKit)                     LGPL 2.1 or Academic Free Licence 2.0    Source/ThirdParty/xdgmime/README
+  PDF.js (in WebKit)                      Apache 2.0                               Source/ThirdParty/pdfjs/LICENSE
+  mimalloc (in WebKit's bmalloc)          MIT                                      Source/bmalloc/mimalloc/mimalloc/LICENSE
+  simdutf, fast_float, dragonbox,         Apache 2.0 or MIT; Boost; BSD 3-clause;  Source/WTF/LICENSE-*.txt,
+  dtoa, SIMDe, ICU headers (in WTF)       MIT; Unicode                             Source/WTF/wtf/*/LICENSE*
+libwpe                       1.16.2       BSD 2-clause                             COPYING
+GLib                         2.84.4       GNU LGPL 2.1 or later                    COPYING
+proxy-libintl (in GLib)      0.4          GNU LGPL 2.0 or later                    COPYING
+glib-networking              2.80.1       GNU LGPL 2.1 or later                    COPYING
+libsoup                      3.6.5        GNU LGPL 2.0 or later                    COPYING
+GnuTLS                       3.8.10       GNU LGPL 2.1 or later                    LICENSE, COPYING.LESSERv2
+Nettle                       3.10.2       GNU LGPL 3 or later, or GNU GPL 2 or     COPYING.LESSERv3, COPYINGv2
+                                          later (used under the LGPL 3)
+GMP                          6.3.0        GNU LGPL 3 or later, or GNU GPL 2 or     COPYING.LESSERv3, COPYINGv2
+                                          later (used under the LGPL 3)
+libtasn1                     4.20.0       GNU LGPL 2.1 or later                    COPYING
+libgcrypt                    1.11.1       GNU LGPL 2.1 or later                    COPYING.LIB
+libgpg-error                 1.55         GNU LGPL 2.1 or later                    COPYING.LIB
+libiconv                     1.18         GNU LGPL 2.1 or later                    COPYING.LIB
+nghttp2                      1.66.0       MIT                                      COPYING
+libpsl                       0.21.5       MIT                                      COPYING
+SQLite                       3.50.4       Public domain                            (in sqlite3.c)
+libxml2                      2.13.8       MIT                                      Copyright
+Expat                        2.7.1        MIT                                      COPYING
+libffi                       3.4.6        MIT                                      LICENSE
+PCRE2                        10.44        BSD 3-clause with PCRE2 exception        LICENCE.md
+zlib                         1.3.1        zlib licence                             LICENSE
+libpng                       1.6.50       libpng licence (PNG Reference Library    LICENSE
+                                          License version 2)
+libjpeg-turbo                3.1.1        IJG licence, BSD 3-clause, zlib          LICENSE.md
+libwebp                      1.6.0        BSD 3-clause                             COPYING, PATENTS
+FreeType                     2.13.3       FreeType Licence (FTL; FreeType is       LICENSE.TXT, docs/FTL.TXT
+                                          dual-licensed, used under the FTL)
+HarfBuzz                     11.2.1       MIT ("Old MIT")                          COPYING
+Fontconfig                   2.16.0       MIT-style (Fontconfig licence)           COPYING
+ICU                          77.1         Unicode Licence v3                       LICENSE
+libepoxy                     1.5.10       MIT                                      COPYING
+libxkbcommon                 1.11.0       MIT                                      LICENSE
+GStreamer                    1.28.9       GNU LGPL 2.1 or later                    COPYING
+gst-plugins-base             1.28.9       GNU LGPL 2.1 or later                    COPYING
+gst-plugins-good             1.28.9       GNU LGPL 2.1 or later                    COPYING
+gst-plugins-bad              1.28.9       GNU LGPL 2.1 or later (built with        COPYING
+                                          -Dgpl=disabled: no GPL plugins)
+gst-libav                    1.28.9       GNU LGPL 2.1 or later                    COPYING
+FFmpeg (libavcodec,          8.0.3        GNU LGPL 2.1 or later (configured        COPYING.LGPLv2.1, LICENSE.md
+  libavformat, libavutil,                 without --enable-gpl and without
+  libswresample)                          --enable-nonfree: decoders only)
+dav1d                        1.5.2        BSD 2-clause                             COPYING
+orc                          0.4.42       BSD 2-clause                             COPYING
+libogg                       1.3.6        BSD 3-clause                             COPYING
+libvorbis                    1.3.7        BSD 3-clause                             COPYING
+GCC runtime (libstdc++,      15.3.0       GNU GPL 3 with the GCC Runtime Library   COPYING3, COPYING.RUNTIME
+  libgcc; linked statically)              Exception
+Mozilla CA certificate list  2026-11-05   Mozilla Public Licence 2.0               (header of cacert.pem)
+  (cacert.pem, via curl.se)
+Mozilla CCADB intermediate   (build date) Data published by Mozilla's CCADB        -
+  certificates
+freedesktop.org MIME         (build host) GNU GPL 2 or later (shared-mime-info's   COPYING in shared-mime-info
+  database (share/mime)                   freedesktop.org.xml; data only, shipped
+                                          as a separate file)
+Camino toolbar and tab art   2013         Mozilla Public Licence 2.0               frostbyte/resources/*/LICENSE-images.txt
+
+Not shipped in FrostByte.app, but used to build it:
+- GCC 15.3.0 (GNU GPL 3 or later) and cctools 877.8 / ld64 253.9 (Apple Public
+  Source Licence 2.0), with the patches in toolchain/darwin-cross/patches/. A
+  prebuilt toolchain tarball, when published, contains these programs; their
+  source is the pinned releases in config/sources.lock plus those patches.
+- The Mac OS X 10.5 SDK (Apple's licence). It is not part of this repository,
+  of any FrostByte download or of the prebuilt toolchain; the build takes it
+  from the user.
+- meson, gperf, unifdef, GLib's host tools and a host ICU build (their own
+  licences; run on the build machine only).

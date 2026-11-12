@@ -1,0 +1,46 @@
+MIT License
+
+Copyright (c) 2026 Jordan Bettcher
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+Scope
+
+This licence covers the original work in this repository: the FrostByte shell
+(frostbyte/), LeopardEGL (leopardegl/), the build system (build.sh, scripts/,
+config/, toolchain/ apart from the patches named below, deps/build-deps.sh),
+and the tools and documentation written for this project.
+
+It does not cover third-party software or changes made to it. Those keep their
+own licences:
+  - patches/ (changes to WebKit / WPE WebKit): GNU LGPL 2.1 and BSD licences,
+    as marked in each WebKit source file they change.
+  - deps/patches/ (changes to GLib, glib-networking, GStreamer, FFmpeg, dav1d,
+    libepoxy, libgcrypt, libgpg-error, orc): the licence of the package each
+    patch applies to.
+  - toolchain/darwin-cross/patches/gcc/: GNU GPL 3 or later (GCC).
+  - toolchain/darwin-cross/patches/cctools/: Apple Public Source License 2.0
+    (cctools, ld64).
+  - Camino toolbar and tab artwork (frostbyte/resources/toolbar/,
+    frostbyte/resources/tabs/): Mozilla Public License 2.0, see the
+    LICENSE-images.txt files beside them.
+
+NOTICE lists every third-party component that ends up inside FrostByte.app and
+its licence.

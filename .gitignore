@@ -1,0 +1,31 @@
+# Build outputs (./build.sh puts everything under build/ unless told otherwise)
+/build/
+/dist/
+frostbyte/build/
+frostbyte/build-*/
+frostbyte/mock/build/
+leopardegl/*.o
+__pycache__/
+*.pyc
+
+# Downloaded sources, toolchains and the Apple SDK never go in the repository
+# (they live in ~/.cache/frostbyte; these catch copies placed in the checkout)
+/upstream/
+*.sdk/
+*.dmg
+*.pkg
+/toolchain/darwin-cross/gcc-*/
+/toolchain/darwin-cross/src-*/
+/toolchain/darwin-cross/obj-*/
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+*.tgz
+
+# Editor and OS litter
+.DS_Store
+*~
+*.swp
+
+# mk-icon.py intermediates
+.work/
