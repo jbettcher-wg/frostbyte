@@ -1,0 +1,7 @@
+# The Mac OS X 10.5 SDK FrostByte is built against: MacOSX10.5.sdk from Xcode 3.1.4 (9M2809),
+# the last Xcode for Leopard on PowerPC. Apple's licence does not allow redistributing it, so the
+# build takes it from you (./build.sh --sdk=...). tools/sdk-digest.py computes the digest:
+#   sha256 over the sorted `sha256sum` listing of every regular file in the SDK.
+# Cross-checked 2026-11-11: the SDK extracted on Linux from the Xcode 3.1.4 DVD image and the one
+# Xcode 3.1.4 installed in /Developer/SDKs on a Mac OS X 10.5.8 machine are byte-identical.
+xcode-3.1.4  69c5956c321033084883c3f9abf2b58eb19bbe02ba037abc4a223bbd0dce3ae0  9236

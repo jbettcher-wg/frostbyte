@@ -1,0 +1,74 @@
+# Every source FrostByte's build downloads, pinned by SHA-256. scripts/stage-fetch.sh downloads
+# each into $FROSTBYTE_CACHE/dl/<category>/<file> and refuses anything whose checksum differs.
+# Nothing here is vendored: the repository holds only our patches.
+#
+# <category> <file> <sha256> <url> [<fallback url>...]
+#
+# Categories:  wpe (WebKit)  deps (libraries in FrostByte.app)  host (tools that run on the build
+# host)  toolchain (the cross compiler's sources)  trust (TLS root store)
+#
+# To bump a package: change the file name, URL and checksum together, rebuild, and update NOTICE
+# if its licence changed. `./build.sh fetch` then re-verifies the lot.
+
+# ---- WebKit -------------------------------------------------------------------------------------
+wpe  wpewebkit-2.54.1.tar.xz  0de8bdfba011f9cd63ba9a9171fa6038dd2c08237894f4082abbb821f29d3fe9  https://wpewebkit.org/releases/wpewebkit-2.54.1.tar.xz
+
+# ---- libraries shipped in FrostByte.app (deps/build-deps.sh) -----------------------------------
+deps  zlib-1.3.1.tar.gz               9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23  https://zlib.net/fossils/zlib-1.3.1.tar.gz https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz
+deps  libiconv-1.18.tar.gz            3b08f5f4f9b4eb82f151a7040bfd6fe6c6fb922efe4b1659c66ea933276965e8  https://ftp.gnu.org/gnu/libiconv/libiconv-1.18.tar.gz
+deps  libffi-3.4.6.tar.gz             b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d437747843895a4e  https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz
+deps  pcre2-10.44.tar.bz2             d34f02e113cf7193a1ebf2770d3ac527088d485d4e047ed10e5d217c6ef5de96  https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.bz2
+deps  proxy-libintl-0.4.tar.gz        13ef3eea0a3bc0df55293be368dfbcff5a8dd5f4759280f28e030d1494a5dffb  https://github.com/frida/proxy-libintl/archive/refs/tags/0.4.tar.gz
+deps  glib-2.84.4.tar.xz              8a9ea10943c36fc117e253f80c91e477b673525ae45762942858aef57631bb90  https://download.gnome.org/sources/glib/2.84/glib-2.84.4.tar.xz
+deps  expat-2.7.1.tar.xz              354552544b8f99012e5062f7d570ec77f14b412a3ff5c7d8d0dae62c0d217c30  https://github.com/libexpat/libexpat/releases/download/R_2_7_1/expat-2.7.1.tar.xz
+deps  libxml2-2.13.8.tar.xz           277294cb33119ab71b2bc81f2f445e9bc9435b893ad15bb2cd2b0e859a0ee84a  https://download.gnome.org/sources/libxml2/2.13/libxml2-2.13.8.tar.xz
+deps  sqlite-autoconf-3500400.tar.gz  a3db587a1b92ee5ddac2f66b3edb41b26f9c867275782d46c3a088977d6a5b18  https://www.sqlite.org/2025/sqlite-autoconf-3500400.tar.gz
+deps  libpng-1.6.50.tar.xz            4df396518620a7aa3651443e87d1b2862e4e88cad135a8b93423e01706232307  https://download.sourceforge.net/libpng/libpng-1.6.50.tar.xz
+deps  libjpeg-turbo-3.1.1.tar.gz      aadc97ea91f6ef078b0ae3a62bba69e008d9a7db19b34e4ac973b19b71b4217c  https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.1/libjpeg-turbo-3.1.1.tar.gz
+deps  libwebp-1.6.0.tar.gz            e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564  https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz
+deps  freetype-2.13.3.tar.xz          0550350666d427c74daeb85d5ac7bb353acba5f76956395995311a9c6f063289  https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz https://downloads.sourceforge.net/freetype/freetype-2.13.3.tar.xz
+deps  harfbuzz-11.2.1.tar.xz          093714c8548a285094685f0bdc999e202d666b59eeb3df2ff921ab68b8336a49  https://github.com/harfbuzz/harfbuzz/releases/download/11.2.1/harfbuzz-11.2.1.tar.xz
+deps  fontconfig-2.16.0.tar.xz        6a33dc555cc9ba8b10caf7695878ef134eeb36d0af366041f639b1da9b6ed220  https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.16.0.tar.xz
+deps  libgpg-error-1.55.tar.bz2       95b178148863f07d45df0cea67e880a79b9ef71f5d230baddc0071128516ef78  https://gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-1.55.tar.bz2
+deps  libgcrypt-1.11.1.tar.bz2        24e91c9123a46c54e8371f3a3a2502f1198f2893fbfbf59af95bc1c21499b00e  https://gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-1.11.1.tar.bz2
+deps  libtasn1-4.20.0.tar.gz          92e0e3bd4c02d4aeee76036b2ddd83f0c732ba4cda5cb71d583272b23587a76c  https://ftp.gnu.org/gnu/libtasn1/libtasn1-4.20.0.tar.gz
+deps  gmp-6.3.0.tar.xz                a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898  https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz
+deps  nettle-3.10.2.tar.gz            fe9ff51cb1f2abb5e65a6b8c10a92da0ab5ab6eaf26e7fc2b675c45f1fb519b5  https://ftp.gnu.org/gnu/nettle/nettle-3.10.2.tar.gz
+deps  gnutls-3.8.10.tar.xz            db7fab7cce791e7727ebbef2334301c821d79a550ec55c9ef096b610b03eb6b7  https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.10.tar.xz
+deps  glib-networking-2.80.1.tar.xz   b80e2874157cd55071f1b6710fa0b911d5ac5de106a9ee2a4c9c7bee61782f8e  https://download.gnome.org/sources/glib-networking/2.80/glib-networking-2.80.1.tar.xz
+deps  nghttp2-1.66.0.tar.xz           00ba1bdf0ba2c74b2a4fe6c8b1069dc9d82f82608af24442d430df97c6f9e631  https://github.com/nghttp2/nghttp2/releases/download/v1.66.0/nghttp2-1.66.0.tar.xz
+deps  libpsl-0.21.5.tar.gz            1dcc9ceae8b128f3c0b3f654decd0e1e891afc6ff81098f227ef260449dae208  https://github.com/rockdaboot/libpsl/releases/download/0.21.5/libpsl-0.21.5.tar.gz
+deps  libsoup-3.6.5.tar.xz            6891765aac3e949017945c3eaebd8cc8216df772456dc9f460976fbdb7ada234  https://download.gnome.org/sources/libsoup/3.6/libsoup-3.6.5.tar.xz
+deps  libepoxy-1.5.10.tar.gz          a7ced37f4102b745ac86d6a70a9da399cc139ff168ba6b8002b4d8d43c900c15  https://github.com/anholt/libepoxy/archive/refs/tags/1.5.10.tar.gz
+deps  libxkbcommon-1.11.0.tar.gz      78a6b14f16e9a55025978c252e53ce9e16a02bfdb929550b9a0db5af87db7e02  https://github.com/xkbcommon/libxkbcommon/archive/refs/tags/xkbcommon-1.11.0.tar.gz
+deps  libwpe-1.16.2.tar.xz            960bdd11c3f2cf5bd91569603ed6d2aa42fd4000ed7cac930a804eac367888d7  https://wpewebkit.org/releases/libwpe-1.16.2.tar.xz
+deps  icu4c-77_1-src.tgz              588e431f77327c39031ffbb8843c0e3bc122c211374485fa87dc5f3faff24061  https://github.com/unicode-org/icu/releases/download/release-77-1/icu4c-77_1-src.tgz
+deps  orc-0.4.42.tar.xz               7ec912ab59af3cc97874c456a56a8ae1eec520c385ec447e8a102b2bd122c90c  https://gstreamer.freedesktop.org/src/orc/orc-0.4.42.tar.xz
+deps  gstreamer-1.28.9.tar.xz         6dbf744f583131a34845cc641e803843766a9ba80ce00378a9043fd6d8d5fb38  https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-1.28.9.tar.xz
+deps  gst-plugins-base-1.28.9.tar.xz  c1fda668b520e6aef763c0eb962c032c9fe52bce322e8b00c69b4e9e847bddc1  https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-1.28.9.tar.xz
+deps  gst-plugins-good-1.28.9.tar.xz  e518cd97483706a252e95e60312a22d23dec6f5e7673af6f5bde719c3a9ca7f4  https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-1.28.9.tar.xz
+deps  gst-plugins-bad-1.28.9.tar.xz   4a4e0b7bf84f868378c48f143a7ac3a98923b488a5b74f1a35ba46bc3c43f6b1  https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-1.28.9.tar.xz
+deps  gst-libav-1.28.9.tar.xz         4b3df21fa70972a80891d2298cf32c14a62c3db4483d545c7ac018230399186b  https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-1.28.9.tar.xz
+deps  libogg-1.3.6.tar.xz             5c8253428e181840cd20d41f3ca16557a9cc04bad4a3d04cce84808677fa1061  https://downloads.xiph.org/releases/ogg/libogg-1.3.6.tar.xz
+deps  libvorbis-1.3.7.tar.xz          b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b  https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.xz
+deps  dav1d-1.5.2.tar.xz              cce88ebcffd3f790bde49caa75f97b9cc2dd54ca8f57e38c62707266ec71bc4e  https://downloads.videolan.org/pub/videolan/dav1d/1.5.2/dav1d-1.5.2.tar.xz
+deps  ffmpeg-8.0.3.tar.xz             6136812ea6d4e68bdba27e33c2a94382711cdf4f8602ffef056ff792bd6f9818  https://ffmpeg.org/releases/ffmpeg-8.0.3.tar.xz
+
+# ---- TLS trust data -----------------------------------------------------------------------------
+# Mozilla's root store as extracted by curl.se, dated copy (tools/refresh-ca.sh explains the
+# refresh). Mozilla's CCADB intermediate list has no dated URL: stage-fetch.sh downloads the live
+# report (unpinned, checked for content) unless FB_INTERMEDIATES_CSV names a local copy.
+deps  cacert.pem  427c064216761a1e72a8b30f0d954d08cb6e4435a82091fb865afd20c8497285  https://curl.se/ca/cacert-2026-11-05.pem
+
+# ---- build-host tools (scripts/stage-hosttools.sh) ---------------------------------------------
+host  meson-1.12.1.tar.gz  ab0a6ca09f8ef70c564c8241fb5a23957886a0b53fb58412b5e07eaf07dba743  https://github.com/mesonbuild/meson/releases/download/1.12.1/meson-1.12.1.tar.gz
+host  gperf-3.3.tar.gz     fd87e0aba7e43ae054837afd6cd4db03a3f2693deb3619085e6ed9d8d9604ad8  https://ftp.gnu.org/pub/gnu/gperf/gperf-3.3.tar.gz
+
+# ---- toolchain sources (toolchain/darwin-cross/build-toolchain.sh; only when no prebuilt) ----
+toolchain  gcc-15.3.0.tar.xz  fa59c1beef8995f27c4d71c1df227587189315d3e6faff1bb4306e61b0c530eb  https://ftp.gnu.org/gnu/gcc/gcc-15.3.0/gcc-15.3.0.tar.xz
+toolchain  gmp-6.2.1.tar.bz2  eae9326beb4158c386e39a356818031bd28f3124cf915f8c5b1dc4c7a36b4d7c  https://gcc.gnu.org/pub/gcc/infrastructure/gmp-6.2.1.tar.bz2
+toolchain  mpfr-4.1.0.tar.bz2 feced2d430dd5a97805fa289fed3fc8ff2b094c02d05287fd6133e7f1f0ec926  https://gcc.gnu.org/pub/gcc/infrastructure/mpfr-4.1.0.tar.bz2
+toolchain  mpc-1.2.1.tar.gz   17503d2c395dfcf106b622dc142683c1199431d095367c6aacba6eec30340459  https://gcc.gnu.org/pub/gcc/infrastructure/mpc-1.2.1.tar.gz
+toolchain  isl-0.24.tar.bz2   fcf78dd9656c10eb8cf9fbd5f59a0b6b01386205fe1934b3b287a0a1898145c0  https://gcc.gnu.org/pub/gcc/infrastructure/isl-0.24.tar.bz2
+# cctools 877.8 + ld64 253.9, tpoechtrager/cctools-port branch 877.8-ld64-253.9-ppc at f014422
+toolchain  cctools-port-f01442232f18.tar.gz  7fec21c418c577890f4f48c4db006dd96582c65b415caa81b14d540365965fee  https://github.com/tpoechtrager/cctools-port/archive/f01442232f185291c671578a81d74fe60eb189a2.tar.gz
