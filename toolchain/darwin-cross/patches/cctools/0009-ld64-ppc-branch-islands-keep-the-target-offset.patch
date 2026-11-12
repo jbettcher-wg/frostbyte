@@ -1,0 +1,90 @@
+ld64 253.9: PPC branch islands lost the target's offset, twice
+
+GCC's Darwin prologues and epilogues call into the middle of the out-of-line
+register save/restore routines (`bl saveGPR+48', `b restGPRx+48'), so the
+branch's fixup cluster carries an AddAddend. When branch_island::doPass
+redirected such a branch to an island it set the cluster's target to the
+island but left the addend, so the branch landed `addend' bytes past the
+island -- twelve islands further on for +48 -- and PPCBranchIslandAtom
+itself jumped to the final atom's address without the offset. Neither had
+ever mattered: no PPC image in this port had passed 16 MB of text before.
+
+Measured 2026-11-05 on a native GCC 15.3 cc1 for 10.5 PPC:
+mem_alloc_description<pool_usage>'s constructor (`bl saveGPR+0x30' in
+alloc-pool.o) called the island at 0xe01330, which is saveGPR_plus_48's
+island 0xe01300 plus 0x30 and named _M_replace; cc1 threw length_error from
+a static constructor and the unwinder never came back. With both fixes a
+20 MB test image resolves `bl _tgt+4' through two islands to _tgt+4.
+Applied by hand in darwin-cross/src-cctools, like 0004 and 0008.
+
+diff --git cctools/ld64/src/ld/passes/branch_island.cpp cctools/ld64/src/ld/passes/branch_island.cpp
+index bc3e9e9..57ad7df 100644
+--- a/cctools/ld64/src/ld/passes/branch_island.cpp
++++ b/cctools/ld64/src/ld/passes/branch_island.cpp
+@@ -78,6 +78,12 @@ public:
+ 	virtual uint64_t	objectAddress() const	{ return 0; }
+ 	virtual void		copyRawContent(uint8_t buffer[]) const {
+ 		int64_t displacement = _target->finalAddress() - this->finalAddress();
++		// The last hop goes to the final target *plus its offset*: GCC's
++		// Darwin prologues call into the middle of saveGPR/restGPRx
++		// (`bl saveGPR+48'), and an island that drops the offset saves the
++		// wrong registers (patch 0009).
++		if ( _target == _finalTarget.atom )
++			displacement += _finalTarget.offset;
+ 		const int64_t bl_sixteenMegLimit = 0x00FFFFFF;
+ 		if ( _target->contentType() == ld::Atom::typeBranchIsland ) {
+ 			// try optimizing away intermediate islands
+@@ -551,10 +557,12 @@ static void makeIslandsForSection(const Options& opts, ld::Internal& state, ld::
+ 		const ld::Atom* target = NULL;
+ 		uint64_t addend = 0;
+ 		ld::Fixup* fixupWithTarget = NULL;
++		ld::Fixup* fixupWithAddend = NULL;
+ 		for (ld::Fixup::iterator fit = atom->fixupsBegin(), end=atom->fixupsEnd(); fit != end; ++fit) {
+ 			if ( fit->firstInCluster() ) {
+ 				target = NULL;
+ 				fixupWithTarget = NULL;
++				fixupWithAddend = NULL;
+ 				addend = 0;
+ 			}
+ 			switch ( fit->binding ) {
+@@ -575,6 +583,7 @@ static void makeIslandsForSection(const Options& opts, ld::Internal& state, ld::
+ 			switch (fit->kind) {
+ 				case ld::Fixup::kindAddAddend:
+ 					addend = fit->u.addend;
++					fixupWithAddend = fit;
+ 					break;
+ 				case ld::Fixup::kindStorePPCBranch24:
+ 				case ld::Fixup::kindStoreTargetAddressPPCBranch24:
+@@ -623,6 +632,10 @@ static void makeIslandsForSection(const Options& opts, ld::Internal& state, ld::
+ 					if (_s_log) fprintf(stderr, "using island %p %s for branch to %s from %s\n", island, island->name(), target->name(), atom->name());
+ 					fixupWithTarget->u.target = island;
+ 					fixupWithTarget->binding = ld::Fixup::bindingDirectlyBound;
++					// the island carries the offset (finalTargetAndOffset); left in
++					// the cluster it would land the branch that far past the island
++					if ( fixupWithAddend != NULL )
++						fixupWithAddend->u.addend = 0;
+ 				}
+ 				else if ( displacement > kBranchLimit ) {
+ 					// create forward branch chain
+@@ -651,6 +664,10 @@ static void makeIslandsForSection(const Options& opts, ld::Internal& state, ld::
+ 					if (_s_log) fprintf(stderr, "using island %p %s for branch to %s from %s\n", nextTarget, nextTarget->name(), target->name(), atom->name());
+ 					fixupWithTarget->u.target = nextTarget;
+ 					fixupWithTarget->binding = ld::Fixup::bindingDirectlyBound;
++					// the island carries the offset (finalTargetAndOffset); left in
++					// the cluster it would land the branch that far past the island
++					if ( fixupWithAddend != NULL )
++						fixupWithAddend->u.addend = 0;
+ 				}
+ 				else if ( displacement < (-kBranchLimit) ) {
+ 					// create back branching chain
+@@ -678,6 +695,10 @@ static void makeIslandsForSection(const Options& opts, ld::Internal& state, ld::
+ 					if (_s_log) fprintf(stderr, "using back island %p %s for %s\n", prevTarget, prevTarget->name(), atom->name());
+ 					fixupWithTarget->u.target = prevTarget;
+ 					fixupWithTarget->binding = ld::Fixup::bindingDirectlyBound;
++					// the island carries the offset (finalTargetAndOffset); left in
++					// the cluster it would land the branch that far past the island
++					if ( fixupWithAddend != NULL )
++						fixupWithAddend->u.addend = 0;
+ 				}
+ 			}
+ 		}

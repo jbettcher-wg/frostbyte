@@ -1,0 +1,57 @@
+GCC 15.3.0, Darwin ppc64: a small BLKmode record passed wholly in memory is
+read from where the caller stored it
+
+A record that darwin64 passes as BLKmode (any RECORD_TYPE with a BLKmode
+field, e.g. struct { union { int; struct { char a, b, c; }; }; }, which is
+what JavaScriptCore's Wasm::BBQJIT::Location is) and whose size is 1, 2 or
+4 bytes was stored right-justified in its 8-byte parameter slot by the
+caller and read left-justified by the callee once it was the 9th or later
+doubleword argument. Measured on the T4240 with patches/gcc15p/test:
+"mem B4 size 4: FAIL", "mem C4 size 4: FAIL", every other shape ok.
+
+Cause: rs6000_darwin64_record_arg returns PARALLEL [(nil) 0] when nothing
+goes in registers. The caller treats that as pass-on-stack and stores at
+locate.offset, which rs6000_function_arg_padding pads downward for sizes
+1, 2 and 4; the callee sees a non-null entry_parm and
+assign_parm_find_stack_rtl takes locate.slot_offset, the unpadded slot.
+
+Which side is right: Apple's convention is right-justified. The Mac OS X
+ABI Function Call Guide, 64-bit PowerPC, parameter area rule 3: "If the
+aligned size is 1, 2 or 4, the argument is preceded by padding". Apple
+gcc-4.0.1 (build 5465) and gcc-4.2.1 on Mac OS X 10.5, -arch ppc64, store it
+right-justified as callers (stw r0,116(r1) for slot 112) and read it
+left-justified as callees (addi r3,r1,256 for slot 256): Apple's compilers
+carry the same bug, inherited from the same darwin64 code, and fail the
+same test against themselves. The fix is therefore on the callee side:
+return NULL_RTX when nothing is in registers, so the generic code uses
+locate.offset on both sides. Callers are unchanged, so GCC 15 callers stay
+compatible with Apple-compiled callers; a GCC 15 callee now agrees with
+any caller (GCC 15 or Apple), and only an Apple-compiled callee still
+misreads, as it does for Apple's own callers.
+
+Sizes 3, 5, 6, 7 and 8+ pad upward, where offset == slot_offset, so their
+code does not change. Records with any part in GPRs, FPRs or VRs keep the
+PARALLEL and do not change.
+
+--- a/gcc/config/rs6000/rs6000-call.cc
++++ b/gcc/config/rs6000/rs6000-call.cc
+@@ -1464,6 +1464,19 @@
+     {
+       if (retval)
+ 	return NULL_RTX;    /* doesn't go in registers at all */
++      /* Nothing at all went in registers: say so with NULL_RTX, not with a
++	 PARALLEL holding only the memory marker.  A non-null entry_parm makes
++	 assign_parm_find_stack_rtl read the argument from its unpadded slot
++	 (locate.slot_offset), while the caller stores it at the padded
++	 locate.offset.  rs6000_function_arg_padding pads a 1, 2 or 4 byte
++	 BLKmode record downward, so such a record (e.g. a 4-byte struct
++	 wrapping a union with a 3-byte member) passed as the 9th or later
++	 doubleword was stored right-justified by the caller and read
++	 left-justified by the callee.  The Mac OS X ABI Function Call Guide
++	 (64-bit PowerPC, parameter area rule 3) and Apple gcc-4.0.1's own
++	 callers both right-justify it; Apple's callees share this bug.  */
++      if (k == 1)
++	return NULL_RTX;
+       kbase = 0;
+       rvec[0] = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
+     }

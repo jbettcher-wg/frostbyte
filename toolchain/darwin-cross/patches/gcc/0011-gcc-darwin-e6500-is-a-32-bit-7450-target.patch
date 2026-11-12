@@ -1,0 +1,52 @@
+GCC 15.3.0, Darwin: -mcpu=e6500 is a 32-bit 7450 target, not a 970
+
+Two things made every -mcpu=e6500 object on powerpc-apple-darwin9 G5-only:
+the e6500 entry carries MASK_POWERPC64, so 32-bit code used 64-bit
+registers, and rs6000_darwin_file_start's .machine table matched e6500's
+MFCRF against the 970 row and emitted `.machine ppc970' even with
+-mno-powerpc64. A ppc970 image is refused by a host whose cpusubtype is
+7450, which is what Mac OS X on the e6500 reports: measured
+2026-11-05 on the T4240, "Bad CPU type in executable". With this patch
+-mcpu=e6500 keeps 32-bit registers unless -mpowerpc64 is explicit (beside
+the existing OS_MISSING_POWERPC64 arm) and emits `.machine ppc7450'; the
+image is cpusubtype 7400, runs on the e6500, and still uses isel.
+
+--- a/gcc/config/rs6000/rs6000.cc
++++ b/gcc/config/rs6000/rs6000.cc
+@@ -3767,6 +3767,19 @@
+     rs6000_isa_flags &= ~OPTION_MASK_POWERPC64;
+ #endif
+ 
++#if TARGET_MACHO
++  /* Darwin grades a 32-bit PPC image by its cpusubtype, and an image that
++     uses 64-bit registers must say ppc970, which only a 970 host will exec.
++     The e6500 runs Mac OS X as a 7450, so -mcpu=e6500 keeps
++     32-bit registers in 32-bit code unless -mpowerpc64 is explicit.  */
++  if (TARGET_32BIT
++      && TARGET_POWERPC64
++      && cpu_index >= 0
++      && processor_target_table[cpu_index].processor == PROCESSOR_PPCE6500
++      && !(rs6000_isa_flags_explicit & OPTION_MASK_POWERPC64))
++    rs6000_isa_flags &= ~OPTION_MASK_POWERPC64;
++#endif
++
+   if (rs6000_tune_index >= 0)
+     tune_index = rs6000_tune_index;
+   else if (cpu_index >= 0)
+@@ -21194,6 +21207,16 @@
+      matches the argument, has a bit set in IF_SET that is also set
+      in the target flags, or has a NULL name.  */
+ 
++  /* The e6500 is a 7450 to Darwin (AltiVec, no 64-bit registers in 32-bit
++     code, see rs6000_option_override_internal); its MFCRF would otherwise
++     match the 970 row below and mark every object ppc970, which a 7450
++     host refuses to exec.  */
++  if (strcmp (cpu_id, "e6500") == 0 && !TARGET_POWERPC64)
++    {
++      fprintf (asm_out_file, "\t.machine ppc7450\n");
++      return;
++    }
++
+   i = 0;
+   while (mapping[i].arg != NULL
+ 	 && strcmp (mapping[i].arg, cpu_id) != 0

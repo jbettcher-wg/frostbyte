@@ -1,0 +1,18 @@
+# Prebuilt toolchains for ./build.sh (scripts/stage-toolchain.sh). One tarball per BUILD host,
+# all made by toolchain/darwin-cross/make-toolchain-tarball.sh from the same sources and patches.
+# A host with no published tarball (sha256 "-") builds the toolchain from source instead.
+#
+# The tarballs do not contain the Mac OS X 10.5 SDK or anything generated from it (GCC's
+# include-fixed headers): the install step links your SDK in and regenerates those.
+#
+# id <toolchain id>   bump when the GCC/cctools sources or patches change
+# <host tag> <file> <sha256> <url>
+# The linux-x86_64 tarball needs glibc 2.38 and GCC 13's libstdc++ or newer (Ubuntu 24.04, Debian 13,
+# Fedora 39, current Arch); on an older system ./build.sh notices and builds from source.
+id fbtc-gcc15.3.0p-ld64.253.9-r1
+
+linux-x86_64   frostbyte-toolchain-fbtc-gcc15.3.0p-ld64.253.9-r1-linux-x86_64.tar.xz  b274bc2a341ca49cf2e14b867c8a1652d8d8f8e88a4f5d29b526d794e687c805  https://github.com/jbettcher-wg/frostbyte/releases/download/v0.3/frostbyte-toolchain-fbtc-gcc15.3.0p-ld64.253.9-r1-linux-x86_64.tar.xz
+linux-aarch64  frostbyte-toolchain-fbtc-gcc15.3.0p-ld64.253.9-r1-linux-aarch64.tar.xz  -  -
+macos-x86_64   frostbyte-toolchain-fbtc-gcc15.3.0p-ld64.253.9-r1-macos-x86_64.tar.xz  -  -
+macos-arm64    frostbyte-toolchain-fbtc-gcc15.3.0p-ld64.253.9-r1-macos-arm64.tar.xz  -  -
+darwin9-ppc64  frostbyte-toolchain-fbtc-gcc15.3.0p-ld64.253.9-r1-darwin9-ppc64.tar.gz  -  -

@@ -1,0 +1,34 @@
+GCC 15.3.0, Darwin: give std::source_location objects linker-visible names
+
+The C++ front end (cp/cp-gimplify.cc, fold_builtin_source_location) names
+each __builtin_source_location() object with the prefix "Lsrc_loc" and emits
+it in .data. On Darwin a capital-L label is assembler-local: no symbol is
+produced, so under .subsections_via_symbols ld64 cannot see an atom boundary
+and folds the object into the preceding atom. When that atom is a weak
+definition (any libstdc++ template static, e.g. regex's _M_is_word::__s)
+ld64 coalesces it with another TU's copy and the trailing bytes vanish;
+every reference then resolves to the surviving atom + offset, i.e. into an
+unrelated object's data. Measured 2026-11-02 on a C++ program: the
+logger read function_name() as NULL and died in strlen. darwin.h already
+does exactly this for the "LC" literal prefix (lC); this extends it.
+
+--- a/gcc/config/darwin.h
++++ b/gcc/config/darwin.h
+@@ -997,6 +997,17 @@
+   do {							\
+     if (strcmp ("LC", PREFIX) == 0)			\
+       sprintf (LABEL, "*%s%ld", "lC", (long)(NUM));	\
++    else if (strcmp ("Lsrc_loc", PREFIX) == 0)		\
++      /* The C++ FE names each std::source_location	\
++	 object with this prefix and emits it as data.	\
++	 A capital L is assembler-local and leaves no	\
++	 symbol, so ld64's atom model folds the object	\
++	 into the preceding atom; when that atom is a	\
++	 coalesced weak definition the object is	\
++	 silently dropped and every reference lands	\
++	 in another TU's data (measured	\
++	 on 10.5).  'l' is linker-visible, as for lC.  */	\
++      sprintf (LABEL, "*%s%ld", "lsrc_loc", (long)(NUM));	\
+     else if (strcmp ("Lubsan_data", PREFIX) == 0)	\
+       sprintf (LABEL, "*%s%ld", "lubsan_data", (long)(NUM));\
+     else if (strcmp ("Lubsan_type", PREFIX) == 0)	\

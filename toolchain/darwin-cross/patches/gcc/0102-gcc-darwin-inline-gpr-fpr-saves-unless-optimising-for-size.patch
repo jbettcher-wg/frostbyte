@@ -1,0 +1,37 @@
+GCC 15.3.0, Darwin: inline GPR/FPR/VR saves and restores unless optimising
+for size
+
+rs6000_savres_strategy sends Darwin to the out-of-line saveGPR/restGPRx
+(and saveFP/restFP) routines whenever more than two GPRs or four FPRs are
+saved, at every optimisation level; ELF/V4 inlines them unless -Os. With
+the routines, every non-leaf C++ function in JavaScriptCore pays a bl/blr
+pair into a long std/ld run on entry and exit. This gives Darwin the ELF
+behaviour: inline unless optimize_size; -Os keeps the out-of-line code.
+
+Measured (FrostByte JIT work, private cc1plus in build/gccx): JSC parse
+5-7.5% faster, Octane CodeLoad +9% on the T4240. Applied only to the
+toolchain-user64-gcc15p userland compiler; the kernel toolchain does not
+take patches from this directory.
+
+Origin: leopard_webkitbrowser patches/toolchain-gcc15-darwin-inline-savres.patch
+
+--- a/gcc/config/rs6000/rs6000-logue.cc
++++ b/gcc/config/rs6000/rs6000-logue.cc
+@@ -366,6 +366,17 @@
+ 	    strategy |= SAVE_INLINE_VRS | REST_INLINE_VRS;
+ 	}
+     }
++  else if (DEFAULT_ABI == ABI_DARWIN && !optimize_size)
++    {
++      /* Inline saves and restores when optimizing for speed, as for
++	 ABI_V4/ELF above.  Darwin used out-of-line saveGPR/restGPRx even at
++	 -O2; inlining them measured parse 5-7.5% and Octane CodeLoad 9%
++	 faster in JavaScriptCore on the T4240 (patch 0102).
++	 -Os keeps the out-of-line routines.  */
++      strategy |= SAVE_INLINE_FPRS | REST_INLINE_FPRS;
++      strategy |= SAVE_INLINE_GPRS | REST_INLINE_GPRS;
++      strategy |= SAVE_INLINE_VRS | REST_INLINE_VRS;
++    }
+   else if (DEFAULT_ABI == ABI_DARWIN)
+     {
+       if (info->first_fp_reg_save > 60)

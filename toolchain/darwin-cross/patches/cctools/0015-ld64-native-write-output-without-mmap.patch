@@ -1,0 +1,36 @@
+ld64 253.9, native on the T4240 port only: write the output with write(2)
+
+On this port's kernel, stores through a MAP_SHARED file mapping never reach
+the file (exit, munmap and msync all leave zeros).
+ld64's Darwin-hosted path ftruncate()s a temp file, mmap()s it shared,
+writes the image into the mapping and renames it into place, so every
+output whose directory is on HFS came out the right size and all zeros --
+measured 2026-11-06 natively building ninja on a T4240: b/ninja, 379596
+bytes, hexdump all 00, "cannot execute binary file". A bare output name
+skipped the mmap path only by accident (no '/' in it, so ld64 never
+statfs()es a directory).
+
+This forces the calloc + write(2) path unless LD_USE_MMAP is set, which is
+also how to verify the kernel fix with the same ld. Applied only by
+darwin-cross/build-cctools-native.sh: the cross ld on Linux never compiles
+the mmap path (#ifdef __APPLE__). Drop it once the kernel is fixed.
+
+--- a/cctools/ld64/src/ld/OutputFile.cpp
++++ b/cctools/ld64/src/ld/OutputFile.cpp
+@@ -2872,6 +2872,16 @@
+ 		}
+ 	}
+ 	
++	// patch 0015: on the T4240's Leopard kernel, stores through a
++	// MAP_SHARED file mapping never reach the file, so
++	// every output written below through mmap came out as zeros. Write with
++	// write(2) instead; LD_USE_MMAP=1 restores the mmap path, which is how
++	// to check the kernel fix with this same ld.
++	if ( outputIsMappableFile && getenv("LD_USE_MMAP") == NULL ) {
++		outputIsMappableFile = false;
++		(void)unlink(_options.outputFilePath());	// the write path opens without O_TRUNC
++	}
++
+ 	//fprintf(stderr, "outputIsMappableFile=%d, outputIsRegularFile=%d, path=%s\n", outputIsMappableFile, outputIsRegularFile, _options.outputFilePath());
+ 	
+ 	int fd;

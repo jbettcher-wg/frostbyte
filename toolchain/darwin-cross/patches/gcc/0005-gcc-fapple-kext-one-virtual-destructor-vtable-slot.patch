@@ -1,0 +1,422 @@
+From: Jordan Bettcher <thebettcher@gmail.com>
+Subject: [PATCH 5/5] gcc: -fapple-kext gives a virtual destructor ONE vtable slot
+
+Against FSF GCC 15.3.0, powerpc-apple-darwin9. Applied by
+darwin-cross/build-gcc.sh.
+
+Every hardware-driving C++ IOKit kext Apple ever shipped fails to load on
+this port with the same message, from the vtable patcher in libsa:
+
+  13AppleK2Driver is not compatible with its superclass, 9IOService
+  superclass changed? slot 12: superclass has
+  "__ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase3Ev",
+  extension expects "__ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase4Ev"
+
+One slot of skew, in the first vtable the patcher was ever handed, and it is
+the destructor. Apple's kext C++ ABI gives a virtual destructor ONE vtable
+slot, holding the deleting destructor; the Itanium C++ ABI gives it TWO, the
+complete-object destructor then the deleting one. Everything after shifts by
+one and nothing matches again.
+
+-fapple-kext exists to select Apple's shape. Measured on this toolchain
+before the patch: the flag makes no difference whatsoever to vtable layout.
+That is the bug. It is not a design difference and it is not xnu's fault.
+
+What upstream kept of -fapple-kext, and what it dropped
+-------------------------------------------------------
+
+Apple's own gcc carried the kext ABI as APPLE LOCAL changes inside the C++
+front end. Upstream took the option and almost none of the behaviour:
+
+  gcc/config/darwin.opt       declares -fapple-kext -- NOT gcc/c-family/c.opt,
+                              which is where it lived in Apple's tree. So it
+                              is a Darwin-only option and the C++ front end
+                              cannot see the variable at all, which is why
+                              this patch needs a target hook rather than an
+                              `if (flag_apple_kext)'.
+  gcc/config/darwin.h:1229    TARGET_CXX_CDTOR_RETURNS_THIS, the one piece of
+                              the ABI that did survive, and as a target hook
+  gcc/config/darwin.h:1231    TARGET_KEXTABI, used in exactly two places
+  gcc/config/darwin.cc:3274   force_overridable = TARGET_KEXTABI
+                              && DARWIN_VTABLE_P (decl), and three lines
+                              above it:  #define DARWIN_VTABLE_P(DECL) 0
+                              with the comment "TODO: Add a language hook for
+                              identifying if a decl is a vtable."
+
+`grep -ri kext gcc/cp/` finds nothing. The vtable half of the ABI was never
+merged, and the one surviving mention of vtables is wired to a constant 0
+with a TODO. So the flag is not bit-rotted or half-merged: the destructor
+behaviour was never there.
+
+Where the decision is actually made
+-----------------------------------
+
+gcc/cp/class.cc, create_vtable_ptr(). It walks TYPE_FIELDS and gives a
+vtable slot to every FUNCTION_DECL whose DECL_VINDEX is set and is not yet
+an INTEGER_CST. build_cdtor_clones() has already turned one virtual
+destructor into three: D2 (base), D1 (complete) and D0 (deleting).
+copy_fndecl_with_name() clears DECL_VIRTUAL_P and DECL_VINDEX for the base
+clone only -- class.cc:5199 -- so D1 and D0 both arrive here and both get a
+slot. That is the pair, and that is the only reason there are two.
+
+It is one slot per hierarchy, not per flag
+------------------------------------------
+
+The first cut of this patch keyed the layout off -fapple-kext alone. That is
+wrong, and Apple's own binary says so. In the shipped 10.5.8 ppc kernel every
+descendant of OSMetaClassBase has a single destructor slot, but
+__ZTV12OSSymbolPool -- a kernel-private class in libkern/c++/OSSymbol.cpp,
+virtual destructor, no relation to OSMetaClassBase, compiled in the same
+translation unit with the same flags -- has TWO, D1 then D0. Read out and
+symbolized:
+
+  Apple  __ZTV12OSSymbolPool  word 2 __ZN12OSSymbolPoolD1Ev
+                              word 3 __ZN12OSSymbolPoolD0Ev
+
+So the layout is a property of the class, and the property is the
+`apple_kext_compatibility' attribute -- which GCC still implements the
+handler for (darwin_handle_kext_attribute), still documents as "2.95
+vtable-compatibility", and xnu still puts on OSMetaClassBase, as
+APPLE_KEXT_COMPATIBILITY at libkern/libkern/c++/OSMetaClass.h:46. Every
+OSObject descendant inherits it; OSSymbolPool does not have it. Keying off
+the attribute reproduces Apple's kernel for both, and leaves plain C++ in a
+kext compiling to the standard ABI, which is what it did on Apple's
+toolchain too.
+
+What this patch does
+--------------------
+
+  gcc/target.def            new cxx target hook kext_vtable_abi_p (tree
+                            type), default false. Per class, not per
+                            translation unit, for the reason above.
+  gcc/config/darwin.{cc,h}  Darwin's implementation: flag_apple_kext and the
+                            attribute on the class or any base.
+  gcc/config/darwin-protos.h  its declaration.
+  gcc/doc/tm.texi{,.in}     documented, because an undocumented hook makes
+                            the build regenerate tm.texi and the tree then
+                            looks locally modified.
+  gcc/cp/class.cc           three changes:
+
+1. create_vtable_ptr: skip the COMPLETE-object destructor clone, so the
+   surviving slot is the deleting one. Which of the two to drop is not
+   arbitrary -- Apple's slot holds D0, measured.
+
+2. finish_struct_1: the loop that assigns DECL_VINDEX walks BINFO_VIRTUALS,
+   so it no longer reaches D1, which is left carrying check_for_override's
+   non-INTEGER_CST marker (the decl itself, class.cc:3226, or
+   error_mark_node). Anything that builds a virtual call to the complete
+   destructor -- `p->~T()' on a polymorphic p -- would then index the vtable
+   with that marker. So point D1's DECL_VINDEX at the surviving slot.
+
+   This is Apple's semantics and not an approximation of them: in this ABI a
+   virtual complete-object destruction deletes. darwin.cc's own comment on
+   darwin_handle_kext_attribute says so out loud -- "objects CANNOT be
+   allocated on the stack or as globals UNLESS they have a completely empty
+   `operator delete'". A direct, non-virtual call still reaches D1 and still
+   does not delete, so the module's static destructor list is unaffected,
+   and build_cdtor_clones still builds all three clones, so every direct
+   call is unchanged. Checked in the generated ppc: `delete p' and
+   `p->~Mid()' both become one indirect branch through the single slot, and
+   a static object of such a class still destructs through D1.
+
+   Apple went further and did not emit D1 at all -- their kernel exports
+   __ZN15OSMetaClassBaseD2Ev and D0Ev and no D1Ev. Ours still exports D1Ev.
+   That is one extra symbol, not a layout difference, and no Apple-built
+   kext can reference a symbol Apple's compiler never emitted. Keeping it is
+   the deliberately smaller change: it leaves direct, non-deleting
+   destruction of a stack or static object correct, which is the one thing
+   Apple's ABI gave up.
+
+3. dfs_build_vtbl_initializer: stop nulling the destructor slot of an
+   abstract class under this ABI. See below.
+
+The two zero destructor slots were not what they looked like
+------------------------------------------------------------
+
+An earlier analysis recorded that both of this port's destructor slots were
+0, called it "the same class of latent hole as the CONFIG_NOKLD typo", and
+asked for it to be understood before it was dismissed. It is neither
+Darwin-specific nor kext-specific nor a hole in the way that note meant. It
+is this, class.cc:10571:
+
+      /* Don't refer to a virtual destructor from a constructor
+         vtable or a vtable for an abstract class, since destroying
+         an object under construction is undefined behavior and we
+         don't want it to be considered a candidate for speculative
+         devirtualization.  But do create the thunk for ABI
+         compliance.  */
+      if (DECL_DESTRUCTOR_P (fn_original)
+          && (CLASSTYPE_PURE_VIRTUALS (DECL_CONTEXT (fn_original))
+              || orig_binfo != binfo))
+        init = size_zero_node;
+
+OSMetaClassBase has pure virtuals, so it is abstract, so BOTH its destructor
+slots were nulled deliberately. Reproduced on the host compiler too (g++
+16.2.1, x86_64-linux, -fno-rtti): add one pure virtual to a class with a
+virtual destructor and its D1/D0 entries become 0; take it away and they
+come back. Nothing branches to 0 that was not already undefined behaviour,
+and -fapple-kext had nothing to do with it -- it is an optimisation that
+postdates gcc-4.0.1, which is why Apple's binary has a real pointer there
+and ours did not.
+
+It is still a real bug HERE, for a reason that has nothing to do with code
+generation, and this is the part that analysis did not reach. libsa's
+resolveKernelVTable (kld_patch.c) builds the kernel side of the comparison
+by walking the kernel's own vtable from the two-word preamble and STOPPING
+AT THE FIRST ZERO WORD:
+
+    curEntry = vtableEntries + kVTablePreambleLen;
+    for (classSize = 0; curEntry < endSection && *curEntry; classSize++)
+        curEntry++;
+
+A zero in the first function slot therefore gives that class a patch table
+of length zero, and resolveKextVTable's comparison loop -- the loop that
+produced the message at the top of this patch -- never executes. Measured in
+this port's kernel before the patch: 16 of 220 kernel vtables had a zero
+first function slot, so for sixteen classes, among them IOEventSource,
+IOMemoryDescriptor, IODTPlatformExpert, IOCPU, IOMapper, IOUserNotification
+and OSMetaClass, superclass vtable checking and patching were silently
+switched off entirely. Apple's kernel has zero such tables, out of 204.
+Silently skipping the check is worse than failing it, so the
+abstract-class half of that condition has to go in kext mode.
+
+The construction-vtable half (orig_binfo != binfo) is left alone: it is
+about objects under construction rather than about layout, and it needs
+virtual bases, which this ABI does not have.
+
+Measured, after
+---------------
+
+__ZTV15OSMetaClassBase, read out word by word and symbolized, from Apple's
+own unstripped ppc mach_kernel in MacOSXUpdCombo10.5.8.pkg (Darwin 9.8.0,
+xnu-1228.15.4) and from this port's kernel built with the patched compiler:
+identical, slot for slot, 16 function slots, __ZN15OSMetaClassBaseD0Ev at
+word 2, __ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase4Ev at function slot
+12. Before the patch it was 17 function slots with _RESERVED...3 at slot 12
+and two zeros at words 2 and 3.
+
+Across the whole kernel, 204 vtables exist in both binaries under the same
+name. Before: 203 of them differed in length from Apple's. After: none do.
+
+Without -fapple-kext the generated assembly is byte-identical to the
+unpatched compiler, which is the whole point of hanging it off the hook.
+
+--- a/gcc/config/darwin.cc
++++ b/gcc/config/darwin.cc
+@@ -3330,6 +3330,46 @@
+   return flag_apple_kext;
+ }
+ 
++/* True if TYPE, or any of its base classes, carries the
++   apple_kext_compatibility attribute.  */
++
++static bool
++darwin_type_has_kext_compatibility_p (tree type)
++{
++  if (!type || !RECORD_OR_UNION_TYPE_P (type))
++    return false;
++  if (lookup_attribute ("apple_kext_compatibility", TYPE_ATTRIBUTES (type)))
++    return true;
++  tree binfo = TYPE_BINFO (type);
++  if (!binfo)
++    return false;
++  tree base_binfo;
++  for (unsigned i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
++    if (darwin_type_has_kext_compatibility_p (BINFO_TYPE (base_binfo)))
++      return true;
++  return false;
++}
++
++/* True, iff TYPE's vtable uses the kext layout: one virtual destructor slot
++   holding the deleting destructor, rather than the Itanium ABI's
++   complete/deleting pair.
++
++   -fapple-kext alone is NOT the condition, and getting that wrong is
++   measurable. In Apple's shipped 10.5.8 ppc mach_kernel every descendant of
++   OSMetaClassBase -- which is declared `} APPLE_KEXT_COMPATIBILITY;', i.e.
++   with this attribute -- has a single destructor slot, while OSSymbolPool,
++   a kernel-private class in the same translation unit with a virtual
++   destructor and no relation to OSMetaClassBase, keeps both slots. So the
++   layout is a property of the attributed hierarchy, not of the flag, which
++   is also what the attribute is documented to mean a few hundred lines
++   above: "2.95 vtable-compatibility".  */
++
++bool
++darwin_kext_vtable_abi_p (tree type)
++{
++  return flag_apple_kext && darwin_type_has_kext_compatibility_p (type);
++}
++
+ void
+ darwin_override_options (void)
+ {
+--- a/gcc/config/darwin.h
++++ b/gcc/config/darwin.h
+@@ -1228,6 +1228,11 @@
+ /* For Apple KEXTs, we make the constructors return this to match gcc
+    2.95.  */
+ #define TARGET_CXX_CDTOR_RETURNS_THIS (darwin_kextabi_p)
++/* ... and inside the apple_kext_compatibility hierarchy we give a virtual
++   destructor one vtable slot, the deleting one, rather than the Itanium
++   ABI's complete/deleting pair, again to match gcc 2.95 and every C++ kext
++   Apple ever shipped.  */
++#define TARGET_CXX_KEXT_VTABLE_ABI_P (darwin_kext_vtable_abi_p)
+ #define TARGET_KEXTABI flag_apple_kext
+ 
+ /* We have target-specific builtins.  */
+--- a/gcc/config/darwin-protos.h
++++ b/gcc/config/darwin-protos.h
+@@ -124,6 +124,7 @@
+ extern void darwin_asm_output_anchor (rtx symbol);
+ extern bool darwin_use_anchors_for_symbol_p (const_rtx symbol);
+ extern bool darwin_kextabi_p (void);
++extern bool darwin_kext_vtable_abi_p (tree type);
+ extern void darwin_override_options (void);
+ extern void darwin_patch_builtins (void);
+ extern void darwin_rename_builtins (void);
+--- a/gcc/cp/class.cc
++++ b/gcc/cp/class.cc
+@@ -6602,7 +6602,15 @@
+   for (fn = TYPE_FIELDS (t); fn; fn = DECL_CHAIN (fn))
+     if (TREE_CODE (fn) == FUNCTION_DECL
+ 	&& DECL_VINDEX (fn) && !DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn)
+-	&& TREE_CODE (DECL_VINDEX (fn)) != INTEGER_CST)
++	&& TREE_CODE (DECL_VINDEX (fn)) != INTEGER_CST
++	/* In the Apple kext ABI a virtual destructor gets one vtable slot,
++	   not the Itanium ABI's complete/deleting pair.  The slot holds the
++	   deleting destructor, so it is the complete-object clone that is
++	   left out here; finish_struct_1 then aims its DECL_VINDEX at the
++	   surviving slot.  build_cdtor_clones still builds all three
++	   clones, so a direct call to any of them is unchanged.  */
++	&& !(DECL_COMPLETE_DESTRUCTOR_P (fn)
++	     && targetm.cxx.kext_vtable_abi_p (t)))
+       {
+ 	tree new_virtual = make_node (TREE_LIST);
+ 
+@@ -8002,6 +8010,35 @@
+ 	  else if (TREE_CODE (DECL_VINDEX (fndecl)) != INTEGER_CST)
+ 	    DECL_VINDEX (fndecl) = build_int_cst (NULL_TREE, vindex);
+ 	}
++
++      /* In the Apple kext ABI the complete-object destructor has no vtable
++	 slot of its own, so the loop above never reached it and it is still
++	 carrying check_for_override's non-INTEGER_CST marker.  Anything that
++	 builds a virtual call to it -- `p->~T()' on a polymorphic p -- would
++	 then index the vtable with that marker.  Point it at the one
++	 destructor slot, which holds the deleting destructor.  That is
++	 Apple's semantics, not an approximation of them: in this ABI a
++	 virtual complete-object destruction deletes, which is why
++	 -fapple-kext objects may not live on the stack or in static storage
++	 unless `operator delete' is empty (see darwin_handle_kext_attribute).
++	 A *direct*, non-virtual call still reaches the complete-object
++	 destructor and still does not delete, so the module's static
++	 destructor list is unaffected.  */
++      if (targetm.cxx.kext_vtable_abi_p (t))
++	{
++	  tree comp_dtor = NULL_TREE, del_dtor = NULL_TREE;
++	  for (fn = TYPE_FIELDS (t); fn; fn = DECL_CHAIN (fn))
++	    if (TREE_CODE (fn) == FUNCTION_DECL && DECL_DESTRUCTOR_P (fn))
++	      {
++		if (DECL_COMPLETE_DESTRUCTOR_P (fn))
++		  comp_dtor = fn;
++		else if (DECL_DELETING_DESTRUCTOR_P (fn))
++		  del_dtor = fn;
++	      }
++	  if (comp_dtor && del_dtor && DECL_VINDEX (del_dtor)
++	      && TREE_CODE (DECL_VINDEX (del_dtor)) == INTEGER_CST)
++	    DECL_VINDEX (comp_dtor) = DECL_VINDEX (del_dtor);
++	}
+     }
+ 
+   finish_struct_bits (t);
+@@ -10574,9 +10611,32 @@
+ 		 an object under construction is undefined behavior and we
+ 		 don't want it to be considered a candidate for speculative
+ 		 devirtualization.  But do create the thunk for ABI
+-		 compliance.  */
++		 compliance.
++
++		 The Apple kext ABI opts out of the abstract-class half of
++		 that, because for its one consumer the null is not a lost
++		 optimization but a silently skipped safety check.  xnu's
++		 kext loader reads the kernel's own vtable to work out what
++		 the superclass looks like, and it finds the end of the
++		 table by scanning for a zero word (libsa/kld_patch.c,
++		 resolveKernelVTable).  A null in the FIRST function slot
++		 therefore reports the class as having no virtual functions
++		 at all, and the loader's slot-by-slot comparison against
++		 the extension's vtable -- the whole mechanism that stops an
++		 incompatible kext loading -- never runs for it.  Measured:
++		 16 of 220 vtables in this kernel were affected, among them
++		 IOEventSource, IOMemoryDescriptor and IOCPU; Apple's own
++		 10.5.8 ppc mach_kernel has none out of 204, and carries the
++		 real __ZN15OSMetaClassBaseD0Ev pointer in the slot of a
++		 class that is abstract.
++
++		 Construction vtables are still nulled: that half is about
++		 objects under construction rather than about layout, and it
++		 needs virtual bases, which this ABI does not have.  */
+ 	      if (DECL_DESTRUCTOR_P (fn_original)
+-		  && (CLASSTYPE_PURE_VIRTUALS (DECL_CONTEXT (fn_original))
++		  && ((CLASSTYPE_PURE_VIRTUALS (DECL_CONTEXT (fn_original))
++		       && !targetm.cxx.kext_vtable_abi_p
++			     (DECL_CONTEXT (fn_original)))
+ 		      || orig_binfo != binfo))
+ 		init = size_zero_node;
+ 	    }
+--- a/gcc/doc/tm.texi
++++ b/gcc/doc/tm.texi
+@@ -11202,6 +11202,17 @@
+ @code{false}.
+ @end deftypefn
+ 
++@deftypefn {Target Hook} bool TARGET_CXX_KEXT_VTABLE_ABI_P (tree @var{type})
++This hook should return @code{true} if the virtual table of the C++ class
++@var{type} follows the Apple @code{kext} C++ ABI, as selected by
++@option{-fapple-kext}.  In that ABI a polymorphic class with a virtual
++destructor gets a single virtual table slot for it, holding the deleting
++destructor, instead of the Itanium C++ ABI's pair of complete-object and
++deleting destructor slots.  It is asked per class because the ABI applies
++only to a designated class hierarchy, not to every class in the translation
++unit.  The default is to return @code{false}.
++@end deftypefn
++
+ @deftypefn {Target Hook} bool TARGET_CXX_KEY_METHOD_MAY_BE_INLINE (void)
+ This hook returns true if the key method for a class (i.e., the method
+ which, if defined in the current translation unit, causes the virtual
+--- a/gcc/doc/tm.texi.in
++++ b/gcc/doc/tm.texi.in
+@@ -7230,6 +7230,8 @@
+ 
+ @hook TARGET_CXX_CDTOR_RETURNS_THIS
+ 
++@hook TARGET_CXX_KEXT_VTABLE_ABI_P
++
+ @hook TARGET_CXX_KEY_METHOD_MAY_BE_INLINE
+ 
+ @hook TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY
+--- a/gcc/target.def
++++ b/gcc/target.def
+@@ -6602,6 +6602,22 @@
+  bool, (void),
+  hook_bool_void_false)
+ 
++/* Returns true if TYPE's virtual table follows the Apple kext C++ ABI, in
++   which a polymorphic class gets a single virtual destructor slot holding
++   the deleting destructor, rather than the Itanium ABI's pair.  */
++DEFHOOK
++(kext_vtable_abi_p,
++ "This hook should return @code{true} if the virtual table of the C++ class\n\
++@var{type} follows the Apple @code{kext} C++ ABI, as selected by\n\
++@option{-fapple-kext}.  In that ABI a polymorphic class with a virtual\n\
++destructor gets a single virtual table slot for it, holding the deleting\n\
++destructor, instead of the Itanium C++ ABI's pair of complete-object and\n\
++deleting destructor slots.  It is asked per class because the ABI applies\n\
++only to a designated class hierarchy, not to every class in the translation\n\
++unit.  The default is to return @code{false}.",
++ bool, (tree type),
++ hook_bool_tree_false)
++
+ /* Returns true if the key method for a class can be an inline
+    function, so long as it is not declared inline in the class
+    itself.  Returning true is the behavior required by the Itanium C++ ABI.  */

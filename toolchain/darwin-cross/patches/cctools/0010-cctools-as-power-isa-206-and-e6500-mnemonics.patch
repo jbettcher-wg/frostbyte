@@ -1,0 +1,104 @@
+cctools 877.8 as: Power ISA 2.06 and e6500 Book-E mnemonics
+
+GCC 15 with -mcpu=e6500 emits isel, which as(1) did not know: assembling
+316 files of libiberty, zlib, libcpp and libdecnumber built -mcpu=e6500
+(with and without -maltivec -O3) gave 1734 "Invalid mnemonic 'isel'" and
+no other error. This adds isel, and with it the instructions the kernel has
+been writing as .long (Book-E TLB management, wait, msgsnd/msgclr,
+mttmr/mftmr, rfci/rfmci/rfdi, wrtee/wrteei, mbar/msync, external-PID
+load/store, cache locking, lbarx/lharx/stbcx./sthcx.) and the ISA 2.06
+integer additions the e6500 implements (popcntb/w/d, prtyw, cmpb, bpermd,
+ldbrx/stdbrx). E6500RM ch. 3 lists every one as implemented; each encoding
+was checked against two of llvm-mc -mcpu=e6500 --show-encoding, binutils'
+ppc-opc.c (Linux xmon copy), Linux ppc-opcode.h and the kernel's measured
+mttmr formula, and all 55 test words match. wait is the v2.03 form
+0x7c00007c, not ISA 3.0's 0x7c00003c. None carries a cpus flag, so no
+object's cpusubtype changes. After it all 316 corpus files assemble.
+Applied by hand in darwin-cross/src-cctools; ppc-opcode.h has no make
+dependency, so delete as/ppc_as-ppc.o and as/ppc64_as-ppc.o before make.
+
+diff --git cctools/as/ppc-opcode.h cctools/as/ppc-opcode.h
+index fb8112d..124d39a 100644
+--- a/cctools/as/ppc-opcode.h
++++ b/cctools/as/ppc-opcode.h
+@@ -1384,5 +1384,80 @@ static const struct ppc_opcode ppc_opcodes[] = {
+  { 0x1000030a, "vcfux", {{21,5,VREG}, {11,5,VREG}, {16,5,NUM}}, VMX },
+  { 0x1000034a, "vcfsx", {{21,5,VREG}, {11,5,VREG}, {16,5,NUM}}, VMX },
+ 
++/*
++ * Power ISA 2.06 and the e6500's Book-E instructions (patch 0010).
++ * GCC 15 -mcpu=e6500 emits isel, which this table lacked (measured: 1734
++ * "Invalid mnemonic 'isel'" across 316 files, and nothing else); the rest
++ * are what the kernel used to write as .long. Every encoding is checked
++ * against two of: llvm-mc -mcpu=e6500 --show-encoding, binutils ppc-opc.c
++ * (Linux xmon copy), Linux ppc-opcode.h, and E6500RM ch. 3 for presence.
++ * No cpus flags: none of these may change an object's cpusubtype, because
++ * the kernel's grade_binary keys on it (notes, cpu_subtype 7450).
++ */
++ { 0x7c00001e, "isel",    {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}, {6,5,NUM}} },
++
++ { 0x7c0000f4, "popcntb", {{16,5,GREG}, {21,5,GREG}} },
++ { 0x7c0002f4, "popcntw", {{16,5,GREG}, {21,5,GREG}} },
++ { 0x7c0003f4, "popcntd", {{16,5,GREG}, {21,5,GREG}} },
++ { 0x7c000134, "prtyw",   {{16,5,GREG}, {21,5,GREG}} },
++ { 0x7c0003f8, "cmpb",    {{16,5,GREG}, {21,5,GREG}, {11,5,GREG}} },
++ { 0x7c0001f8, "bpermd",  {{16,5,GREG}, {21,5,GREG}, {11,5,GREG}} },
++ { 0x7c000428, "ldbrx",   {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c000528, "stdbrx",  {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++
++ { 0x7c000068, "lbarx",   {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c0000e8, "lharx",   {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c00056d, "stbcx.",  {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c0005ad, "sthcx.",  {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++
++ /* external PID load/store and cache ops (E6500RM Table 3-69) */
++ { 0x7c0000be, "lbepx",   {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c00023e, "lhepx",   {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c00003e, "lwepx",   {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c0001be, "stbepx",  {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c00033e, "sthepx",  {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c00013e, "stwepx",  {{21,5,GREG}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c0000fe, "dcbfep",  {{16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c00007e, "dcbstep", {{16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c00027e, "dcbtep",  {{21,5,NUM}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c0007fe, "dcbzep",  {{16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c0007be, "icbiep",  {{16,5,G0REG}, {11,5,GREG}} },
++
++ /* cache locking (E6500RM Table 3-64) */
++ { 0x7c00014c, "dcbtls",  {{21,4,NUM}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c00010c, "dcbtstls",{{21,4,NUM}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c00030c, "dcblc",   {{21,4,NUM}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c0003cc, "icbtls",  {{21,4,NUM}, {16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c0001cc, "icblc",   {{21,4,NUM}, {16,5,G0REG}, {11,5,GREG}} },
++
++ /* Book-E MMU (E6500RM Table 3-71) */
++ { 0x7c000764, "tlbre",   },
++ { 0x7c0007a4, "tlbwe",   },
++ { 0x7c000724, "tlbsx",   {{16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c000624, "tlbivax", {{16,5,G0REG}, {11,5,GREG}} },
++ { 0x7c000024, "tlbilx",  {{21,2,NUM}, {16,5,G0REG}, {11,5,GREG}} },
++
++ /* synchronization, wait, doorbells, thread management */
++ { 0x7c0004ac, "msync",   },
++ { 0x7c0006ac, "mbar",    },
++ { 0x7c0006ac, "mbar",    {{21,5,NUM}} },
++ { 0x7c00007c, "wait",    },	/* v2.03 form; ISA 3.0's is 0x7c00003c */
++ { 0x7c00007c, "wait",    {{21,2,NUM}} },
++ { 0x7c00019c, "msgsnd",  {{11,5,GREG}} },
++ { 0x7c0001dc, "msgclr",  {{11,5,GREG}} },
++ { 0x7c0002dc, "mftmr",   {{21,5,GREG}, {11,10,SPREG}} },
++ { 0x7c0003dc, "mttmr",   {{11,10,SPREG}, {21,5,GREG}} },
++ { 0x7c00029c, "mfpmr",   {{21,5,GREG}, {11,10,SPREG}} },
++ { 0x7c00039c, "mtpmr",   {{11,10,SPREG}, {21,5,GREG}} },
++
++ /* MSR[EE], interrupt returns, hypervisor */
++ { 0x7c000106, "wrtee",   {{21,5,GREG}} },
++ { 0x7c000146, "wrteei",  {{15,1,NUM}} },
++ { 0x4c000066, "rfci",    },
++ { 0x4c00004c, "rfmci",   },
++ { 0x4c00004e, "rfdi",    },
++ { 0x7c00021c, "ehpriv",  },
++ { 0x7c00021c, "ehpriv",  {{11,15,NUM}} },
++
+  { 0, "" } /* end of table marker */
+ };

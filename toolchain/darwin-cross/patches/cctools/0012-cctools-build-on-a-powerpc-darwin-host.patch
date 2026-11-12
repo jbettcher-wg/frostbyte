@@ -1,0 +1,91 @@
+cctools 877.8 (cctools-port): build on a PowerPC Darwin host
+
+cctools-port puts include/foreign on the include path so it builds on Linux,
+and seven of its machine/ dispatch shims know only x86, so a build *hosted*
+on powerpc-apple-darwin9 (the native toolchain for Mac OS X 10.5 PPC,
+) stops at "#error architecture not supported" in
+machine/_structs.h, fasttrap_isa.h, profile.h and mach/machine/asm.h,
+ndr_def.h, sdt_isa.h. Each gets the ppc arm its sibling shims already have;
+every target header exists under include/foreign/ppc or mach/ppc.
+The remaining host gaps (strnlen, __private_extern__ under FSF GCC,
+OSAtomicAdd64 on 32-bit ppc) are in darwin-cross/leopard-compat/
+leopard-compat.h, force-included by darwin-cross/build-cctools-native.sh.
+
+--- a/cctools/include/foreign/machine/_structs.h
++++ b/cctools/include/foreign/machine/_structs.h
+@@ -25,7 +25,9 @@
+  * 
+  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+  */
+-#if defined (__i386__) || defined (__x86_64__)
++#if defined (__ppc__) || defined (__ppc64__)
++#include "ppc/_structs.h"
++#elif defined (__i386__) || defined (__x86_64__)
+ #include "i386/_structs.h"
+ #else
+ #error architecture not supported
+--- a/cctools/include/foreign/machine/fasttrap_isa.h
++++ b/cctools/include/foreign/machine/fasttrap_isa.h
+@@ -28,7 +28,9 @@
+ #ifndef _BSD_MACHINE_FASTTRAP_ISA_H_
+ #define _BSD_MACHINE_FASTTRAP_ISA_H_
+ 
+-#if defined (__i386__) || defined(__x86_64__)
++#if defined (__ppc__) || defined (__ppc64__)
++#include "ppc/fasttrap_isa.h"
++#elif defined (__i386__) || defined(__x86_64__)
+ #include "i386/fasttrap_isa.h"
+ #else
+ #error architecture not supported
+--- a/cctools/include/foreign/machine/profile.h
++++ b/cctools/include/foreign/machine/profile.h
+@@ -33,7 +33,9 @@
+ #ifndef _BSD_MACHINE_PROFILE_H_
+ #define _BSD_MACHINE_PROFILE_H_
+ 
+-#if defined (__i386__) || defined(__x86_64__)
++#if defined (__ppc__) || defined (__ppc64__)
++#include "ppc/profile.h"
++#elif defined (__i386__) || defined(__x86_64__)
+ #include "i386/profile.h"
+ #else
+ #error architecture not supported
+--- a/cctools/include/foreign/mach/machine/asm.h
++++ b/cctools/include/foreign/mach/machine/asm.h
+@@ -29,7 +29,9 @@
+ #ifndef _MACH_MACHINE_ASM_H
+ #define _MACH_MACHINE_ASM_H
+ 
+-#if defined (__i386__) || defined(__x86_64__)
++#if defined (__ppc__) || defined (__ppc64__)
++#include "mach/ppc/asm.h"
++#elif defined (__i386__) || defined(__x86_64__)
+ #include "mach/i386/asm.h"
+ #else
+ #error architecture not supported
+--- a/cctools/include/foreign/mach/machine/ndr_def.h
++++ b/cctools/include/foreign/mach/machine/ndr_def.h
+@@ -29,7 +29,9 @@
+ #ifndef _MACH_MACHINE_NDR_DEF_H
+ #define _MACH_MACHINE_NDR_DEF_H
+ 
+-#if defined (__i386__) || defined(__x86_64__)
++#if defined (__ppc__) || defined (__ppc64__)
++#include "mach/ppc/ndr_def.h"
++#elif defined (__i386__) || defined(__x86_64__)
+ #include "mach/i386/ndr_def.h"
+ #else
+ #error architecture not supported
+--- a/cctools/include/foreign/mach/machine/sdt_isa.h
++++ b/cctools/include/foreign/mach/machine/sdt_isa.h
+@@ -28,7 +28,9 @@
+ #ifndef _MACH_MACHINE_SDT_ISA_H_
+ #define _MACH_MACHINE_SDT_ISA_H_
+ 
+-#if defined (__i386__) || defined(__x86_64__)
++#if defined (__ppc__) || defined (__ppc64__)
++#include <mach/ppc/sdt_isa.h>
++#elif defined (__i386__) || defined(__x86_64__)
+ #include <mach/i386/sdt_isa.h>
+ #else
+ #error architecture not supported

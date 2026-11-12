@@ -1,0 +1,30 @@
+GCC 15.3.0, Darwin: honour -fno-reorder-functions in darwin_function_section
+
+The generic default_function_section returns NULL (the plain text section)
+when flag_reorder_functions is clear. Darwin's hook never looks at the flag,
+so main and static constructors always go to __text_startup, static
+initialisers to __StaticInit, and hot/exit code to their own sections.
+ld64 builds PPC branch islands only within one section, so a program whose
+__text is past the 16 MB bl range cannot link at all: measured 2026-11-05
+building a native GCC 15.3 for Mac OS X 10.5 PPC, cc1plus died
+with "bl PPC branch out of range (28651776 max is +/-16MB): from start ...
+to _main" from crt1.10.5.o, and neither -fno-reorder-functions nor an
+-order_file could move main back into __text. This makes the flag work.
+
+--- a/gcc/config/darwin.cc
++++ b/gcc/config/darwin.cc
+@@ -4033,6 +4033,14 @@
+   if (decl && DECL_SECTION_NAME (decl) != NULL)
+     return get_named_section (decl, NULL, 0);
+ 
++  /* -fno-reorder-functions means no subsections, as in the generic
++     default_function_section.  ld64 builds PPC branch islands only within
++     one section, so an image whose __text exceeds the 16 MB bl range cannot
++     link once main (startup), static initialisers or hot/cold code sit in
++     sections of their own: crt1's "bl _main" has nowhere to hop.  */
++  if (!flag_reorder_functions)
++    goto default_function_sections;
++
+   /* We always put unlikely executed stuff in the cold section; we have to put
+      this ahead of the global init section, since partitioning within a section
+      breaks some assumptions made in the DWARF handling.  */

@@ -1,0 +1,91 @@
+From: Jordan Bettcher <thebettcher@gmail.com>
+Subject: [PATCH 4/4] ld64: emit 16-bit ppc section-difference relocations
+
+Partial-linking (-r) any of xnu's 18 commpage objects with ld64 253.9
+aborts:
+
+  ld: LinkEditClassic.hpp:2218: SectionRelocationsAtom<ppc>::encodeSectionReloc:
+      Assertion `0 && "need to handle -r reloc"' failed.
+
+xnu's COMMPAGE_DESCRIPTOR (osfmk/ppc/commpage/commpage.h) emits
+
+    .short  label-.
+    .short  .-label-2
+
+which cctools' as encodes as a 16-bit PPC_RELOC_SECTDIFF + PPC_RELOC_PAIR
+pair (r_length=1). Verified: the relocations our cross assembler produces
+for atomic.o are byte-identical to those in the object Leopard's native
+toolchain produces, so the assembler is right and the linker is the gap.
+
+ld64's ppc *reader* already handles this (macho_relocatable_file.cpp,
+PPC_RELOC_SECTDIFF with length 1 -> ld::Fixup::kindStoreBigEndian16), but
+the ppc writer only ever implemented kindStoreBigEndian32, so the 16-bit
+kind fell through to the assert. Leopard's own ld64-85 handled it; ppc
+support rotted in ld64 after Apple dropped the architecture.
+
+This adds the missing case, identical to the kindStoreBigEndian32
+pointer-diff path with r_length 1. Round-trip checked: 64 relocations in
+and 64 out, all length 1, __text byte-identical.
+
+ld64 253.9 is Apple's last open-source ld64 (APSL 2.0).
+
+--- a/ld64/src/ld/LinkEditClassic.hpp
++++ b/ld64/src/ld/LinkEditClassic.hpp
+@@ -2026,6 +2026,57 @@
+ 			relocs.push_back(reloc1);
+ 			break;
+ 
++		case ld::Fixup::kindStoreBigEndian16:
++			// 16-bit section difference. xnu's COMMPAGE_DESCRIPTOR emits
++			//     .short label-.
++			//     .short .-label-2
++			// which cctools' as encodes as a 16-bit PPC_RELOC_SECTDIFF +
++			// PPC_RELOC_PAIR pair (r_length=1). ld64's ppc writer only ever
++			// implemented the 32-bit form, so -r partial links aborted on
++			// "need to handle -r reloc". The reader already produces this
++			// fixup kind (macho_relocatable_file.cpp, PPC_RELOC_SECTDIFF
++			// length 1), so only the writer was missing. Identical to the
++			// kindStoreBigEndian32 pointer-diff path below, with length 1.
++			if ( entry.fromTarget != NULL ) {
++				sreloc1->set_r_scattered(true);
++				sreloc1->set_r_pcrel(false);
++				sreloc1->set_r_length(1);
++				if ( entry.toTarget->scope() == ld::Atom::scopeTranslationUnit )
++					sreloc1->set_r_type(PPC_RELOC_LOCAL_SECTDIFF);
++				else
++					sreloc1->set_r_type(PPC_RELOC_SECTDIFF);
++				sreloc1->set_r_address(address);
++				if ( entry.toTarget == entry.inAtom )
++					sreloc1->set_r_value(entry.toTarget->finalAddress()+entry.toAddend);
++				else
++					sreloc1->set_r_value(entry.toTarget->finalAddress());
++				sreloc2->set_r_scattered(true);
++				sreloc2->set_r_pcrel(false);
++				sreloc2->set_r_length(1);
++				sreloc2->set_r_type(PPC_RELOC_PAIR);
++				sreloc2->set_r_address(0);
++				if ( entry.fromTarget == entry.inAtom ) {
++					if ( entry.fromAddend > entry.fromTarget->size() )
++						sreloc2->set_r_value(entry.fromTarget->finalAddress()+entry.offsetInAtom);
++					else
++						sreloc2->set_r_value(entry.fromTarget->finalAddress()+entry.fromAddend);
++				}
++				else
++					sreloc2->set_r_value(entry.fromTarget->finalAddress());
++				relocs.push_back(reloc1);
++				relocs.push_back(reloc2);
++			}
++			else {
++				reloc1.set_r_address(address);
++				reloc1.set_r_symbolnum(symbolNum);
++				reloc1.set_r_pcrel(false);
++				reloc1.set_r_length(1);
++				reloc1.set_r_extern(external);
++				reloc1.set_r_type(GENERIC_RELOC_VANILLA);
++				relocs.push_back(reloc1);
++			}
++			break;
++
+ 		case ld::Fixup::kindStoreBigEndian32:
+ 		case ld::Fixup::kindStoreTargetAddressBigEndian32:
+ 			if ( entry.fromTarget != NULL ) {

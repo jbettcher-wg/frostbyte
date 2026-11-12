@@ -1,0 +1,32 @@
+ld64 253.9: fold GCC's Darwin __TEXT,__text_* function subsections into __text
+
+GCC's darwin_function_section places cold code in __text_cold, main and
+static constructors in __text_startup, and hot/exit code in __text_hot and
+__text_exit (plus *_coal forms). ld64's branch_island pass builds PPC islands
+only within one section, so once __text passes the 16 MB bl range a branch
+into one of those sections cannot be reached at all. Measured 2026-11-05
+linking a native GCC 15.3 cc1plus for 10.5 PPC: "bl PPC branch
+out of range (25269676 max is +/-16MB): from ... to
+__ZSt20__throw_length_errorPKc" -- the static libstdc++ throw helpers are
+cold, so every far call into them failed. ld64 already folds __textcoal_nt
+and __StaticInit into __text for the same kind of reason; this extends it.
+Applied by hand in darwin-cross/src-cctools, like 0004.
+
+diff --git cctools/ld64/src/ld/ld.cpp cctools/ld64/src/ld/ld.cpp
+index 6e3c0f8..3b3b19c 100644
+--- a/cctools/ld64/src/ld/ld.cpp
++++ b/cctools/ld64/src/ld/ld.cpp
+@@ -241,6 +241,13 @@ const ld::Section& InternalState::FinalSection::outputSection(const ld::Section&
+ 					return _s_TEXT_text;
+ 				else if ( strcmp(sect.sectionName(), "__StaticInit") == 0 )
+ 					return _s_TEXT_text;
++				// GCC's Darwin function subsections (darwin.cc
++				// darwin_function_section): branch islands are only built
++				// within one section, so on PPC a __text past the 16 MB bl
++				// range cannot reach a separate __text_cold/__text_startup
++				// at all (patch 0008).
++				else if ( strncmp(sect.sectionName(), "__text_", 7) == 0 )
++					return _s_TEXT_text;
+ 			}
+ 			break;
+ 		case ld::Section::typeNonLazyPointer:
