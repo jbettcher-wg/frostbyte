@@ -330,8 +330,8 @@ static void setupDataDirs(void)
  * GStreamer's threads) is a pipe, two descriptors, so a media page plus a search page ran the web and network
  * processes out of descriptors on the G5 and GLib aborted ("Creating pipes for GWakeup: Too many open files").
  * Raise the soft limit to the per-process maximum before any WebKit process exists; the helpers inherit it.
- * Build option FROSTBYTE_RAISE_FD_LIMIT (on by default; -DFROSTBYTE_RAISE_FD_LIMIT=0 turns it off). */
-#ifndef FROSTBYTE_RAISE_FD_LIMIT   /* public repository: on for every target */
+ * Build option FROSTBYTE_RAISE_FD_LIMIT: on by default for every target (Leopard's 256 soft limit starves WebProcesses). */
+#ifndef FROSTBYTE_RAISE_FD_LIMIT
 #define FROSTBYTE_RAISE_FD_LIMIT 1
 #endif
 static void raiseDescriptorLimit(void)
