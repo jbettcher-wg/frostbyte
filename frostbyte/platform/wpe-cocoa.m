@@ -1043,7 +1043,7 @@ G_DEFINE_FINAL_TYPE(WPEDisplayCocoa, wpe_display_cocoa, WPE_TYPE_DISPLAY)
 
 static gboolean wpe_display_cocoa_connect(WPEDisplay *display, GError **error)
 {
-    (void)display; (void)error;
+    (void)error;
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     [NSApplication sharedApplication];
     /* An unbundled executable starts as a background process: make it a real app with a
@@ -1051,6 +1051,16 @@ static gboolean wpe_display_cocoa_connect(WPEDisplay *display, GError **error)
     ProcessSerialNumber psn = { 0, kCurrentProcess };
     TransformProcessType(&psn, kProcessTransformToForegroundApplication);
     [NSApp finishLaunching];
+    /* CSS system-ui resolves to WPE's font-name setting ("Sans 10" by default, which fontconfig
+     * turns into sans-serif). Report the Mac UI font instead (Lucida Grande on 10.5); WebKit keeps
+     * the family and drops the size. */
+    NSString *family = [[NSFont systemFontOfSize:0] familyName];
+    if ([family length]) {
+        char *fontName = g_strdup_printf("%s %d", [family UTF8String], (int)[NSFont systemFontSize]);
+        wpe_settings_set_string(wpe_display_get_settings(display), WPE_SETTING_FONT_NAME, fontName,
+                                WPE_SETTINGS_SOURCE_PLATFORM, NULL);
+        g_free(fontName);
+    }
     if (!s_pumpSource)
         s_pumpSource = g_timeout_add(8, cocoaPump, NULL);
     [pool release];

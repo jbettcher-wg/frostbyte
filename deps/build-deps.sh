@@ -142,7 +142,13 @@ pkg_libjpeg() { unpack libjpeg-turbo-3.1.1.tar.gz libjpeg-turbo-3.1.1; cmakebuil
 pkg_libwebp() { unpack libwebp-1.6.0.tar.gz libwebp-1.6.0; autotools libwebp-1.6.0 --disable-static --enable-libwebpmux --enable-libwebpdemux --disable-gl --disable-sdl --disable-png --disable-jpeg --disable-tiff --disable-gif --disable-wic; }
 pkg_freetype() { unpack freetype-2.13.3.tar.xz freetype-2.13.3; CC_BUILD=gcc autotools freetype-2.13.3 --disable-static --with-zlib=yes --with-png=yes --with-harfbuzz=no --with-brotli=no --with-bzip2=no; }
 pkg_harfbuzz() { unpack harfbuzz-11.2.1.tar.xz harfbuzz-11.2.1; mesonbuild harfbuzz-11.2.1 -Dglib=enabled -Dgobject=disabled -Dcairo=disabled -Dchafa=disabled -Dicu=enabled -Dfreetype=enabled -Dcoretext=disabled -Dtests=disabled -Dintrospection=disabled -Ddocs=disabled -Dutilities=disabled -Dbenchmark=disabled; }
-pkg_fontconfig() { unpack fontconfig-2.16.0.tar.xz fontconfig-2.16.0; mesonbuild fontconfig-2.16.0 -Dxml-backend=expat -Ddoc=disabled -Dtests=disabled -Dnls=disabled -Dcache-build=disabled -Dtools=enabled -Ddefault-fonts-dirs=/System/Library/Fonts,/Library/Fonts -Dadditional-fonts-dirs=~/Library/Fonts; }
+pkg_fontconfig() {
+    unpack fontconfig-2.16.0.tar.xz fontconfig-2.16.0
+    mesonbuild fontconfig-2.16.0 -Dxml-backend=expat -Ddoc=disabled -Dtests=disabled -Dnls=disabled -Dcache-build=disabled -Dtools=enabled -Ddefault-fonts-dirs=/System/Library/Fonts,/Library/Fonts -Dadditional-fonts-dirs=~/Library/Fonts
+    # FrostByte's rules for Leopard's fonts (face weights, Mac system font names). They act at scan
+    # time: an installed prefix needs `fc-cache -f` after they change (the app bundle hashes them).
+    stage_install sh -c 'mkdir -p "$DESTDIR'"$WPE_PREFIX"'/etc/fonts/conf.d" && cp "'"$S"'"/frostbyte/resources/fontconfig/*.conf "$DESTDIR'"$WPE_PREFIX"'/etc/fonts/conf.d/"'
+}
 pkg_libgpgerror() { unpack libgpg-error-1.55.tar.bz2 libgpg-error-1.55; CC_FOR_BUILD=gcc autotools libgpg-error-1.55 --disable-static --disable-doc --disable-tests --disable-nls --disable-languages; }
 pkg_libgcrypt() { unpack libgcrypt-1.11.1.tar.bz2 libgcrypt-1.11.1; CC_FOR_BUILD=gcc autotools libgcrypt-1.11.1 --disable-static --disable-doc --disable-asm --disable-jent-support --with-libgpg-error-prefix=$WPE_SYSROOT GPGRT_CONFIG=$WPE_SYSROOT/bin/gpgrt-config; }
 pkg_libtasn1() { unpack libtasn1-4.20.0.tar.gz libtasn1-4.20.0; CC_FOR_BUILD=gcc autotools libtasn1-4.20.0 --disable-static --disable-doc; }

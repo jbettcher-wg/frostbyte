@@ -6,7 +6,7 @@
 Inputs (all per build profile, toolchain/target.sh):
     stage-wpe<suffix>/opt/wpe      the dependency stack plus `ninja install` of WebKit
     frostbyte/build<suffix>/        frostbyte-shell from frostbyte/build.sh
-    frostbyte/resources/            Info.plist, icons, toolbar and tab art
+    frostbyte/resources/            Info.plist, icons, toolbar and tab art, fontconfig rules
 
 Output: <out>/FrostByte.app (default dist/FrostByte<suffix>/FrostByte.app), laid out as
 
@@ -26,7 +26,7 @@ WebKit find by path at run time is pointed into the bundle by FrostByte at start
 (fb-hardware.m, setupBundledRuntime). Every executable gets tools/fix-ppc64-entry.py after
 its load commands are rewritten. tools/check-bundle.py verifies the result.
 """
-import argparse, os, shutil, struct, subprocess, sys
+import argparse, hashlib, os, shutil, struct, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Paths are relative to this script's tree (ROOT) or come from the environment, so the tool works
@@ -172,9 +172,24 @@ def main():
     confd = os.path.join(stage, 'etc/fonts/conf.d')
     for n in sorted(os.listdir(confd)):
         shutil.copyfile(os.path.realpath(os.path.join(confd, n)), os.path.join(etc, 'fonts/conf.d', n))
+    # FrostByte's own rules (Leopard face weights, Mac system font names), whether or not the stage has them.
+    for n in sorted(os.listdir(os.path.join(res, 'fontconfig'))):
+        if n.endswith('.conf'):
+            shutil.copyfile(os.path.join(res, 'fontconfig', n), os.path.join(etc, 'fonts/conf.d', n))
     conf = open(os.path.join(stage, 'etc/fonts/fonts.conf')).read()
+    # Scan-time rules (the weight fixes) are baked into fontconfig's caches, and a cache stays valid
+    # until its font directory changes, never when the configuration does. So the bundle keeps its
+    # cache in a directory named after a hash of its configuration, and reads no shared cache
+    # directory (XDG, ~/.fontconfig) where an older build's results would still count as valid.
+    h = hashlib.sha1(conf.encode())
+    for n in sorted(os.listdir(os.path.join(etc, 'fonts/conf.d'))):
+        h.update(n.encode() + b'\0' + open(os.path.join(etc, 'fonts/conf.d', n), 'rb').read())
     conf = conf.replace('<cachedir>%s/var/cache/fontconfig</cachedir>' % PREFIX,
-                        '<cachedir>~/Library/Caches/org.frostbyte.FrostByte/fontconfig</cachedir>')
+                        '<cachedir>~/Library/Caches/org.frostbyte.FrostByte/fontconfig/%s</cachedir>' % h.hexdigest()[:12])
+    for shared in ('<cachedir prefix="xdg">fontconfig</cachedir>', '<cachedir>~/.fontconfig</cachedir>'):
+        if shared not in conf:
+            sys.exit('fonts.conf: expected ' + shared)
+        conf = conf.replace(shared, '')
     if PREFIX in conf:
         sys.exit('fonts.conf still mentions ' + PREFIX)
     open(os.path.join(etc, 'fonts/fonts.conf'), 'w').write(conf)
