@@ -138,12 +138,16 @@ NSSize iconSize(FBIcon icon);
     NSImage *picture;                 /* instead of an icon (the menu button's ice cube) */
     CGFloat pictureSize;
     BOOL hover, filled, popsOnMouseDown, round;
+    BOOL holdsMenu;                   /* press and hold (or right-click): the target's -holdMenuForButton: */
     CGFloat progress;                 /* >= 0: a thin progress line along the bottom (downloads) */
     NSTrackingArea *tracking;
 }
 + (FBToolButton *)buttonWithIcon:(FBIcon)icon label:(NSString *)label tip:(NSString *)tip
                           target:(id)target action:(SEL)action;
 - (void)setLabel:(NSString *)label tip:(NSString *)tip;
+@end
+@interface NSObject (FBToolButtonHoldMenu)
+- (NSMenu *)holdMenuForButton:(FBToolButton *)button;
 @end
 
 /* fb-bookmarks.m: NSDictionary { Title, URL } */

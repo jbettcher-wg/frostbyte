@@ -424,6 +424,17 @@ static void sourceReady(GObject *object, GAsyncResult *result, gpointer data)
 
 @end
 
+@interface NSArray (FBHoldEntry)
+- (NSComparisonResult)compareHoldEntry:(NSArray *)other;
+@end
+@implementation NSArray (FBHoldEntry)
+- (NSComparisonResult)compareHoldEntry:(NSArray *)other
+{
+    int a = abs([[self objectAtIndex:0] intValue]), b = abs([[other objectAtIndex:0] intValue]);
+    return a < b ? NSOrderedAscending : a > b ? NSOrderedDescending : NSOrderedSame;
+}
+@end
+
 @implementation FBWindowController
 
 static FBToolButton *toolButton(FBWindowController *self, NSView *bar, FBIcon icon, NSString *label, NSString *tip,
@@ -489,6 +500,7 @@ static FBToolButton *toolButton(FBWindowController *self, NSView *bar, FBIcon ic
     [container addSubview:toolbar];
     backButton = toolButton(self, toolbar, FBIconBack, @"Back", str("Go back (\xe2\x8c\x98[)"), @selector(goBack:), 10, NO);
     forwardButton = toolButton(self, toolbar, FBIconForward, @"Forward", str("Go forward (\xe2\x8c\x98])"), @selector(goForward:), 46, NO);
+    backButton->holdsMenu = forwardButton->holdsMenu = YES;   /* hold or right-click: recent pages */
     reloadButton = toolButton(self, toolbar, FBIconReload, @"Reload", str("Reload this page (\xe2\x8c\x98R)"), @selector(reload:), 82, NO);
     downloadsButton = toolButton(self, toolbar, FBIconDownloads, @"Downloads", str("Downloads (\xe2\x8c\xa5\xe2\x8c\x98L)"),
                                  @selector(showDownloads:), 127, YES);
@@ -1145,6 +1157,57 @@ static void nudgeRepaint(FBTab *tab)
 
 #define CURRENT_VIEW (current ? current->webView : NULL)
 - (void)goBack:(id)s { (void)s; if (current) webkit_web_view_go_back(current->webView); }
+
+/* Back/Forward held down: this tab's last few pages in that direction, nearest first. Each item's tag is its
+ * offset in the back/forward list (-1, -2, ... or 1, 2, ...), looked up again when chosen. */
+enum { kHoldMenuItems = 5 };
+- (NSMenu *)holdMenuForButton:(FBToolButton *)button
+{
+    NSMenu *menu = [[[NSMenu alloc] initWithTitle:@""] autorelease];
+    [menu setAutoenablesItems:NO];
+    if (!current)
+        return menu;
+    WebKitBackForwardList *list = webkit_web_view_get_back_forward_list(current->webView);
+    BOOL back = button == backButton;
+    GList *items = back ? webkit_back_forward_list_get_back_list_with_limit(list, kHoldMenuItems)
+                        : webkit_back_forward_list_get_forward_list_with_limit(list, kHoldMenuItems);
+    /* Order the entries nearest first whichever way the list comes back. */
+    NSMutableArray *entries = [NSMutableArray array];
+    for (GList *l = items; l; l = l->next) {
+        WebKitBackForwardListItem *item = WEBKIT_BACK_FORWARD_LIST_ITEM(l->data);
+        for (int n = 1; n <= kHoldMenuItems; n++) {
+            if (webkit_back_forward_list_get_nth_item(list, back ? -n : n) == item) {
+                const char *t = webkit_back_forward_list_item_get_title(item);
+                const char *u = webkit_back_forward_list_item_get_uri(item);
+                NSString *title = (t && *t) ? str(t) : (u ? str(u) : @"Untitled");
+                if ([title length] > 60)
+                    title = [[title substringToIndex:59] stringByAppendingString:str("\xe2\x80\xa6")];
+                [entries addObject:[NSArray arrayWithObjects:[NSNumber numberWithInt:back ? -n : n], title, nil]];
+                break;
+            }
+        }
+    }
+    g_list_free(items);
+    [entries sortUsingDescriptors:[NSArray arrayWithObject:[[[NSSortDescriptor alloc] initWithKey:@"self" ascending:YES
+        selector:@selector(compareHoldEntry:)] autorelease]]];
+    for (NSArray *e in entries) {
+        NSMenuItem *mi = [menu addItemWithTitle:[e objectAtIndex:1] action:@selector(goToHoldMenuItem:) keyEquivalent:@""];
+        [mi setTarget:self];
+        [mi setTag:[[e objectAtIndex:0] intValue]];
+        [mi setEnabled:YES];
+    }
+    return menu;
+}
+
+- (void)goToHoldMenuItem:(NSMenuItem *)sender
+{
+    if (!current)
+        return;
+    WebKitBackForwardList *list = webkit_web_view_get_back_forward_list(current->webView);
+    WebKitBackForwardListItem *item = webkit_back_forward_list_get_nth_item(list, (gint)[sender tag]);
+    if (item)
+        webkit_web_view_go_to_back_forward_list_item(current->webView, item);
+}
 - (void)goForward:(id)s { (void)s; if (current) webkit_web_view_go_forward(current->webView); }
 - (void)reload:(id)s { (void)s; if (current) webkit_web_view_reload(current->webView); }
 - (void)reloadIgnoringCache:(id)s { (void)s; if (current) webkit_web_view_reload_bypass_cache(current->webView); }

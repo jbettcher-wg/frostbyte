@@ -315,9 +315,59 @@ void drawIcon(FBIcon icon, NSPoint topLeft, NSColor *color, BOOL filled)
 - (void)mouseEntered:(NSEvent *)e { (void)e; hover = YES; [self setNeedsDisplay:YES]; }
 - (void)mouseExited:(NSEvent *)e { (void)e; hover = NO; [self setNeedsDisplay:YES]; }
 
+/* Back/Forward: press and hold (or right-click) for the target's menu of recent pages, as in Safari and Camino.
+ * NSPopUpButtonCell places the menu under the button on 10.5 (popUpMenuPositioningItem: is 10.6+). */
+- (void)showHoldMenu
+{
+    if (![[self target] respondsToSelector:@selector(holdMenuForButton:)])
+        return;
+    NSMenu *menu = [[self target] holdMenuForButton:self];
+    if (![menu numberOfItems])
+        return;
+    [menu insertItemWithTitle:@"" action:NULL keyEquivalent:@"" atIndex:0];   /* a pull-down's title item */
+    NSPopUpButtonCell *cell = [[[NSPopUpButtonCell alloc] initTextCell:@"" pullsDown:YES] autorelease];
+    [cell setMenu:menu];
+    [cell setFont:[NSFont menuFontOfSize:0]];
+    [self setState:NSOnState];
+    [self display];
+    [cell performClickWithFrame:[self bounds] inView:self];
+    [self setState:NSOffState];
+    hover = NSPointInRect([self convertPoint:[[self window] mouseLocationOutsideOfEventStream] fromView:nil], [self bounds]);
+    [self setNeedsDisplay:YES];
+}
+
+- (void)rightMouseDown:(NSEvent *)e
+{
+    if (holdsMenu && [self isEnabled])
+        [self showHoldMenu];
+    else
+        [super rightMouseDown:e];
+}
+
 /* Menu buttons open on mouse down, like a pop-up button. */
 - (void)mouseDown:(NSEvent *)e
 {
+    if (holdsMenu && [self isEnabled]) {
+        if ([e modifierFlags] & NSControlKeyMask) {
+            [self showHoldMenu];
+            return;
+        }
+        /* A click is a click; holding still for half a second, or dragging off, opens the menu. */
+        [self setState:NSOnState];
+        [self display];
+        NSEvent *next = [NSApp nextEventMatchingMask:NSLeftMouseUpMask | NSLeftMouseDraggedMask
+                                           untilDate:[NSDate dateWithTimeIntervalSinceNow:0.5]
+                                              inMode:NSEventTrackingRunLoopMode dequeue:YES];
+        [self setState:NSOffState];
+        if (next && [next type] == NSLeftMouseUp) {
+            if (NSPointInRect([self convertPoint:[next locationInWindow] fromView:nil], [self bounds]))
+                [self sendAction:[self action] to:[self target]];
+            [self setNeedsDisplay:YES];
+            return;
+        }
+        [self showHoldMenu];
+        return;
+    }
     if (!popsOnMouseDown || ![self isEnabled]) {
         [super mouseDown:e];
         return;
