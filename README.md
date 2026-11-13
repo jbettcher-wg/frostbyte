@@ -20,12 +20,12 @@ and nothing needs to be installed alongside it.
 
 ## Download
 
-Version 0.3.2, from the [v0.3.2 release](https://github.com/jbettcher-wg/frostbyte/releases/tag/v0.3.2):
+Version 0.3.3, from the [v0.3.3 release](https://github.com/jbettcher-wg/frostbyte/releases/tag/v0.3.3):
 
 | File | For |
 |---|---|
-| `FrostByte-0.3.2-G5.dmg` | Power Mac G5 (PowerPC 970, 970FX, 970MP) |
-| `FrostByte-0.3.2-e6500.dmg` | NXP T4240 and other e6500 systems running Mac OS X 10.5 |
+| `FrostByte-0.3.3-G5.dmg` | Power Mac G5 (PowerPC 970, 970FX, 970MP) |
+| `FrostByte-0.3.3-e6500.dmg` | NXP T4240 and other e6500 systems running Mac OS X 10.5 |
 
 SHA-256 checksums are in `SHA256SUMS` on the release page. Open the disk image
 and drag FrostByte to Applications.
