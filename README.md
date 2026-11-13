@@ -20,15 +20,19 @@ and nothing needs to be installed alongside it.
 
 ## Download
 
-Version 0.3.3, from the [v0.3.3 release](https://github.com/jbettcher-wg/frostbyte/releases/tag/v0.3.3):
+Version 0.3.4, from the [v0.3.4 release](https://github.com/jbettcher-wg/frostbyte/releases/tag/v0.3.4):
 
 | File | For |
 |---|---|
-| `FrostByte-0.3.3-G5.dmg` | Power Mac G5 (PowerPC 970, 970FX, 970MP) |
-| `FrostByte-0.3.3-e6500.dmg` | NXP T4240 and other e6500 systems running Mac OS X 10.5 |
+| `FrostByte-0.3.4-G5.dmg` | Power Mac G5 (PowerPC 970, 970FX, 970MP) |
+| `FrostByte-0.3.4-e6500.dmg` | NXP T4240 and other e6500 systems running Mac OS X 10.5 |
 
 SHA-256 checksums are in `SHA256SUMS` on the release page. Open the disk image
 and drag FrostByte to Applications.
+
+From 0.3.4 on, FrostByte checks for new releases itself (FrostByte > Check for
+Updates...) and installs them after checking their signature; earlier versions
+need this one manual update.
 
 **Branches.** `release-0.3` holds the 0.3.x releases and their fixes; `main` is
 where development happens (WebGL for 0.4 is under way there) and may be less
