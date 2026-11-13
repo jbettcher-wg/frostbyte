@@ -180,12 +180,12 @@ static void importedBufferFree(gpointer data)
 
 /* After a window is resized by dragging (live resize), the window server's GL compositor keeps texturing this
  * view's GL surface at its size from before the drag (CGSGetSurfaceBounds reports the new bounds; the stale
- * size is in the compositor's texture of our drawable, RadeonNI on board 1, 10.5.8). Frames look right while
+ * size is in the compositor's texture of our drawable, RadeonNI on a T4240, 10.5.8). Frames look right while
  * the server copies the surface straight to the screen, but whenever it composites it, because another window
  * overlaps the page (the link-status bubble on every link hover, a menu, a utility window), the page shrinks or
  * grows by old/new size with edge-clamped streaks past the frame. -update after the drag doesn't help (same
  * size, no-op); detaching and re-attaching the drawable does, but not at once: a re-attach 6 ms after
- * -viewDidEndLiveResize still left it stale, 20, 150 and 300 ms fixed it (measured on board 1). */
+ * -viewDidEndLiveResize still left it stale, 20, 150 and 300 ms fixed it (measured on a T4240). */
 - (void)reattachSurface
 {
     surfaceStale = NO;
