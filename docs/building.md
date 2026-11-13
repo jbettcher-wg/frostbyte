@@ -43,6 +43,10 @@ To package a stage and shell built in another directory, set
 `FB_STAGE_DIR=<stage-wpe dir>` and `FB_SHELL_BIN=<frostbyte-shell>` for the
 webkit/app stages.
 
+`LEOPARD_WEBGL=OFF` builds without WebGL (WebKit without ANGLE, LeopardEGL
+without its WebGL paths: the 0.3.x configuration); the default is `ON`. Either
+way WebGL is off at run time until it is turned on in Preferences > Hardware.
+
 `FB_OFFLINE=1` makes the fetch stage fail instead of downloading;
 `FB_DL_SEED=<dir>` lets it pick up already-downloaded archives from a directory
 (they are still checksummed); `FB_MIRROR=<url>` is tried before the upstream URLs.

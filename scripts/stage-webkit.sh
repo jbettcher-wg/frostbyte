@@ -20,7 +20,7 @@ export WPE_SRC_DIR="$SRC" WPE_BUILD_DIR="$B"
 
 say "webkit ($LEOPARD_TARGET) -> $B"
 want=$( { cat "$FB_ROOT/toolchain/configure-wpe.sh" "$FB_ROOT/toolchain/darwin9-ppc64.cmake" "$FB_ROOT/toolchain/target.sh";
-          cat "$SRC/.frostbyte-stamp"; echo "$LEOPARD_TOOLCHAIN $LEOPARD_SDK $*"; } | cksum | cut -d' ' -f1)
+          cat "$SRC/.frostbyte-stamp"; echo "$LEOPARD_TOOLCHAIN $LEOPARD_SDK webgl=$LEOPARD_WEBGL $*"; } | cksum | cut -d' ' -f1)
 if [ ! -f "$B/build.ninja" ] || [ "$(cat "$B/.frostbyte-configured" 2>/dev/null)" != "$want" ]; then
     run "$FB_ROOT/toolchain/configure-wpe.sh" "$@"
     [ "${FB_DRY_RUN:-0}" = 1 ] || echo "$want" > "$B/.frostbyte-configured"

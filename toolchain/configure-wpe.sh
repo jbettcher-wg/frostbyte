@@ -22,6 +22,13 @@ case "${LEOPARD_MEDIA:-gstreamer}" in
   elements)  MEDIA_ARGS="-DUSE_GSTREAMER=OFF -DLEOPARD_MEDIA_ELEMENTS_WITHOUT_BACKEND=ON -DENABLE_WEB_AUDIO=OFF" ;;
   *) echo "LEOPARD_MEDIA must be gstreamer or elements" >&2; exit 2 ;;
 esac
+# WebGL (build option, FrostByte 0.4 work): LEOPARD_WEBGL=ON builds ANGLE and WebGL (docs/webgl-plan.md).
+# OFF (the default until 0.4) is the 0.3.x configuration. Use a separate build dir for ON, e.g.
+#   LEOPARD_WEBGL=ON WPE_BUILD_DIR=build/wpe-254-webgl toolchain/configure-wpe.sh
+case "${LEOPARD_WEBGL:-OFF}" in
+  ON|OFF) ;;
+  *) echo "LEOPARD_WEBGL must be ON or OFF" >&2; exit 2 ;;
+esac
 # Flags come from the CMake toolchain file; wpe-env.sh's CFLAGS/LDFLAGS are for the deps.
 unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
 export PATH="$LEOPARD_BUILD/host/bin:$PATH"   # host tools built from source (gperf)
@@ -46,7 +53,7 @@ exec cmake -S "$SRC" -B "$B" -G Ninja \
   -DENABLE_WPE_PLATFORM=ON -DENABLE_WPE_PLATFORM_HEADLESS=ON \
   -DENABLE_WPE_PLATFORM_DRM=OFF -DENABLE_WPE_PLATFORM_WAYLAND=OFF -DENABLE_WPE_LEGACY_API=OFF \
   -DENABLE_WPE_QT_API=OFF -DENABLE_COG=OFF -DENABLE_MINIBROWSER=OFF -DENABLE_WEBDRIVER=OFF \
-  -DUSE_GBM=OFF -DUSE_LIBDRM=OFF -DUSE_VULKAN=OFF -DENABLE_WEBGL=OFF \
+  -DUSE_GBM=OFF -DUSE_LIBDRM=OFF -DUSE_VULKAN=OFF -DENABLE_WEBGL=${LEOPARD_WEBGL:-OFF} \
   `# Media elements (HTMLVideoElement, Audio, MediaSource) exist with no backend yet: pages that touch them` \
   `# work, nothing plays. A GStreamer backend (later UVD) plugs in with -DUSE_GSTREAMER=ON.` \
   $MEDIA_ARGS -DENABLE_WEB_CODECS=OFF -DENABLE_VIDEO=ON -DENABLE_MEDIA_SOURCE=ON -DENABLE_MEDIA_STREAM=OFF -DENABLE_WEB_RTC=OFF -DENABLE_ENCRYPTED_MEDIA=OFF \

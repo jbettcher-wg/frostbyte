@@ -38,6 +38,11 @@ if [ -z "${LEOPARD_TOOLCHAIN:-}" ] || [ ! -x "$LEOPARD_TOOLCHAIN/bin/powerpc-app
     echo "wpe-env.sh: no toolchain yet; run ./build.sh toolchain (or set LEOPARD_TOOLCHAIN)" >&2
 fi
 export LEOPARD_TOOLCHAIN LEOPARD_SDK
+# WebGL (FrostByte 0.4): ON builds WebKit with ANGLE and WebGL (toolchain/configure-wpe.sh) and LeopardEGL's
+# WebGL library (deps/build-deps.sh leopardegl). WebGL stays off at run time until it is chosen in
+# Preferences > Hardware. LEOPARD_WEBGL=OFF builds the 0.3.x configuration.
+export LEOPARD_WEBGL="${LEOPARD_WEBGL:-ON}"
+case "$LEOPARD_WEBGL" in ON|OFF) ;; *) echo "wpe-env.sh: LEOPARD_WEBGL must be ON or OFF" >&2; return 2 2>/dev/null || exit 2 ;; esac
 export WPE_PREFIX=/opt/wpe
 # FB_STAGE_DIR: use another dependency stage (e.g. one built elsewhere) instead of this build's.
 export WPE_STAGE="${FB_STAGE_DIR:-$LEOPARD_BUILD/stage-wpe$LEOPARD_SUFFIX}"

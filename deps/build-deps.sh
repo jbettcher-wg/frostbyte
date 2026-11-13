@@ -197,9 +197,12 @@ pkg_khrheaders() {
 }
 # LeopardEGL (ours, leopardegl/): EGL 1.5 over CGL (README section 18). libGLESv2 presents GLES 2.0
 # over a CGL 2.1 compatibility context; its stubs are generated from Khronos gl.xml (epoxy sources).
+# LEOPARD_WEBGL=ON (the same switch as toolchain/configure-wpe.sh) builds the WebGL library (LEOPARD_EGL_WEBGL=1:
+# the gl33 provider, little-endian client contexts, the GLES context rules); OFF is the 0.3.x library.
 pkg_leopardegl() {
-    local L="$S/leopardegl" o="$OBJ/leopardegl" cc="${CC% *}"
-    local cflags="-m64 $LEOPARD_CPU_FLAGS -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -fvisibility=hidden -I$WPE_SYSROOT/include -I$L"
+    local L="$S/leopardegl" o="$OBJ/leopardegl" cc="${CC% *}" webgl=
+    [ "${LEOPARD_WEBGL:-OFF}" = ON ] && webgl=-DLEOPARD_EGL_WEBGL=1
+    local cflags="-m64 $LEOPARD_CPU_FLAGS -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -fvisibility=hidden -I$WPE_SYSROOT/include -I$L $webgl"
     mkdir -p "$o" "$WPE_SYSROOT/lib/pkgconfig"
     python3 -I "$S/tools/gen-gles-stubs.py" "$LEOPARD_BUILD/deps/pristine/libepoxy-1.5.10/registry/gl.xml" "$L/gles_stubs.c" >/dev/null || return 1
     $cc $cflags -c "$L/gles.c" -o "$o/gles.o" || return 1

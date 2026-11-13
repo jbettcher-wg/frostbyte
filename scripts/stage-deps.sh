@@ -42,7 +42,8 @@ stamp_of() { # <pkg>: what the package's build depends on
             [ -d "$d" ] && find "$d" -type f | LC_ALL=C sort | while read -r f; do sha256_file "$f"; done
         done
         case "$p" in
-        leopardegl) find "$FB_ROOT/leopardegl" -type f | LC_ALL=C sort | while read -r f; do sha256_file "$f"; done ;;
+        leopardegl) find "$FB_ROOT/leopardegl" -type f | LC_ALL=C sort | while read -r f; do sha256_file "$f"; done
+                    echo "webgl=$LEOPARD_WEBGL" ;;
         esac
         echo "$LEOPARD_CPU_FLAGS $LEOPARD_TARGET"
         cat "$LEOPARD_TOOLCHAIN/FROSTBYTE-TOOLCHAIN" 2>/dev/null || echo "$LEOPARD_TOOLCHAIN"
