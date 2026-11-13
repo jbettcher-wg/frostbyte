@@ -8,6 +8,7 @@
  *   fb-bookmarks.m     bookmarks and the bookmarks bar
  *   fb-preferences.m   the Preferences window
  *   fb-about.m         the About window (the frosting window onto the pines)
+ *   fb-update.m        Software Update: the signed release manifest, download, verify, replace and relaunch
  * Copyright (c) 2026 Jordan Bettcher
  * SPDX-License-Identifier: MIT
  */
@@ -362,6 +363,12 @@ void fbShowDownloadsWindow(void);
 
 /* fb-about.m */
 void fbShowAbout(void);
+
+/* fb-update.m: Software Update */
+extern NSString *const PrefCheckForUpdates;             /* BOOL: check about once a day at launch */
+void fbUpdateRegisterDefaults(void);                    /* from registerDefaults() */
+void fbUpdateStartup(void);                             /* after the first window: finish an update, schedule checks */
+void fbCheckForUpdates(void);                           /* Check for Updates... */
 
 /* fb-preferences.m */
 @interface FBPreferences : NSObject {

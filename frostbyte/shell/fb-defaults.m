@@ -58,6 +58,7 @@ void registerDefaults(void)
         [NSNumber numberWithInt:0], PrefRasterThreads,
         [NSNumber numberWithBool:YES], PrefBytecodeCache,
         [NSNumber numberWithInt:512], PrefBytecodeCacheMB, nil]];
+    fbUpdateRegisterDefaults();
 }
 
 NSImage *resourceImage(NSString *relativePath)

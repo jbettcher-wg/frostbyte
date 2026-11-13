@@ -129,7 +129,7 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
 
 - (NSView *)generalPane
 {
-    NSView *v = [self paneWithHeight:240];
+    NSView *v = [self paneWithHeight:296];
     CGFloat y = 20;
     [self label:@"Home page:" in:v y:y];
     homeField = [self field:PrefHomePage in:v y:y width:250];
@@ -161,6 +161,18 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
     y += 30;
     [self label:@"New tabs open with:" in:v y:y];
     [self popup:pages values:pageValues key:PrefNewTabPage in:v y:y width:160];
+    y += 40;
+    [self label:@"Software update:" in:v y:y];
+    [self checkbox:@"Check for updates automatically" key:PrefCheckForUpdates in:v y:y];
+    NSButton *checkNow = [[[NSButton alloc] initWithFrame:NSMakeRect(kPaneWidth - 140, y - 4, 120, 26)] autorelease];
+    [checkNow setBezelStyle:NSRoundedBezelStyle];
+    [checkNow setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+    [checkNow setTitle:@"Check Now"];
+    [checkNow setTarget:self];
+    [checkNow setAction:@selector(checkForUpdatesNow:)];
+    [v addSubview:checkNow];
+    y += 20;
+    [self note:@"About once a day, when FrostByte starts. Updates are signed, and you choose when to install." in:v y:y];
     return v;
 }
 
@@ -392,6 +404,7 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
 }
 
 - (void)restart:(id)sender { (void)sender; relaunch(); }
+- (void)checkForUpdatesNow:(id)sender { (void)sender; fbCheckForUpdates(); }
 
 - (void)updateCacheNote
 {

@@ -40,6 +40,7 @@ static void shutDownFrostByte(BOOL releaseDisplay);
 - (void)showPreferences:(id)sender { (void)sender; [[FBPreferences shared] show]; }
 
 - (void)showAbout:(id)sender { (void)sender; fbShowAbout(); }
+- (void)checkForUpdates:(id)sender { (void)sender; fbCheckForUpdates(); }
 - (void)showHistoryWindow:(id)sender { (void)sender; fbShowHistoryWindow(); }
 - (void)showDownloadsWindow:(id)sender { (void)sender; fbShowDownloadsWindow(); }
 
@@ -136,7 +137,8 @@ static void shutDownFrostByte(BOOL releaseDisplay);
     if (a == @selector(setAppearanceDark:)) { [item setState:isDark() ? NSOnState : NSOffState]; return YES; }
     if (a == @selector(newWindow:) || a == @selector(newTab:) || a == @selector(showAbout:)
         || a == @selector(showPreferences:) || a == @selector(openBookmark:)
-        || a == @selector(showHistoryWindow:) || a == @selector(showDownloadsWindow:))
+        || a == @selector(showHistoryWindow:) || a == @selector(showDownloadsWindow:)
+        || a == @selector(checkForUpdates:))
         return YES;
     FBWindowController *c = [self current];
     if (!c)
@@ -194,6 +196,7 @@ static void buildMenus(id controller)
 
     NSMenu *app = addMenu(bar, @"FrostByte");
     addItem(app, @"About FrostByte", @selector(showAbout:), @"", 0);
+    addItem(app, str("Check for Updates\xe2\x80\xa6"), @selector(checkForUpdates:), @"", 0);
     [app addItem:[NSMenuItem separatorItem]];
     addItem(app, str("Preferences\xe2\x80\xa6"), @selector(showPreferences:), @",", cmd);
     [app addItem:[NSMenuItem separatorItem]];
@@ -347,6 +350,7 @@ int main(int argc, char **argv)
     [NSApp setDelegate:controller];
     buildMenus(controller);
     openWindow(url);
+    fbUpdateStartup();
     [pool release];
 
     g_main_loop_run(s_loop);

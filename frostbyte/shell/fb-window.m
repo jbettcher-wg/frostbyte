@@ -1294,6 +1294,7 @@ static NSString *menuTitle(NSString *title, NSString *url)
     [m addItem:[NSMenuItem separatorItem]];
     menuItem(m, str("Preferences\xe2\x80\xa6"), nil, @selector(showPreferences:), @",", cmd);
     menuItem(m, @"About FrostByte", nil, @selector(showAbout:), nil, 0);
+    menuItem(m, str("Check for Updates\xe2\x80\xa6"), nil, @selector(checkForUpdates:), nil, 0);   /* the app delegate (fb-update.m) */
     [self popMenu:m under:menuButton width:300 alignRight:YES];
 }
 
