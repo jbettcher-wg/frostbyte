@@ -16,6 +16,8 @@
 #include <CoreServices/CoreServices.h>
 
 enum { SW = 270, SH = 378, NFLAKES = 14 };
+/* Window width; the info panel is WW - SW wide. 640 cut off long version and graphics strings. */
+enum { WW = 780, PW = WW - SW };
 static const double kCycle = 24.0, kFps = 15.0;
 
 /* ---------------------------------------------------------------- noise ---- */
@@ -475,12 +477,12 @@ void fbShowAbout(void) { [[FBAbout shared] show]; }
     [iv setImage:icon];
     [iv setImageScaling:NSScaleProportionally];
     [v addSubview:iv];
-    label(v, NSMakeRect(100, 32, 230, 34), @"FrostByte", [NSFont boldSystemFontOfSize:28], rgbHex(0x14304f));
-    label(v, NSMakeRect(102, 66, 230, 16), [NSString stringWithFormat:str("Version %s · built %s"), FROSTBYTE_VERSION, __DATE__],
+    label(v, NSMakeRect(100, 32, PW - 120, 34), @"FrostByte", [NSFont boldSystemFontOfSize:28], rgbHex(0x14304f));
+    label(v, NSMakeRect(102, 66, PW - 122, 16), [NSString stringWithFormat:str("Version %s · built %s"), FROSTBYTE_VERSION, __DATE__],
           [NSFont systemFontOfSize:12], rgbHex(0x454b55));
-    label(v, NSMakeRect(102, 82, 230, 16), str("\u00a9 2026 Jordan Bettcher"), [NSFont systemFontOfSize:11], rgbHex(0x555b65));
+    label(v, NSMakeRect(102, 82, PW - 122, 16), str("\u00a9 2026 Jordan Bettcher"), [NSFont systemFontOfSize:11], rgbHex(0x555b65));
 
-    NSTextField *tag = label(v, NSMakeRect(22, 104, 320, 34),
+    NSTextField *tag = label(v, NSMakeRect(22, 104, PW - 44, 34),
                              @"A web browser for PowerPC Macs running Mac OS X Leopard, built on WebKit.",
                              [NSFont systemFontOfSize:12], rgbHex(0x2a2e35));
     [[tag cell] setWraps:YES];
@@ -500,13 +502,14 @@ void fbShowAbout(void) { [[FBAbout shared] show]; }
     for (unsigned i = 0; i < sizeof rows / sizeof rows[0]; i++) {
         CGFloat y = 148 + i * 20;
         label(v, NSMakeRect(22, y, 76, 16), rows[i][0], small, rgbHex(0x555b65));
-        NSTextField *val = label(v, NSMakeRect(98, y, 250, 16), rows[i][1], small, rgbHex(0x1d1f22));
+        NSTextField *val = label(v, NSMakeRect(98, y, PW - 118, 16), rows[i][1], small, rgbHex(0x1d1f22));
+        [[val cell] setLineBreakMode:NSLineBreakByTruncatingTail];   /* anything still too long ends in "..." */
         [val setToolTip:rows[i][1]];
     }
 
     FBAboutLink *credits = [self link:@"Credits" at:NSMakePoint(22, 320) in:v action:@selector(showCredits:)];
     [self link:@"Open-Source Licences" at:NSMakePoint(NSMaxX([credits frame]) + 12, 320) in:v action:@selector(showLicences:)];
-    label(v, NSMakeRect(22, 340, 330, 28), @"FrostByte uses WebKit, GStreamer and FFmpeg, each under its own open-source licence.",
+    label(v, NSMakeRect(22, 340, PW - 40, 28), @"FrostByte uses WebKit, GStreamer and FFmpeg, each under its own open-source licence.",
           [NSFont systemFontOfSize:10], rgbHex(0x555b65));
     [[[[v subviews] lastObject] cell] setWraps:YES];
 }
@@ -514,11 +517,11 @@ void fbShowAbout(void) { [[FBAbout shared] show]; }
 - (void)buildDetailsIn:(NSView *)v
 {
     [self link:str("‹ Back") at:NSMakePoint(18, 14) in:v action:@selector(showSummary:)];
-    NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(18, 38, 334, 326)] autorelease];
+    NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(18, 38, PW - 36, 326)] autorelease];
     [scroll setHasVerticalScroller:YES];
     [scroll setBorderType:NSNoBorder];
     [scroll setDrawsBackground:NO];
-    detailsText = [[[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, 318, 326)] autorelease];
+    detailsText = [[[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, PW - 52, 326)] autorelease];
     [detailsText setEditable:NO];
     [detailsText setDrawsBackground:NO];
     [detailsText setTextContainerInset:NSMakeSize(0, 4)];
@@ -592,7 +595,7 @@ void fbShowAbout(void) { [[FBAbout shared] show]; }
 {
     if (!(self = [super init]))
         return nil;
-    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 640, 378)
+    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, WW, SH)
                                          styleMask:NSTitledWindowMask | NSClosableWindowMask
                                            backing:NSBackingStoreBuffered defer:YES];
     [window setReleasedWhenClosed:NO];
@@ -603,7 +606,7 @@ void fbShowAbout(void) { [[FBAbout shared] show]; }
     sceneView = [[[FBAboutScene alloc] initWithFrame:NSMakeRect(0, 0, SW, SH)] autorelease];
     [content addSubview:sceneView];
 
-    FBAboutInfo *info = [[[FBAboutInfo alloc] initWithFrame:NSMakeRect(SW, 0, 640 - SW, SH)] autorelease];
+    FBAboutInfo *info = [[[FBAboutInfo alloc] initWithFrame:NSMakeRect(SW, 0, PW, SH)] autorelease];
     [content addSubview:info];
     summary = [[[FBAboutFlipped alloc] initWithFrame:[info bounds]] autorelease];
     details = [[[FBAboutFlipped alloc] initWithFrame:[info bounds]] autorelease];

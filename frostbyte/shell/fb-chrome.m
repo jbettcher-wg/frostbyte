@@ -424,7 +424,7 @@ static gboolean spinTick(gpointer data);
     newTabButton = [[FBToolButton buttonWithIcon:FBIconPlus label:@"New tab" tip:nil
                                          target:nil action:@selector(newTab:)] retain];
     [newTabButton setToolTip:str("Open a new tab (\xe2\x8c\x98T)")];
-    [newTabButton setFrame:NSMakeRect(0, 6, kNewTabSize, kNewTabSize)];
+    [newTabButton setFrame:NSMakeRect(0, kStripHeight - kTabHeight + floor((kTabHeight - kNewTabSize) / 2), kNewTabSize, kNewTabSize)];
     [self addSubview:newTabButton];
     return self;
 }
@@ -533,7 +533,8 @@ static gboolean spinTick(gpointer data);
     [self metricsWidth:&w first:&first count:&count overflow:&overflow];
     firstVisible = first;
     CGFloat x = overflow ? NSMaxX([self rightArrowRect]) : [self firstTabX:NO] + count * (w + kTabGap) - kTabGap;
-    [newTabButton setFrameOrigin:NSMakePoint(x + 4, kStripHeight - 6 - kNewTabSize)];
+    /* Centred on the tabs (which fill the bottom kTabHeight of the strip), not on the whole strip: it sat 4 px high. */
+    [newTabButton setFrameOrigin:NSMakePoint(x + 4, kStripHeight - kTabHeight + floor((kTabHeight - kNewTabSize) / 2))];
     [newTabButton setTarget:owner];
     BOOL loading = NO;
     for (FBTab *tab in owner->tabs)
