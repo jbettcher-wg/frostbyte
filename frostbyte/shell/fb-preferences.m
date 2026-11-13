@@ -229,7 +229,9 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
     NSArray *autoOnOffValues = [NSArray arrayWithObjects:@"Auto", @"On", @"Off", nil];
     CGFloat y = 20;
     [self label:@"3D graphics acceleration:" in:v y:y];
-    [self popup:autoOnOff values:autoOnOffValues key:PrefGraphics in:v y:y width:120];
+    NSPopUpButton *graphics = [self popup:autoOnOff values:autoOnOffValues key:PrefGraphics in:v y:y width:120];
+    [graphics setAutoenablesItems:NO];
+    [[graphics itemAtIndex:1] setEnabled:fbGraphics.radeon || fbGraphics.accelerated];   /* "On" needs a GPU */
     y += 26;
     NSString *detected = fbGraphics.radeon || (FROSTBYTE_GL_ANY_ACCELERATED && fbGraphics.accelerated)
         ? [NSString stringWithFormat:str("%@ \xe2\x80\x94 detected%@. Now: %@."),
@@ -248,7 +250,9 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
     }
     y += 34;
     [self label:@"Hardware video decoding:" in:v y:y];
-    [self popup:autoOnOff values:autoOnOffValues key:PrefVideoDecoding in:v y:y width:120];
+    NSPopUpButton *video = [self popup:autoOnOff values:autoOnOffValues key:PrefVideoDecoding in:v y:y width:120];
+    [video setAutoenablesItems:NO];
+    [[video itemAtIndex:1] setEnabled:fbGraphics.uvdSessions];                         /* "On" needs UVD */
     y += 26;
     [self note:[NSString stringWithFormat:@"%@ Now: %@.",
                 fbGraphics.uvdSessions ? @"Radeon UVD detected, with decode sessions (H.264)."
@@ -256,7 +260,8 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
                 : @"No UVD video decoder detected.",
                 fbHardwareVideoActive ? @"hardware H.264" : @"CPU decoding"] in:v y:y];
     y += 24;
-    [self checkbox:@"Prefer H.264 so the card decodes it (YouTube)" key:PrefPreferH264 in:v y:y];
+    [[self checkbox:@"Prefer H.264 so the card decodes it (YouTube)" key:PrefPreferH264 in:v y:y]
+        setEnabled:fbGraphics.uvdSessions];
     y += 30;
     [self separator:v y:y];
     y += 14;

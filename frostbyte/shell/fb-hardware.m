@@ -374,7 +374,9 @@ void applyStartupPreferences(void)
     if (forced && *forced)
         gpu = strcmp(forced, "soft") != 0;
     else {
-        gpu = [mode caseInsensitiveCompare:@"On"] == NSOrderedSame
+        /* "On" only counts where an accelerated renderer exists (Preferences greys it out otherwise; a stored
+         * "On" from another card falls back to CPU rendering). LEOPARD_WPE_GL still forces for testing. */
+        gpu = ([mode caseInsensitiveCompare:@"On"] == NSOrderedSame && (caps.radeon || caps.accelerated))
             || ([mode caseInsensitiveCompare:@"Auto"] == NSOrderedSame
                 && (caps.radeon || (FROSTBYTE_GL_ANY_ACCELERATED && caps.accelerated)));
         setenvFromPreference("LEOPARD_WPE_GL", gpu ? "gl21" : "soft");
@@ -395,8 +397,8 @@ void applyStartupPreferences(void)
     if (forcedUVD && *forcedUVD)
         fbHardwareVideoActive = strcmp(forcedUVD, "0") != 0;
     else {
-        fbHardwareVideoActive = [video caseInsensitiveCompare:@"On"] == NSOrderedSame
-            || ([video caseInsensitiveCompare:@"Auto"] == NSOrderedSame && caps.uvdSessions);
+        /* Hardware decoding only where UVD decode sessions exist, whether the choice is On or Automatic. */
+        fbHardwareVideoActive = caps.uvdSessions && [video caseInsensitiveCompare:@"Off"] != NSOrderedSame;
         if (!fbHardwareVideoActive)
             setenvFromPreference("FROSTBYTE_UVD", "0");
     }
