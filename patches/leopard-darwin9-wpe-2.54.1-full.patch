@@ -43998,3 +43998,191 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/WTFConfig.cpp b/Sourc
  #ifdef __LP64__
          using Header = struct mach_header_64;
  #else
+FrostByte: exact fast fmod for JSC's double remainder (JS `%`), WPE/JSC 2.54.1, Darwin 9 only (WTF_DARWIN9).
+
+Mac OS X 10.5's libm fmod reduces the quotient a few bits per step through logb/scalbn (~390-580 ns a call on the
+e6500); the WebGL Aquarium spent ~11-18% of its main thread there at 5000 fish. Math::fmodDouble, which every tier
+uses for a double `%` (LLInt/Baseline slow paths via jsRemainder, DFG ArithMod, FTL/B3 Mod lowering), now calls
+JSC::Leopard::fastFmod (runtime/LeopardFastFmod.h): 64-bit integer remainders on the significands, one divdu for
+ordinary quotients, ~50 ns. fmod's result is always exact, so it is bit-identical to libm, NaN bits included
+(tests/jsc-perf/fastfmod-test.cpp: 92.4M edge and random cases on an e6500, 0 differences).
+
+Switches: LEOPARD_JSC_FAST_FMOD=0 in the environment goes back to libm at run time; -DLEOPARD_JSC_FAST_FMOD=0 at
+build time removes it. General JSC, not WebGL: it belongs in 0.3.x too (applies to the 0.3.3 tree as is).
+Apply with `patch -p1` in wpewebkit-2.54.1.
+
+diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/LeopardFastFmod.h b/Source/JavaScriptCore/runtime/LeopardFastFmod.h
+--- a/Source/JavaScriptCore/runtime/LeopardFastFmod.h	1969-12-31 17:00:00.000000000 -0700
++++ b/Source/JavaScriptCore/runtime/LeopardFastFmod.h	1969-12-31 17:00:00.000000000 -0700
+@@ -0,0 +1,125 @@
++/*
++ * FrostByte (Leopard): an exact IEEE 754 fmod for JSC's double remainder (patches/leopard-jsc-fastfmod.patch).
++ *
++ * Mac OS X 10.5's libm fmod reduces the quotient with a logb/scalbn loop, a few bits per step; JS `%` on
++ * doubles (Math::fmodDouble, used by the LLInt/Baseline slow paths, the DFG and the FTL) spent ~11% of the WebGL
++ * Aquarium's main thread there. fmod's result is always exactly representable, so any correct algorithm is
++ * bit-identical to libm's: same sign (that of x), x itself when |x| < |y| (so -0 stays -0, x when y is an
++ * infinity), NaN for an infinite x, a zero y or a NaN operand. Even the NaN bits match Leopard's libm: a NaN operand
++ * comes back as the PowerPC FPU's x + y gives it, an invalid case as Apple's NaN code 9 (0x7ff8000000000009).
++ *
++ * Method: x = mx * 2^ex and y = my * 2^ey with integer significands (53 bits at most). The remainder is
++ * (mx * 2^(ex - ey)) mod my, in units of 2^ey; it is computed with 64-bit integer remainders, shifting in as many
++ * quotient bits per step as fit (11 at first, then at least clz(my); trailing zero bits of my are removed first,
++ * so a power-of-two y needs a single step). Huge quotients (up to 2^2097) take at most ~190 steps; ordinary ones
++ * (x % 2pi with x up to ~10^5, integers % 2^32) a single divdu. On the e6500, tests/jsc-perf/fastfmod-test:
++ * ~50 ns a call against libm's ~390 ns (x % 2pi) and ~580 ns (integers % 2^32).
++ *
++ * Self-contained (no WTF) so that tests/jsc-perf/fastfmod-test.cpp checks this very code against libm.
++ */
++#pragma once
++
++#include <cstdint>
++#include <cstring>
++
++namespace JSC {
++namespace Leopard {
++
++static inline uint64_t fmodBits(double d)
++{
++    uint64_t u;
++    std::memcpy(&u, &d, sizeof u);
++    return u;
++}
++
++static inline double fmodDoubleFromBits(uint64_t u)
++{
++    double d;
++    std::memcpy(&d, &u, sizeof d);
++    return d;
++}
++
++static inline double fastFmod(double x, double y)
++{
++    constexpr uint64_t signBit = 0x8000000000000000ull;
++    constexpr uint64_t infinityBits = 0x7ff0000000000000ull;
++    constexpr uint64_t mantissaMask = 0x000fffffffffffffull;
++    constexpr uint64_t hiddenBit = 0x0010000000000000ull;
++
++    uint64_t ux = fmodBits(x);
++    uint64_t uy = fmodBits(y);
++    uint64_t sx = ux & signBit;
++    uint64_t ax = ux ^ sx;
++    uint64_t ay = uy & ~signBit;
++
++    if (ax >= infinityBits || ay > infinityBits || !ay) [[unlikely]] {
++        if (ax > infinityBits || ay > infinityBits)
++            return x + y; // A NaN operand: a NaN out.
++#if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__))
++        return fmodDoubleFromBits(0x7ff8000000000009ull); // fmod(inf, y), fmod(x, 0): Apple's PPC libm NaN, code 9.
++#else
++        return (x * y) / (x * y); // fmod(inf, y), fmod(x, 0): invalid, the default NaN.
++#endif
++    }
++    if (ax < ay)
++        return x; // Includes x = +-0 and y = +-inf.
++    if (ax == ay)
++        return fmodDoubleFromBits(sx); // A zero with x's sign.
++
++    // Both finite and nonzero, |x| > |y|, hence ex >= ey below.
++    int ex = static_cast<int>(ax >> 52);
++    int ey = static_cast<int>(ay >> 52);
++    uint64_t mx = ax & mantissaMask;
++    uint64_t my = ay & mantissaMask;
++    if (ex)
++        mx |= hiddenBit;
++    else
++        ex = 1;
++    if (ey)
++        my |= hiddenBit;
++    else
++        ey = 1;
++    int d = ex - ey;
++
++    // (A floating-point path, trunc(|x| / |y|) and one fused multiply-subtract, was tried for small quotients: it
++    // is exact for normal y but twice as slow on the e6500, whose fdiv and FPR<->GPR moves through memory cost more
++    // than two or three divdu.)
++
++    // y = (my >> k) * 2^(ey + k): x stays a multiple of that unit while k <= d.
++    int k = __builtin_ctzll(my);
++    if (k > d)
++        k = d;
++    my >>= k;
++    ey += k;
++    d -= k;
++
++    // r = (mx * 2^d) mod my, shifting in as many bits per division as r has leading zeros (11 for mx itself,
++    // then at least clz(my)): an ordinary quotient (|x| / |y| below 2^(11 + ctz(my))) takes one divdu.
++    uint64_t r = mx;
++    if (!d)
++        r %= my;
++    while (d > 0) {
++        int s = __builtin_clzll(r);
++        if (s > d)
++            s = d;
++        r = (r << s) % my;
++        d -= s;
++        if (!r)
++            break;
++    }
++    if (!r)
++        return fmodDoubleFromBits(sx);
++
++    // r * 2^(ey - 1075), r < 2^53: normalise, or leave it subnormal.
++    int lz = __builtin_clzll(r) - 11;
++    int e = ey - lz;
++    uint64_t bits;
++    if (e >= 1)
++        bits = (static_cast<uint64_t>(e - 1) << 52) + (r << lz);
++    else
++        bits = r << (ey - 1);
++    return fmodDoubleFromBits(bits | sx);
++}
++
++} // namespace Leopard
++} // namespace JSC
+diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/MathCommon.cpp b/Source/JavaScriptCore/runtime/MathCommon.cpp
+--- a/Source/JavaScriptCore/runtime/MathCommon.cpp	2026-07-27 09:40:28.701404600 -0600
++++ b/Source/JavaScriptCore/runtime/MathCommon.cpp	2026-11-13 00:53:12.501410534 -0600
+@@ -26,6 +26,15 @@
+ #include "config.h"
+ #include "MathCommon.h"
+ 
++#if defined(WTF_DARWIN9) && !defined(LEOPARD_JSC_FAST_FMOD)
++#define LEOPARD_JSC_FAST_FMOD 1
++#endif
++#if LEOPARD_JSC_FAST_FMOD
++#include "LeopardFastFmod.h"
++#include <stdlib.h>
++#include <string.h>
++#endif
++
+ #include "PureNaN.h"
+ 
+ namespace JSC {
+@@ -540,8 +549,26 @@
+     return std::pow(x, y);
+ }
+ 
++#if LEOPARD_JSC_FAST_FMOD
++// FrostByte (Leopard): JS `%` on doubles uses an exact integer-step fmod (LeopardFastFmod.h; bit-identical to
++// libm, NaN bits included) instead of 10.5's slow libm loop. LEOPARD_JSC_FAST_FMOD=0 in the environment, or
++// building with -DLEOPARD_JSC_FAST_FMOD=0, goes back to libm.
++static bool leopardFastFmodEnabled()
++{
++    static const bool enabled = [] {
++        const char* env = getenv("LEOPARD_JSC_FAST_FMOD");
++        return !env || strcmp(env, "0");
++    }();
++    return enabled;
++}
++#endif
++
+ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(fmodDouble, double, (double x, double y))
+ {
++#if LEOPARD_JSC_FAST_FMOD
++    if (leopardFastFmodEnabled()) [[likely]]
++        return Leopard::fastFmod(x, y);
++#endif
+ #if HAVE(ARM_IDIV_INSTRUCTIONS)
+     // fmod() does not have exact results for integer on ARMv7.
+     // When DFG/FTL use IDIV, the result of op_mod can change if we use fmod().
