@@ -25,6 +25,18 @@
 static void *g_libgl;
 static const void *g_self_base;
 static pthread_once_t g_once = PTHREAD_ONCE_INIT;
+#if LEOPARD_EGL_WEBGL
+static void *(*g_provider)(const char *);   /* gl33: RDNGLGetProcAddress (Mesa's entry points) */
+static int g_es_major = 2;
+static int g_modern;
+
+LGL_EXPORT void lgl_set_provider(void *(*get_proc)(const char *), int es_major)
+{
+    g_provider = get_proc;
+    g_es_major = es_major;
+    g_modern = get_proc != NULL;
+}
+#endif
 
 static void open_libs(void)
 {
@@ -40,6 +52,13 @@ static void open_libs(void)
 static void *real(const char *name)
 {
     pthread_once(&g_once, open_libs);
+#if LEOPARD_EGL_WEBGL
+    if (g_provider) {                        /* gl33: straight to Mesa, past Apple's 2.1-era dispatch */
+        void *m = g_provider(name);
+        if (m)
+            return m;
+    }
+#endif
     void *p = g_libgl ? dlsym(g_libgl, name) : NULL;
     if (p)
         return p;
@@ -213,8 +232,39 @@ static const struct { const char *es, *desktop; } k_extension_map[] = {
     { "GL_EXT_texture_rg", "GL_ARB_texture_rg" },
 };
 
+#if LEOPARD_EGL_WEBGL
+/* WebGL builds, every tier (gl21 too): ES extensions WebKit's WebGL needs from the native context. NV_framebuffer_blit
+ * lets ANGLE offer ANGLE_framebuffer_blit, which WebKit uses to copy a preserveDrawingBuffer canvas at every frame
+ * (GraphicsContextGLANGLE::prepareTexture); without it each frame left INVALID_ENUM/INVALID_OPERATION for the page.
+ * EXT_framebuffer_blit is on RadeonNI and on Apple's 10.5 NVIDIA/ATI drivers. */
+static const struct { const char *es, *desktop; } k_webgl_extension_map[] = {
+    { "GL_NV_framebuffer_blit", "GL_EXT_framebuffer_blit" },
+};
+
+/* gl33 only: what a 4.x compatibility context adds, by ES name (plan 3.3). Held back: timer and occlusion
+ * queries (driver item D1), anything multisampled beyond the MAX_SAMPLES cap (D7). es3 = only when GLES 3.0
+ * is presented. */
+static const struct { const char *es, *desktop; int es3; } k_modern_extension_map[] = {
+    { "GL_OES_texture_float", "GL_ARB_texture_float", 0 },
+    { "GL_OES_texture_half_float", "GL_ARB_texture_float", 0 },
+    { "GL_OES_texture_float_linear", "GL_ARB_texture_float", 0 },
+    { "GL_OES_texture_half_float_linear", "GL_ARB_texture_float", 0 },
+    { "GL_OES_depth_texture", "GL_ARB_depth_texture", 0 },
+    { "GL_EXT_texture_filter_anisotropic", "GL_EXT_texture_filter_anisotropic", 0 },
+    { "GL_EXT_texture_compression_s3tc", "GL_EXT_texture_compression_s3tc", 0 },
+    { "GL_EXT_texture_compression_rgtc", "GL_ARB_texture_compression_rgtc", 1 },
+    { "GL_EXT_texture_compression_bptc", "GL_ARB_texture_compression_bptc", 1 },
+    { "GL_EXT_color_buffer_float", NULL, 1 },
+    { "GL_EXT_color_buffer_half_float", NULL, 0 },
+    { "GL_EXT_texture_norm16", "GL_EXT_texture_norm16", 1 },
+    { "GL_EXT_clip_control", "GL_ARB_clip_control", 1 },
+    { "GL_EXT_depth_clamp", "GL_ARB_depth_clamp", 1 },
+    { "GL_EXT_polygon_offset_clamp", "GL_ARB_polygon_offset_clamp", 1 },
+    { "GL_KHR_parallel_shader_compile", "GL_KHR_parallel_shader_compile", 0 },
+};
+#endif
 static char *g_extensions;           /* space separated, as glGetString(GL_EXTENSIONS) */
-static const char *g_extension_list[32];
+static const char *g_extension_list[64];
 static int g_extension_count;
 static char *g_version;
 static pthread_mutex_t g_strings_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -228,6 +278,13 @@ static int desktop_has(const char *all, const char *ext)
     return 0;
 }
 
+#if LEOPARD_EGL_WEBGL
+static int desktop_has_any(const char *ext)
+{
+    return desktop_has((const char *)real_glGetString()(GL_EXTENSIONS), ext);
+}
+#endif
+
 static void build_strings(void)
 {
     pthread_mutex_lock(&g_strings_lock);
@@ -237,6 +294,12 @@ static void build_strings(void)
         size_t size = 1;
         for (unsigned i = 0; i < sizeof k_extension_map / sizeof k_extension_map[0]; i++)
             size += strlen(k_extension_map[i].es) + 1;
+#if LEOPARD_EGL_WEBGL
+        for (unsigned i = 0; i < sizeof k_modern_extension_map / sizeof k_modern_extension_map[0]; i++)
+            size += strlen(k_modern_extension_map[i].es) + 1;
+        for (unsigned i = 0; i < sizeof k_webgl_extension_map / sizeof k_webgl_extension_map[0]; i++)
+            size += strlen(k_webgl_extension_map[i].es) + 1;
+#endif
         char *list = calloc(1, size);
         const char *hide = getenv("LEOPARD_GLES_HIDE_EXT");   /* comma/space separated, for bisecting */
         for (unsigned i = 0; i < sizeof k_extension_map / sizeof k_extension_map[0]; i++) {
@@ -249,8 +312,40 @@ static void build_strings(void)
             strcat(list, k_extension_map[i].es);
             g_extension_list[g_extension_count++] = k_extension_map[i].es;
         }
+#if LEOPARD_EGL_WEBGL
+        for (unsigned i = 0; i < sizeof k_webgl_extension_map / sizeof k_webgl_extension_map[0]; i++) {
+            if (!desktop_has(desktop, k_webgl_extension_map[i].desktop) || (hide && strstr(hide, k_webgl_extension_map[i].es)))
+                continue;
+            if (*list)
+                strcat(list, " ");
+            strcat(list, k_webgl_extension_map[i].es);
+            g_extension_list[g_extension_count++] = k_webgl_extension_map[i].es;
+        }
+        for (unsigned i = 0; g_modern && i < sizeof k_modern_extension_map / sizeof k_modern_extension_map[0]; i++) {
+            if (k_modern_extension_map[i].es3 && g_es_major < 3)
+                continue;
+            if (k_modern_extension_map[i].desktop && !desktop_has_any(k_modern_extension_map[i].desktop))
+                continue;
+            if (hide && strstr(hide, k_modern_extension_map[i].es))
+                continue;
+            if (*list)
+                strcat(list, " ");
+            strcat(list, k_modern_extension_map[i].es);
+            g_extension_list[g_extension_count++] = k_modern_extension_map[i].es;
+        }
+#endif
         size_t vsize = 64 + (version ? strlen(version) : 0);
         g_version = malloc(vsize);
+#if LEOPARD_EGL_WEBGL
+        if (g_modern) {
+            /* "OpenGL ES 3.0 Mesa 26.2.4 (LeopardEGL gl33)": ANGLE parses the ES prefix, and the "Mesa x.y.z"
+             * part switches on its Mesa workarounds (IsMesa, renderergl_utils.cpp). */
+            const char *mesa = version ? strstr(version, "Mesa ") : NULL;
+            int mesaLength = mesa ? 5 + (int)strcspn(mesa + 5, " ") : 0;
+            snprintf(g_version, vsize, "OpenGL ES %d.0 %.*s (LeopardEGL gl33)", g_es_major, mesa ? mesaLength : 4,
+                     mesa ? mesa : "Mesa");
+        } else
+#endif
         snprintf(g_version, vsize, "OpenGL ES 2.0 LeopardEGL (%s)", version ? version : "CGL");
         g_extensions = list;
     }
@@ -266,6 +361,10 @@ LGL_EXPORT const GLubyte *GL_APIENTRY glGetString(GLenum name)
         build_strings();
         return (const GLubyte *)g_version;
     case GL_SHADING_LANGUAGE_VERSION:
+#if LEOPARD_EGL_WEBGL
+        if (g_es_major >= 3)
+            return (const GLubyte *)"OpenGL ES GLSL ES 3.00";
+#endif
         return (const GLubyte *)"OpenGL ES GLSL ES 1.00";
     case GL_EXTENSIONS:
         build_strings();
@@ -328,8 +427,23 @@ LGL_EXPORT void GL_APIENTRY glGetIntegerv(GLenum pname, GLint *data)
         *data = g_extension_count;
         return;
     case GL_MAJOR_VERSION:
+#if LEOPARD_EGL_WEBGL
+        *data = g_es_major;
+#else
         *data = 2;
+#endif
         return;
+#if LEOPARD_EGL_WEBGL
+    case GL_MAX_SAMPLES:
+        if (g_modern) {   /* capped until the driver's MSAA resolve is proven (D7); LEOPARD_GL33_MAX_SAMPLES */
+            const char *cap = getenv("LEOPARD_GL33_MAX_SAMPLES");
+            p(pname, data);
+            int limit = cap ? atoi(cap) : 0;
+            if (*data > limit) *data = limit;
+            return;
+        }
+        break;
+#endif
     case GL_MINOR_VERSION:
         *data = 0;
         return;
@@ -529,15 +643,88 @@ typedef void (*PFNREADPIXELS)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, vo
 #define LGL_BGRA8 0x93A1
 #define LGL_UNSIGNED_INT_8_8_8_8_REV 0x8367
 
+#if LEOPARD_EGL_WEBGL
+static pthread_key_t g_client_le_key;
+static pthread_once_t g_client_le_once = PTHREAD_ONCE_INIT;
+static void make_client_le_key(void) { pthread_key_create(&g_client_le_key, NULL); }
+LGL_EXPORT void lgl_set_current_client_le(int bits)
+{
+    pthread_once(&g_client_le_once, make_client_le_key);
+    pthread_setspecific(g_client_le_key, (void *)(uintptr_t)bits);
+}
+static int current_client_le(void)
+{
+    pthread_once(&g_client_le_once, make_client_le_key);
+    return (int)(uintptr_t)pthread_getspecific(g_client_le_key);
+}
+#endif
+
 static GLenum bgra_type(GLenum format, GLenum type)
 {
 #if defined(__BIG_ENDIAN__)
+#if LEOPARD_EGL_WEBGL
+    /* A little-endian client context (WebGL's) has PACK/UNPACK_SWAP_BYTES on, which would swap a packed
+     * 8_8_8_8_REV word too; its BGRA data is client bytes anyway. */
+    if (current_client_le())
+        return type;
+#endif
     if (format == LGL_BGRA && type == GL_UNSIGNED_BYTE)
         return LGL_UNSIGNED_INT_8_8_8_8_REV;
 #endif
     (void)format;
     return type;
 }
+
+#if LEOPARD_EGL_WEBGL
+/* GLES 2.0 floating-point textures (OES_texture_float / OES_texture_half_float) are unsized: desktop GL would
+ * store GL_RGBA + GL_FLOAT as RGBA8. Map to the sized float formats, and GL_HALF_FLOAT_OES (0x8D61) to
+ * GL_HALF_FLOAT (0x140B), which is all desktop GL knows (plan 3.3 rule 4). */
+#define LGL_HALF_FLOAT_OES 0x8D61
+#define LGL_HALF_FLOAT 0x140B
+static GLenum es_type(GLenum type) { return type == LGL_HALF_FLOAT_OES ? LGL_HALF_FLOAT : type; }
+static GLint es_internal_format(GLint internalformat, GLenum type)
+{
+    if (!g_modern || (type != GL_FLOAT && type != LGL_HALF_FLOAT_OES && type != LGL_HALF_FLOAT))
+        return internalformat;
+    int half = type != GL_FLOAT;
+    switch (internalformat) {
+    case GL_RGBA: return half ? 0x881A /* RGBA16F */ : 0x8814 /* RGBA32F */;
+    case GL_RGB: return half ? 0x881B /* RGB16F */ : 0x8815 /* RGB32F */;
+    case GL_LUMINANCE: return half ? 0x881E /* LUMINANCE16F_ARB */ : 0x8818 /* LUMINANCE32F_ARB */;
+    case GL_ALPHA: return half ? 0x881C /* ALPHA16F_ARB */ : 0x8816 /* ALPHA32F_ARB */;
+    case GL_LUMINANCE_ALPHA: return half ? 0x881F /* LUMINANCE_ALPHA16F_ARB */ : 0x8819 /* LUMINANCE_ALPHA32F_ARB */;
+    }
+    return internalformat;
+}
+
+typedef void (*PFNENABLE)(GLenum);
+typedef void (*PFNPIXELSTOREI)(GLenum, GLint);
+/* Desktop compatibility contexts need these switched on to behave like GLES (plan 3.3):
+ *  - gl_PointSize from the shader and gl_PointCoord (GL_VERTEX_PROGRAM_POINT_SIZE, GL_POINT_SPRITE), gl21 too;
+ *  - gl33: seamless cube maps and sRGB encoding into sRGB attachments, which GLES 3.0 always does;
+ *  - little-endian client contexts: GL_UNPACK_SWAP_BYTES / GL_PACK_SWAP_BYTES, so Mesa swaps client pixel data
+ *    by its element size on upload and readback (plan 4.4.4; measured, probes/gl33-bridge.c B6). */
+LGL_EXPORT void lgl_prepare_context(int modern, int client_le)
+{
+    PFNENABLE enable = (PFNENABLE)lgl_resolve_or_trap("glEnable");
+    enable(0x8642 /* GL_VERTEX_PROGRAM_POINT_SIZE */);
+    enable(0x8861 /* GL_POINT_SPRITE */);
+    if (modern) {
+        enable(0x884F /* GL_TEXTURE_CUBE_MAP_SEAMLESS */);
+        enable(0x8DB9 /* GL_FRAMEBUFFER_SRGB */);
+    }
+    if (client_le & 1) {
+        PFNPIXELSTOREI store = (PFNPIXELSTOREI)lgl_resolve_or_trap("glPixelStorei");
+        store(0x0CF0 /* GL_UNPACK_SWAP_BYTES */, GL_TRUE);
+        store(0x0D00 /* GL_PACK_SWAP_BYTES */, GL_TRUE);
+    }
+    if (lgl_debug_level)
+        fprintf(stderr, "LeopardEGL: context prepared (%s%s)\n", modern ? "gl33" : "gl21", (client_le & 1) ? ", little-endian client" : "");
+}
+#else
+#define es_type(type) (type)
+#define es_internal_format(internalformat, type) (internalformat)
+#endif
 
 typedef void (*PFNTEXIMAGE2D)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const void *);
 typedef void (*PFNTEXSUBIMAGE2D)(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const void *);
@@ -551,7 +738,8 @@ LGL_EXPORT void GL_APIENTRY glTexImage2D(GLenum target, GLint level, GLint inter
         lgl_trace_call("glTexImage2D(0x%x, %d, 0x%x, %d, %d, %d, 0x%x, 0x%x, %p)", target, level, internalformat, w, h, border, format, type, pixels);
     if (internalformat == LGL_BGRA || internalformat == LGL_BGRA8)
         internalformat = GL_RGBA8_OES;
-    p(target, level, internalformat, w, h, border, format, bgra_type(format, type), pixels);
+    internalformat = es_internal_format(internalformat, type);
+    p(target, level, internalformat, w, h, border, format, es_type(bgra_type(format, type)), pixels);
     if (lgl_debug_level >= 2)
         lgl_check_error("glTexImage2D");
 }
@@ -577,7 +765,7 @@ LGL_EXPORT void GL_APIENTRY glTexSubImage2D(GLenum target, GLint level, GLint x,
     if (!p) p = (PFNTEXSUBIMAGE2D)lgl_resolve_or_trap("glTexSubImage2D");
     if (lgl_debug_level >= 4)
         lgl_trace_call("glTexSubImage2D(0x%x, %d, %d, %d, %d, %d, 0x%x, 0x%x, %p)", target, level, x, y, w, h, format, type, pixels);
-    p(target, level, x, y, w, h, format, bgra_type(format, type), pixels);
+    p(target, level, x, y, w, h, format, es_type(bgra_type(format, type)), pixels);
     if (lgl_debug_level >= 2)
         lgl_check_error("glTexSubImage2D");
 }
@@ -586,7 +774,7 @@ LGL_EXPORT void GL_APIENTRY glReadPixels(GLint x, GLint y, GLsizei w, GLsizei h,
 {
     static PFNREADPIXELS p;
     if (!p) p = (PFNREADPIXELS)lgl_resolve_or_trap("glReadPixels");
-    p(x, y, w, h, format, bgra_type(format, type), pixels);
+    p(x, y, w, h, format, es_type(bgra_type(format, type)), pixels);
     if (lgl_debug_level >= 3 && pixels) {
         static int traced;
         if (traced++ < 12) {

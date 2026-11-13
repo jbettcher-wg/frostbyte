@@ -18,6 +18,18 @@ LGL_EXPORT unsigned int lgl_lookup_texture_buffer(void *group, unsigned int text
 /* eglMakeCurrent reports the current context's share group (per thread). */
 LGL_EXPORT void lgl_set_current_group(void *group);
 
+#ifndef LEOPARD_EGL_WEBGL
+#define LEOPARD_EGL_WEBGL 0
+#endif
+#if LEOPARD_EGL_WEBGL
+/* gl33 (WebGL builds): GL comes from the driver's modern bridge; es_major is the GLES version presented. */
+LGL_EXPORT void lgl_set_provider(void *(*get_proc)(const char *), int es_major);
+/* The current context's little-endian client-data bits (EGL_CONTEXT_CLIENT_LITTLE_ENDIAN_LEOPARD), per thread. */
+LGL_EXPORT void lgl_set_current_client_le(int bits);
+/* One-time GLES rules on a context, at its first make-current (docs/webgl-plan.md 3.3). */
+LGL_EXPORT void lgl_prepare_context(int modern, int client_le);
+#endif
+
 /* LEOPARD_GLES_DEBUG=2: glGetError after every call, reported per entry point. */
 extern int lgl_debug_level;
 void lgl_check_error(const char *name);

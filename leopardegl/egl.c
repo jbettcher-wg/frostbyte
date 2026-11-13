@@ -10,6 +10,16 @@
  *    the RadeonNI driver, else any accelerated renderer). One RGBA8/D24S8 config; contexts are CGL
  *    contexts sharing through CGL share groups; surfaceless contexts and pbuffers render through
  *    FBOs only. The GLES presentation layer is libGLESv2 (gles.c). gl33 currently means the same.
+ *  - "gl33" in a WebGL build (LEOPARD_EGL_WEBGL=1, FrostByte 0.4; docs/webgl-plan.md section 3): GLES 3.0
+ *    (or 2.0 with LEOPARD_GL33_ES=2) over the RadeonNI driver's per-process modern compatibility context
+ *    (RDNGLRequestCompatibilityContext before the first CGL context, RDNGLMakeCurrent after every
+ *    CGLSetCurrentContext, GL through RDNGLGetProcAddress). Falls back to gl21 when the driver refuses.
+ *    Every GL tier of a WebGL build advertises EGL_LEOPARD_webgl (since 2026-11-12: WebGL 1 on gl21 with any
+ *    accelerated renderer, WebGL 1/2 on gl33; whether a page gets WebGL is FrostByte's decision, enable-webgl).
+ *    Contexts created with EGL_CONTEXT_CLIENT_LITTLE_ENDIAN_LEOPARD (ANGLE's, for WebGL) take little-endian client
+ *    pixel data (GL_UNPACK/PACK_SWAP_BYTES); ANGLE converts their buffer data to host order itself, unless a
+ *    driver offers RDNGLSetClientByteOrder (optional fast path, query bit 2; plan 4.4.6).
+ * Without LEOPARD_EGL_WEBGL the library is exactly the 0.3.x one.
  */
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -25,6 +35,13 @@
 
 #define EXPORT __attribute__((visibility("default")))
 
+#ifndef LEOPARD_EGL_WEBGL
+#define LEOPARD_EGL_WEBGL 0
+#endif
+/* Private EGL context attribute (and eglQueryContext name): the context's client data is little-endian.
+ * Query result bits: 1 = pixel data (UNPACK/PACK_SWAP_BYTES), 2 = buffer data (driver mode). */
+#define EGL_CONTEXT_CLIENT_LITTLE_ENDIAN_LEOPARD 0x3F20
+
 typedef struct LeopardDisplay {
     int magic;            /* 'LEGL' */
     EGLBoolean initialized;
@@ -36,7 +53,8 @@ static LeopardDisplay g_default_display = { DISPLAY_MAGIC, EGL_FALSE, 0 };
 static LeopardDisplay g_surfaceless_display = { DISPLAY_MAGIC, EGL_FALSE, EGL_PLATFORM_SURFACELESS_MESA };
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 
-enum { TIER_SOFT, TIER_GL21 };
+enum { TIER_SOFT, TIER_GL21, TIER_GL33 };
+#define GL_TIER() (g_tier >= TIER_GL21)
 static int g_tier = -1;                         /* decided once, at the first eglInitialize */
 static CGLPixelFormatObj g_pf;
 static char g_vendor[160] = "FrostByte LeopardEGL (soft)";
@@ -45,7 +63,11 @@ static char g_vendor[160] = "FrostByte LeopardEGL (soft)";
 #define CONTEXT_MAGIC 0x4c43544bu  /* 'LCTK' */
 #define SURFACE_MAGIC 0x4c535246u  /* 'LSRF' */
 typedef struct { unsigned magic; EGLint id; } LeopardConfig;
-typedef struct LeopardContext { unsigned magic; CGLContextObj cgl; pthread_t bound; int is_bound; struct LeopardContext *group; } LeopardContext;
+typedef struct LeopardContext {
+    unsigned magic; CGLContextObj cgl; pthread_t bound; int is_bound; struct LeopardContext *group;
+    int prepared;      /* the one-time ES rules have been applied (first make-current) */
+    int client_le;     /* EGL_CONTEXT_CLIENT_LITTLE_ENDIAN_LEOPARD bits granted (1 pixels, 2 buffers) */
+} LeopardContext;
 typedef struct { unsigned magic; EGLint width, height; } LeopardSurface;
 static LeopardConfig g_config = { CONFIG_MAGIC, 1 };
 
@@ -124,6 +146,26 @@ static int load_leopard_gpu(void)
     return g_lgpu.version && g_lgpu.create && g_lgpu.bind && g_lgpu.export_;
 }
 
+/* ---- the RadeonNI modern-context bridge (gl33, WebGL builds) ---- */
+#define RADEONNI_GLD "/System/Library/Extensions/RadeonNIGLDriver.bundle/Contents/MacOS/RadeonNIGLDriver"
+static struct {
+    int (*request)(int, int);
+    int (*make_current)(void *);
+    void *(*get_proc)(const char *);
+    int (*set_byte_order)(void *, int);   /* RDNGLSetClientByteOrder: not in the driver yet (plan 4.4.5) */
+} g_bridge;
+static int g_es_major = 2;                  /* the GLES version presented (gl33: 3, or LEOPARD_GL33_ES=2) */
+static char g_display_extensions[512];
+
+/* CGLSetCurrentContext, plus the bridge's own make-current in gl33 (RDNGLMakeCurrent after every switch). */
+static CGLError set_current(CGLContextObj c)
+{
+    CGLError e = CGLSetCurrentContext(c);
+    if (e == kCGLNoError && g_tier == TIER_GL33 && g_bridge.make_current)
+        g_bridge.make_current(c);
+    return e;
+}
+
 /* ---- tier selection ---- */
 #define RADEONNI_COMPAT_RENDERER 0x00021a00
 
@@ -146,6 +188,31 @@ static void choose_tier(void)   /* under g_lock */
     const char *want = getenv("LEOPARD_WPE_GL");
     if (!want || (strcmp(want, "gl21") && strcmp(want, "gl33")))
         return;
+#if LEOPARD_EGL_WEBGL
+    /* gl33: the modern bridge must be requested before this process makes any CGL context. A renderer
+     * query loads and initialises the driver without making one (a bare dlopen leaves it uninitialised). */
+    int modern = 0;
+    if (!strcmp(want, "gl33")) {
+        CGLRendererInfoObj info = NULL;
+        GLint count = 0;
+        if (CGLQueryRendererInfo(0xffffffff, &info, &count) == kCGLNoError)
+            CGLDestroyRendererInfo(info);
+        void *gld = dlopen(RADEONNI_GLD, RTLD_LAZY | RTLD_LOCAL);
+        if (gld) {
+            g_bridge.request = (int (*)(int, int))dlsym(gld, "RDNGLRequestCompatibilityContext");
+            g_bridge.make_current = (int (*)(void *))dlsym(gld, "RDNGLMakeCurrent");
+            g_bridge.get_proc = (void *(*)(const char *))dlsym(gld, "RDNGLGetProcAddress");
+            g_bridge.set_byte_order = (int (*)(void *, int))dlsym(gld, "RDNGLSetClientByteOrder");
+        }
+        setenv("RDN_GLTHREAD", "0", 0);        /* no glthread under WebKit's multi-threaded contexts (plan 2.3) */
+        modern = g_bridge.request && g_bridge.make_current && g_bridge.get_proc && g_bridge.request(4, 6);
+        if (!modern)
+            fprintf(stderr, "LeopardEGL: gl33: the driver refused a modern context (%s); using gl21\n",
+                    !gld ? "no RadeonNI GL driver" : !g_bridge.request ? "no bridge in the driver" : "RDNGLRequestCompatibilityContext");
+        const char *es = getenv("LEOPARD_GL33_ES");
+        g_es_major = modern && !(es && !strcmp(es, "2")) ? 3 : 2;
+    }
+#endif
     const char *forced = getenv("LEOPARD_EGL_RENDERER");          /* hex renderer ID, for testing */
     GLint renderer = forced ? (GLint)strtol(forced, NULL, 16) : RADEONNI_COMPAT_RENDERER;
     CGLPixelFormatObj pf = pixel_format_for(renderer);
@@ -159,7 +226,13 @@ static void choose_tier(void)   /* under g_lock */
         CGLDestroyPixelFormat(pf);
         return;
     }
-    CGLSetCurrentContext(probe);
+#if LEOPARD_EGL_WEBGL
+    if (modern) {
+        g_tier = TIER_GL33;                     /* set_current now pairs RDNGLMakeCurrent */
+        lgl_set_provider(g_bridge.get_proc, g_es_major);
+    }
+#endif
+    set_current(probe);
     typedef const unsigned char *(*GetString)(unsigned);
     GetString get = (GetString)lgl_resolve("glGetString");
     const char *r = get ? (const char *)get(0x1F01 /* GL_RENDERER */) : NULL;
@@ -167,12 +240,17 @@ static void choose_tier(void)   /* under g_lock */
     /* Zero-copy frames: the driver's shared buffers, unless LEOPARD_WPE_ZEROCOPY=0. */
     const char *zero_copy = getenv("LEOPARD_WPE_ZEROCOPY");
     g_shared_buffers = (!zero_copy || strcmp(zero_copy, "0")) && load_leopard_gpu() && g_lgpu.version(probe) > 0;
-    snprintf(g_vendor, sizeof g_vendor, "FrostByte LeopardEGL (gl21%s: %s, %s)",
+    snprintf(g_vendor, sizeof g_vendor, "FrostByte LeopardEGL (%s%s: %s, %s)", g_tier == TIER_GL33 ? "gl33" : "gl21",
              g_shared_buffers ? " zero-copy" : "", r ? r : "?", v ? v : "?");
-    CGLSetCurrentContext(previous);
+    set_current(previous);
     CGLDestroyContext(probe);
     g_pf = pf;
-    g_tier = TIER_GL21;
+    if (g_tier != TIER_GL33)
+        g_tier = TIER_GL21;
+    snprintf(g_display_extensions, sizeof g_display_extensions, "%s%s%s",
+             g_shared_buffers ? k_display_extensions_zero_copy : k_display_extensions,
+             LEOPARD_EGL_WEBGL ? " EGL_LEOPARD_client_little_endian" : "",
+             LEOPARD_EGL_WEBGL ? " EGL_LEOPARD_webgl" : "");
 }
 
 /* ---- display ---- */
@@ -230,8 +308,10 @@ EXPORT const char *EGLAPIENTRY eglQueryString(EGLDisplay dpy, EGLint name)
     switch (name) {
     case EGL_VENDOR: OK(g_vendor);
     case EGL_VERSION: OK("1.5 LeopardEGL");
-    case EGL_EXTENSIONS: OK(g_shared_buffers ? k_display_extensions_zero_copy : k_display_extensions);
-    case EGL_CLIENT_APIS: OK(g_tier == TIER_GL21 ? "OpenGL_ES" : "");
+    case EGL_EXTENSIONS:
+        if (g_display_extensions[0]) OK(g_display_extensions);
+        OK(g_shared_buffers ? k_display_extensions_zero_copy : k_display_extensions);
+    case EGL_CLIENT_APIS: OK(GL_TIER() ? "OpenGL_ES" : "");
     }
     FAIL(EGL_BAD_PARAMETER, NULL);
 }
@@ -239,7 +319,7 @@ EXPORT const char *EGLAPIENTRY eglQueryString(EGLDisplay dpy, EGLint name)
 /* ---- configs: none in the soft tier, one in gl21 ---- */
 static LeopardConfig *config_of(EGLConfig c)
 {
-    return (c == (EGLConfig)&g_config && g_tier == TIER_GL21) ? &g_config : NULL;
+    return (c == (EGLConfig)&g_config && GL_TIER()) ? &g_config : NULL;
 }
 
 static EGLBoolean config_attrib(EGLint attribute, EGLint *value)
@@ -259,7 +339,8 @@ static EGLBoolean config_attrib(EGLint attribute, EGLint *value)
     case EGL_CONFIG_CAVEAT: *value = EGL_NONE; return EGL_TRUE;
     case EGL_TRANSPARENT_TYPE: *value = EGL_NONE; return EGL_TRUE;
     case EGL_NATIVE_RENDERABLE: case EGL_BIND_TO_TEXTURE_RGB: case EGL_BIND_TO_TEXTURE_RGBA: *value = EGL_FALSE; return EGL_TRUE;
-    case EGL_RENDERABLE_TYPE: case EGL_CONFORMANT: *value = EGL_OPENGL_ES2_BIT; return EGL_TRUE;
+    case EGL_RENDERABLE_TYPE: case EGL_CONFORMANT:
+        *value = EGL_OPENGL_ES2_BIT | (g_es_major >= 3 ? 0x40 /* EGL_OPENGL_ES3_BIT */ : 0); return EGL_TRUE;
     case EGL_SURFACE_TYPE: *value = EGL_PBUFFER_BIT | EGL_WINDOW_BIT; return EGL_TRUE;
     case EGL_MAX_PBUFFER_WIDTH: case EGL_MAX_PBUFFER_HEIGHT: *value = 16384; return EGL_TRUE;
     case EGL_MAX_PBUFFER_PIXELS: *value = 16384 * 16384; return EGL_TRUE;
@@ -305,7 +386,7 @@ EXPORT EGLBoolean EGLAPIENTRY eglGetConfigs(EGLDisplay dpy, EGLConfig *configs, 
     if (!checked_display(dpy, 1)) return EGL_FALSE;
     if (!num) FAIL(EGL_BAD_PARAMETER, EGL_FALSE);
     *num = 0;
-    if (g_tier == TIER_GL21) {
+    if (GL_TIER()) {
         if (configs && size > 0)
             configs[0] = (EGLConfig)&g_config;
         *num = (!configs || size > 0) ? 1 : 0;
@@ -318,7 +399,7 @@ EXPORT EGLBoolean EGLAPIENTRY eglChooseConfig(EGLDisplay dpy, const EGLint *attr
     if (!checked_display(dpy, 1)) return EGL_FALSE;
     if (!num) FAIL(EGL_BAD_PARAMETER, EGL_FALSE);
     *num = 0;
-    if (g_tier == TIER_GL21 && config_matches(attribs)) {
+    if (GL_TIER() && config_matches(attribs)) {
         if (configs && size > 0)
             configs[0] = (EGLConfig)&g_config;
         *num = (!configs || size > 0) ? 1 : 0;
@@ -461,22 +542,26 @@ EXPORT EGLenum EGLAPIENTRY eglQueryAPI(void) { return ts()->api; }
 EXPORT EGLContext EGLAPIENTRY eglCreateContext(EGLDisplay dpy, EGLConfig c, EGLContext share, const EGLint *a)
 {
     if (!checked_display(dpy, 1)) return EGL_NO_CONTEXT;
-    if (g_tier != TIER_GL21) FAIL(EGL_BAD_MATCH, EGL_NO_CONTEXT);
+    if (!GL_TIER()) FAIL(EGL_BAD_MATCH, EGL_NO_CONTEXT);
     if (c != EGL_NO_CONFIG_KHR && !config_of(c)) FAIL(EGL_BAD_CONFIG, EGL_NO_CONTEXT);
     if (ts()->api != EGL_OPENGL_ES_API) FAIL(EGL_BAD_MATCH, EGL_NO_CONTEXT);   /* GLES only */
     LeopardContext *shared = NULL;
     if (share != EGL_NO_CONTEXT && !(shared = context_of(share))) FAIL(EGL_BAD_CONTEXT, EGL_NO_CONTEXT);
-    EGLint major = 1, minor = 0;
+    EGLint major = 1, minor = 0, client_le = 0;
     for (; a && a[0] != EGL_NONE; a += 2) {
         switch (a[0]) {
         case EGL_CONTEXT_MAJOR_VERSION: major = a[1]; break;     /* == EGL_CONTEXT_CLIENT_VERSION */
         case EGL_CONTEXT_MINOR_VERSION: minor = a[1]; break;
+#if LEOPARD_EGL_WEBGL
+        case EGL_CONTEXT_CLIENT_LITTLE_ENDIAN_LEOPARD: client_le = a[1] != EGL_FALSE; break;
+#endif
         case EGL_CONTEXT_OPENGL_DEBUG: case EGL_CONTEXT_FLAGS_KHR: case EGL_CONTEXT_OPENGL_ROBUST_ACCESS:
         case EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY: break;   /* accepted, not honoured */
         default: FAIL(EGL_BAD_ATTRIBUTE, EGL_NO_CONTEXT);
         }
     }
-    if (major > 2 || (major == 2 && minor > 0)) FAIL(EGL_BAD_MATCH, EGL_NO_CONTEXT);   /* GLES 2.0 is what we present */
+    /* What we present: GLES 2.0, or 3.0 on gl33. 3.1/3.2 are refused so ANGLE settles on 3.0 (plan 3.2). */
+    if (major > g_es_major || (major == g_es_major && minor > 0)) FAIL(EGL_BAD_MATCH, EGL_NO_CONTEXT);
     CGLContextObj cgl = NULL;
     if (CGLCreateContext(g_pf, shared ? shared->cgl : NULL, &cgl) != kCGLNoError || !cgl)
         FAIL(EGL_BAD_ALLOC, EGL_NO_CONTEXT);
@@ -484,6 +569,11 @@ EXPORT EGLContext EGLAPIENTRY eglCreateContext(EGLDisplay dpy, EGLConfig c, EGLC
     x->magic = CONTEXT_MAGIC;
     x->cgl = cgl;
     x->group = shared ? shared->group : x;   /* CGLGetShareGroup is 10.6+: track the share group ourselves */
+    if (client_le) {
+        x->client_le = 1;                     /* pixels: GL_UNPACK/PACK_SWAP_BYTES at first make-current */
+        if (g_tier == TIER_GL33 && g_bridge.set_byte_order && g_bridge.set_byte_order(cgl, 1))
+            x->client_le |= 2;                /* buffers: the driver's per-context mode (plan 4.4.5) */
+    }
     OK((EGLContext)x);
 }
 
@@ -495,7 +585,7 @@ EXPORT EGLBoolean EGLAPIENTRY eglDestroyContext(EGLDisplay dpy, EGLContext ctx)
     ThreadState *t = ts();
     if (t->context == ctx) {
         x->is_bound = 0;
-        CGLSetCurrentContext(NULL);
+        set_current(NULL);
         t->context = EGL_NO_CONTEXT;
         t->draw = t->read = EGL_NO_SURFACE;
         t->display = EGL_NO_DISPLAY;
@@ -517,7 +607,7 @@ EXPORT EGLBoolean EGLAPIENTRY eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EG
             LeopardContext *old = context_of(t->context);
             if (old) old->is_bound = 0;
             pthread_mutex_unlock(&g_lock);
-            CGLSetCurrentContext(NULL);
+            set_current(NULL);
             lgl_set_current_group(NULL);
         }
         t->context = EGL_NO_CONTEXT;
@@ -543,8 +633,15 @@ EXPORT EGLBoolean EGLAPIENTRY eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EG
     x->bound = pthread_self();
     x->is_bound = 1;
     pthread_mutex_unlock(&g_lock);
-    if (CGLSetCurrentContext(x->cgl) != kCGLNoError) FAIL(EGL_BAD_ACCESS, EGL_FALSE);
+    if (set_current(x->cgl) != kCGLNoError) FAIL(EGL_BAD_ACCESS, EGL_FALSE);
     lgl_set_current_group(x->group);
+#if LEOPARD_EGL_WEBGL
+    lgl_set_current_client_le(x->client_le);
+    if (!x->prepared) {                       /* GLES rules on a desktop context, once (plan 3.3) */
+        x->prepared = 1;
+        lgl_prepare_context(g_tier == TIER_GL33, x->client_le);
+    }
+#endif
     t->context = ctx;
     t->draw = draw;
     t->read = read;
@@ -559,7 +656,10 @@ EXPORT EGLBoolean EGLAPIENTRY eglQueryContext(EGLDisplay dpy, EGLContext ctx, EG
     switch (a) {
     case EGL_CONFIG_ID: *v = g_config.id; break;
     case EGL_CONTEXT_CLIENT_TYPE: *v = EGL_OPENGL_ES_API; break;
-    case EGL_CONTEXT_CLIENT_VERSION: *v = 2; break;
+    case EGL_CONTEXT_CLIENT_VERSION: *v = g_es_major; break;
+#if LEOPARD_EGL_WEBGL
+    case EGL_CONTEXT_CLIENT_LITTLE_ENDIAN_LEOPARD: *v = context_of(ctx)->client_le; break;
+#endif
     case EGL_RENDER_BUFFER: *v = ts()->draw != EGL_NO_SURFACE ? EGL_BACK_BUFFER : EGL_NONE; break;
     default: FAIL(EGL_BAD_ATTRIBUTE, EGL_FALSE);
     }
@@ -598,7 +698,7 @@ EXPORT EGLBoolean EGLAPIENTRY eglReleaseThread(void)
         LeopardContext *old = context_of(t->context);
         if (old) old->is_bound = 0;
         pthread_mutex_unlock(&g_lock);
-        CGLSetCurrentContext(NULL);
+        set_current(NULL);
     }
     t->context = EGL_NO_CONTEXT;
     t->draw = t->read = EGL_NO_SURFACE;
@@ -651,7 +751,7 @@ static EGLImage create_texture_image(EGLDisplay dpy, EGLContext ctx, EGLenum tar
     if (!texture) FAIL(EGL_BAD_PARAMETER, EGL_NO_IMAGE);
 
     CGLContextObj previous = CGLGetCurrentContext();
-    if (previous != c->cgl) CGLSetCurrentContext(c->cgl);
+    if (previous != c->cgl) set_current(c->cgl);
     static PFN_GetIntegerv get_integer;
     static PFN_BindTexture bind_texture;
     static PFN_GetTexLevelParameteriv get_level;
@@ -675,7 +775,7 @@ static EGLImage create_texture_image(EGLDisplay dpy, EGLContext ctx, EGLenum tar
             lgl_register_texture_buffer(group, texture, id);
     }
     bind_texture(GL_TEXTURE_2D_, (unsigned)bound);
-    if (previous != c->cgl) CGLSetCurrentContext(previous);
+    if (previous != c->cgl) set_current(previous);
     if (!ok) FAIL(EGL_BAD_ALLOC, EGL_NO_IMAGE);
 
     LeopardImage *x = calloc(1, sizeof *x);
