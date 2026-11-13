@@ -1,6 +1,6 @@
 diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/BAssert.h b/Source/bmalloc/bmalloc/BAssert.h
 --- a/Source/bmalloc/bmalloc/BAssert.h	2026-07-27 09:40:40.774225500 -0600
-+++ b/Source/bmalloc/bmalloc/BAssert.h	2026-11-08 14:47:36.801840837 -0600
++++ b/Source/bmalloc/bmalloc/BAssert.h	2026-11-12 20:50:01.480768460 -0600
 @@ -42,6 +42,8 @@
  #define BBreakpointTrap()  __asm__ volatile ("bkpt #0")
  #elif BCPU(ARM64)
@@ -12,7 +12,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/BAssert.h b/S
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/BPlatform.h b/Source/bmalloc/bmalloc/BPlatform.h
 --- a/Source/bmalloc/bmalloc/BPlatform.h	2026-07-27 09:40:40.774384700 -0600
-+++ b/Source/bmalloc/bmalloc/BPlatform.h	2026-11-08 14:47:36.802034890 -0600
++++ b/Source/bmalloc/bmalloc/BPlatform.h	2026-11-12 20:50:01.480855991 -0600
 @@ -176,6 +176,16 @@
  #endif
  #endif
@@ -50,7 +50,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/BPlatform.h b
  #define PAS_BMALLOC 1
 diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/CryptoRandom.cpp b/Source/bmalloc/bmalloc/CryptoRandom.cpp
 --- a/Source/bmalloc/bmalloc/CryptoRandom.cpp	2026-07-27 09:40:40.775385000 -0600
-+++ b/Source/bmalloc/bmalloc/CryptoRandom.cpp	2026-11-08 14:47:36.802360315 -0600
++++ b/Source/bmalloc/bmalloc/CryptoRandom.cpp	2026-11-12 20:50:01.480942573 -0600
 @@ -37,13 +37,20 @@
  #include "VMAllocate.h"
  #include <mutex>
@@ -85,7 +85,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/CryptoRandom.
      // TODO Generate random bytes - this appears to be unused when running libpas
 diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/ProcessCheck.h b/Source/bmalloc/bmalloc/ProcessCheck.h
 --- a/Source/bmalloc/bmalloc/ProcessCheck.h	2026-07-27 09:40:40.776384800 -0600
-+++ b/Source/bmalloc/bmalloc/ProcessCheck.h	2026-11-08 14:47:36.802620979 -0600
++++ b/Source/bmalloc/bmalloc/ProcessCheck.h	2026-11-12 20:50:01.480997253 -0600
 @@ -41,7 +41,7 @@
  inline bool gigacageEnabledForProcess() { return true; }
  #endif
@@ -97,7 +97,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/ProcessCheck.
  bool shouldAllowMiniMode();
 diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/SystemHeap.cpp b/Source/bmalloc/bmalloc/SystemHeap.cpp
 --- a/Source/bmalloc/bmalloc/SystemHeap.cpp	2026-07-27 09:40:40.777384800 -0600
-+++ b/Source/bmalloc/bmalloc/SystemHeap.cpp	2026-11-08 14:47:36.802822022 -0600
++++ b/Source/bmalloc/bmalloc/SystemHeap.cpp	2026-11-12 20:50:01.481062825 -0600
 @@ -77,7 +77,14 @@
  
  void* SystemHeap::memalign(size_t alignment, size_t size, FailureAction action)
@@ -127,7 +127,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/bmalloc/SystemHeap.cp
  void SystemHeap::dump()
 diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/libpas/src/libpas/pas_mte_config.h b/Source/bmalloc/libpas/src/libpas/pas_mte_config.h
 --- a/Source/bmalloc/libpas/src/libpas/pas_mte_config.h	2026-07-27 09:40:40.820384700 -0600
-+++ b/Source/bmalloc/libpas/src/libpas/pas_mte_config.h	2026-11-08 14:47:36.803139747 -0600
++++ b/Source/bmalloc/libpas/src/libpas/pas_mte_config.h	2026-11-12 20:50:01.481143386 -0600
 @@ -55,7 +55,10 @@
  #include <TargetConditionals.h>
  #endif
@@ -141,7 +141,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/libpas/src/libpas/pas
  #include <mach/mach_vm.h>
 diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/libpas/src/libpas/pas_mte.h b/Source/bmalloc/libpas/src/libpas/pas_mte.h
 --- a/Source/bmalloc/libpas/src/libpas/pas_mte.h	2026-07-27 09:40:40.820384700 -0600
-+++ b/Source/bmalloc/libpas/src/libpas/pas_mte.h	2026-11-08 14:47:36.803468632 -0600
++++ b/Source/bmalloc/libpas/src/libpas/pas_mte.h	2026-11-12 20:50:01.481250818 -0600
 @@ -29,7 +29,10 @@
  #include "pas_mte_config.h"
  
@@ -155,7 +155,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/libpas/src/libpas/pas
  #include <mach/mach_vm.h>
 diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/PlatformJSCOnly.cmake b/Source/bmalloc/PlatformJSCOnly.cmake
 --- a/Source/bmalloc/PlatformJSCOnly.cmake	2026-07-27 09:40:40.772385000 -0600
-+++ b/Source/bmalloc/PlatformJSCOnly.cmake	2026-11-08 14:47:36.804042271 -0600
++++ b/Source/bmalloc/PlatformJSCOnly.cmake	2026-11-12 20:50:01.481349149 -0600
 @@ -1,4 +1,4 @@
 -if (APPLE)
 +if (APPLE AND NOT DARWIN9)
@@ -164,7 +164,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/bmalloc/PlatformJSCOnly.cmake
      )
 diff -ruN --no-dereference -x __pycache__ a/Source/cmake/FindICU.cmake b/Source/cmake/FindICU.cmake
 --- a/Source/cmake/FindICU.cmake	2026-08-14 16:51:15.151753000 -0600
-+++ b/Source/cmake/FindICU.cmake	2026-11-08 14:47:36.804242064 -0600
++++ b/Source/cmake/FindICU.cmake	2026-11-12 20:50:01.481399240 -0600
 @@ -1,5 +1,8 @@
  
 -if (APPLE)
@@ -177,7 +177,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/cmake/FindICU.cmake b/Source/
      else ()
 diff -ruN --no-dereference -x __pycache__ a/Source/cmake/GStreamerDependencies.cmake b/Source/cmake/GStreamerDependencies.cmake
 --- a/Source/cmake/GStreamerDependencies.cmake	2026-07-27 09:40:40.892384500 -0600
-+++ b/Source/cmake/GStreamerDependencies.cmake	2026-11-08 22:36:54.615969968 -0600
++++ b/Source/cmake/GStreamerDependencies.cmake	2026-11-12 20:50:01.481447981 -0600
 @@ -1,5 +1,10 @@
  WEBKIT_OPTION_DEPEND(ENABLE_SPEECH_SYNTHESIS USE_GSTREAMER)
 -WEBKIT_OPTION_DEPEND(ENABLE_VIDEO USE_GSTREAMER)
@@ -192,7 +192,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/cmake/GStreamerDependencies.c
  WEBKIT_OPTION_DEPEND(USE_GSTREAMER_GL ENABLE_VIDEO)
 diff -ruN --no-dereference -x __pycache__ a/Source/cmake/OptionsCommon.cmake b/Source/cmake/OptionsCommon.cmake
 --- a/Source/cmake/OptionsCommon.cmake	2026-07-27 09:40:40.892384500 -0600
-+++ b/Source/cmake/OptionsCommon.cmake	2026-11-08 14:47:36.804449818 -0600
++++ b/Source/cmake/OptionsCommon.cmake	2026-11-12 20:50:01.481505852 -0600
 @@ -227,7 +227,11 @@
      #error Clang needed for libc++
      #endif
@@ -208,7 +208,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/cmake/OptionsCommon.cmake b/S
  else ()
 diff -ruN --no-dereference -x __pycache__ a/Source/cmake/OptionsWPE.cmake b/Source/cmake/OptionsWPE.cmake
 --- a/Source/cmake/OptionsWPE.cmake	2026-10-05 16:46:56.971277000 -0600
-+++ b/Source/cmake/OptionsWPE.cmake	2026-11-12 16:09:36.324466067 -0600
++++ b/Source/cmake/OptionsWPE.cmake	2026-11-12 20:50:01.481580263 -0600
 @@ -419,6 +419,13 @@
  endif ()
  
@@ -225,7 +225,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/cmake/OptionsWPE.cmake b/Sour
  
 diff -ruN --no-dereference -x __pycache__ a/Source/cmake/WebKitCommon.cmake b/Source/cmake/WebKitCommon.cmake
 --- a/Source/cmake/WebKitCommon.cmake	2026-08-09 15:52:19.839517400 -0600
-+++ b/Source/cmake/WebKitCommon.cmake	2026-11-08 14:47:36.804803073 -0600
++++ b/Source/cmake/WebKitCommon.cmake	2026-11-12 20:50:01.481680225 -0600
 @@ -180,12 +180,12 @@
          endif ()
      elseif (LOWERCASE_CMAKE_SYSTEM_PROCESSOR MATCHES "(i[3-6]86|x86)")
@@ -292,7 +292,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/cmake/WebKitCommon.cmake b/So
      CREATE_CONFIGURATION_HEADER()
 diff -ruN --no-dereference -x __pycache__ a/Source/cmake/WebKitFeatures.cmake b/Source/cmake/WebKitFeatures.cmake
 --- a/Source/cmake/WebKitFeatures.cmake	2026-08-06 02:40:44.337136300 -0600
-+++ b/Source/cmake/WebKitFeatures.cmake	2026-11-08 14:47:36.805221550 -0600
++++ b/Source/cmake/WebKitFeatures.cmake	2026-11-12 20:50:01.481796077 -0600
 @@ -117,6 +117,46 @@
          set(USE_MIMALLOC_DEFAULT ON)
          set(ENABLE_C_LOOP_DEFAULT OFF)
@@ -357,7 +357,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/cmake/WebKitFeatures.cmake b/
      WEBKIT_OPTION_DEFINE(ENABLE_EXPERIMENTAL_FEATURES "Enable experimental features" PRIVATE OFF)
 diff -ruN --no-dereference -x __pycache__ a/Source/cmake/WebKitFS.cmake b/Source/cmake/WebKitFS.cmake
 --- a/Source/cmake/WebKitFS.cmake	2026-07-27 09:40:40.894384600 -0600
-+++ b/Source/cmake/WebKitFS.cmake	2026-11-08 14:47:36.805689717 -0600
++++ b/Source/cmake/WebKitFS.cmake	2026-11-12 20:50:01.481894848 -0600
 @@ -84,7 +84,9 @@
  # On Apple platforms, some targets build as framework bundles. Point their
  # HEADERS variables to the inside of the framework bundle.
@@ -371,7 +371,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/cmake/WebKitFS.cmake b/Source
          set(_version "Versions/A/")
 diff -ruN --no-dereference -x __pycache__ a/Source/cmake/WebKitMacros.cmake b/Source/cmake/WebKitMacros.cmake
 --- a/Source/cmake/WebKitMacros.cmake	2026-08-10 10:29:04.634808300 -0600
-+++ b/Source/cmake/WebKitMacros.cmake	2026-11-08 14:51:17.370802841 -0600
++++ b/Source/cmake/WebKitMacros.cmake	2026-11-12 20:50:01.481999190 -0600
 @@ -235,7 +235,7 @@
          string(JOIN "," _lang_genex ${ARGN})
          target_precompile_headers(${_target} PRIVATE
@@ -437,7 +437,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/cmake/WebKitMacros.cmake b/So
              # Don't fire the module's own cross-import overlay while compiling it.
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/AbstractMacroAssembler.h b/Source/JavaScriptCore/assembler/AbstractMacroAssembler.h
 --- a/Source/JavaScriptCore/assembler/AbstractMacroAssembler.h	2026-07-27 09:40:28.263405300 -0600
-+++ b/Source/JavaScriptCore/assembler/AbstractMacroAssembler.h	2026-11-08 14:47:36.672117657 -0600
++++ b/Source/JavaScriptCore/assembler/AbstractMacroAssembler.h	2026-11-12 20:50:01.482172813 -0600
 @@ -399,7 +399,7 @@
          {
          }
@@ -458,7 +458,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Abst
          {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/CPU.h b/Source/JavaScriptCore/assembler/CPU.h
 --- a/Source/JavaScriptCore/assembler/CPU.h	2026-07-27 09:40:28.265405400 -0600
-+++ b/Source/JavaScriptCore/assembler/CPU.h	2026-11-09 10:24:27.185736217 -0600
++++ b/Source/JavaScriptCore/assembler/CPU.h	2026-11-12 20:50:01.482278695 -0600
 @@ -137,6 +137,25 @@
  #endif
  }
@@ -496,7 +496,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/CPU.
  #else
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/MacroAssembler.h b/Source/JavaScriptCore/assembler/MacroAssembler.h
 --- a/Source/JavaScriptCore/assembler/MacroAssembler.h	2026-07-27 09:40:28.267405500 -0600
-+++ b/Source/JavaScriptCore/assembler/MacroAssembler.h	2026-11-08 14:47:36.673273265 -0600
++++ b/Source/JavaScriptCore/assembler/MacroAssembler.h	2026-11-12 20:50:01.482396196 -0600
 @@ -54,6 +54,10 @@
  #define TARGET_MACROASSEMBLER MacroAssemblerRISCV64
  #include "MacroAssemblerRISCV64.h"
@@ -612,7 +612,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
      {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.cpp b/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.cpp
 --- a/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.cpp	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.cpp	2026-11-10 18:37:01.549505456 -0600
++++ b/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.cpp	2026-11-12 20:50:01.482542229 -0600
 @@ -0,0 +1,954 @@
 +/*
 + * Copyright (C) 2026 Justin Bettcher. All rights reserved.
@@ -1570,7 +1570,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
 +#endif // ENABLE(ASSEMBLER) && CPU(PPC64)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h b/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h
 --- a/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h	2026-11-12 16:12:57.577377576 -0600
++++ b/Source/JavaScriptCore/assembler/MacroAssemblerPPC64.h	2026-11-12 20:50:01.483658331 -0600
 @@ -0,0 +1,8392 @@
 +/*
 + * Copyright (C) 2026 Justin Bettcher. All rights reserved.
@@ -9966,7 +9966,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
 +#endif // ENABLE(ASSEMBLER) && CPU(PPC64)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/MacroAssemblerX86_64.h b/Source/JavaScriptCore/assembler/MacroAssemblerX86_64.h
 --- a/Source/JavaScriptCore/assembler/MacroAssemblerX86_64.h	2026-07-27 09:40:28.271405500 -0600
-+++ b/Source/JavaScriptCore/assembler/MacroAssemblerX86_64.h	2026-11-08 14:47:36.677287878 -0600
++++ b/Source/JavaScriptCore/assembler/MacroAssemblerX86_64.h	2026-11-12 20:50:01.485568689 -0600
 @@ -5174,6 +5174,11 @@
          x86Lea64(BaseIndex(a, b, TimesOne), dest);
      }
@@ -9981,7 +9981,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Macr
          if (!index.scale && !index.offset) {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/MaxFrameExtentForSlowPathCall.h b/Source/JavaScriptCore/assembler/MaxFrameExtentForSlowPathCall.h
 --- a/Source/JavaScriptCore/assembler/MaxFrameExtentForSlowPathCall.h	2026-07-27 09:40:28.271405500 -0600
-+++ b/Source/JavaScriptCore/assembler/MaxFrameExtentForSlowPathCall.h	2026-11-08 14:47:36.679141646 -0600
++++ b/Source/JavaScriptCore/assembler/MaxFrameExtentForSlowPathCall.h	2026-11-12 20:50:01.486001616 -0600
 @@ -50,6 +50,16 @@
  // First four args in registers, remaining 4 args on stack.
  static constexpr size_t maxFrameExtentForSlowPathCall = 24;
@@ -10001,7 +10001,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/MaxF
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/PerfLog.cpp b/Source/JavaScriptCore/assembler/PerfLog.cpp
 --- a/Source/JavaScriptCore/assembler/PerfLog.cpp	2026-07-27 09:40:28.271405500 -0600
-+++ b/Source/JavaScriptCore/assembler/PerfLog.cpp	2026-11-08 14:47:36.679392090 -0600
++++ b/Source/JavaScriptCore/assembler/PerfLog.cpp	2026-11-12 20:50:01.486064408 -0600
 @@ -97,6 +97,9 @@
  static constexpr uint32_t elfMachine = 0x28;
  #elif CPU(RISCV64)
@@ -10014,7 +10014,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Perf
  } // namespace Constants
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/PPC64Assembler.h b/Source/JavaScriptCore/assembler/PPC64Assembler.h
 --- a/Source/JavaScriptCore/assembler/PPC64Assembler.h	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/JavaScriptCore/assembler/PPC64Assembler.h	2026-11-11 20:57:52.750742134 -0600
++++ b/Source/JavaScriptCore/assembler/PPC64Assembler.h	2026-11-12 20:50:01.486123308 -0600
 @@ -0,0 +1,1976 @@
 +/*
 + * Copyright (C) 2026 Justin Bettcher. All rights reserved.
@@ -11994,7 +11994,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/PPC6
 +#endif // ENABLE(ASSEMBLER) && CPU(PPC64)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/PPC64Registers.h b/Source/JavaScriptCore/assembler/PPC64Registers.h
 --- a/Source/JavaScriptCore/assembler/PPC64Registers.h	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/JavaScriptCore/assembler/PPC64Registers.h	2026-11-08 14:47:36.680439006 -0600
++++ b/Source/JavaScriptCore/assembler/PPC64Registers.h	2026-11-12 20:50:01.486844940 -0600
 @@ -0,0 +1,236 @@
 +/*
 + * Copyright (C) 2026 Justin Bettcher. All rights reserved.
@@ -12234,7 +12234,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/PPC6
 +#endif // CPU(PPC64)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/ProbeContext.h b/Source/JavaScriptCore/assembler/ProbeContext.h
 --- a/Source/JavaScriptCore/assembler/ProbeContext.h	2026-07-27 09:40:28.272405400 -0600
-+++ b/Source/JavaScriptCore/assembler/ProbeContext.h	2026-11-08 14:47:36.680564488 -0600
++++ b/Source/JavaScriptCore/assembler/ProbeContext.h	2026-11-12 20:50:01.486908121 -0600
 @@ -142,6 +142,8 @@
      return *reinterpret_cast<void**>(&gpr(ARMRegisters::pc));
  #elif CPU(RISCV64)
@@ -12264,7 +12264,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Prob
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/TargetAssemblerDefinitions.h b/Source/JavaScriptCore/assembler/TargetAssemblerDefinitions.h
 --- a/Source/JavaScriptCore/assembler/TargetAssemblerDefinitions.h	2026-07-27 09:40:28.273405300 -0600
-+++ b/Source/JavaScriptCore/assembler/TargetAssemblerDefinitions.h	2026-11-08 14:47:36.680815022 -0600
++++ b/Source/JavaScriptCore/assembler/TargetAssemblerDefinitions.h	2026-11-12 20:50:01.486975533 -0600
 @@ -85,6 +85,9 @@
  #elif CPU(RISCV64)
  #define TARGET_ASSEMBLER RISCV64Assembler
@@ -12277,7 +12277,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/Targ
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/testmasm.cpp b/Source/JavaScriptCore/assembler/testmasm.cpp
 --- a/Source/JavaScriptCore/assembler/testmasm.cpp	2026-07-27 09:40:28.275405400 -0600
-+++ b/Source/JavaScriptCore/assembler/testmasm.cpp	2026-11-11 21:59:59.014112720 -0600
++++ b/Source/JavaScriptCore/assembler/testmasm.cpp	2026-11-12 20:50:01.487658395 -0600
 @@ -30,9 +30,14 @@
  #include "FPRInfo.h"
  #include "GPRInfo.h"
@@ -17378,7 +17378,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/assembler/test
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp b/Source/JavaScriptCore/b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp
 --- a/Source/JavaScriptCore/b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp	2026-07-27 09:40:28.305880300 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp	2026-11-08 14:47:36.685942542 -0600
++++ b/Source/JavaScriptCore/b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp	2026-11-12 20:50:01.489170069 -0600
 @@ -36,6 +36,7 @@
  #include "AirStackAllocation.h"
  #include "AirTmpMap.h"
@@ -17428,7 +17428,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirAllo
                              return;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGraphColoring.cpp b/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGraphColoring.cpp
 --- a/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGraphColoring.cpp	2026-07-27 09:40:28.306457500 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGraphColoring.cpp	2026-11-09 09:09:39.458927406 -0600
++++ b/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGraphColoring.cpp	2026-11-12 20:50:01.489344852 -0600
 @@ -2028,6 +2028,15 @@
  
      static unsigned NODELETE stackSlotMinimumWidth(Width width)
@@ -17447,7 +17447,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirAllo
          if (width <= Width64)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGreedy.cpp b/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGreedy.cpp
 --- a/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGreedy.cpp	2026-07-27 09:40:28.307212800 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGreedy.cpp	2026-11-09 09:09:39.460917121 -0600
++++ b/Source/JavaScriptCore/b3/air/AirAllocateRegistersByGreedy.cpp	2026-11-12 20:50:01.489590096 -0600
 @@ -2961,6 +2961,15 @@
  
      static unsigned NODELETE stackSlotMinimumWidth(Width width)
@@ -17497,7 +17497,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirAllo
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirArg.h b/Source/JavaScriptCore/b3/air/AirArg.h
 --- a/Source/JavaScriptCore/b3/air/AirArg.h	2026-07-27 09:40:28.308029700 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirArg.h	2026-11-10 18:47:35.154220942 -0600
++++ b/Source/JavaScriptCore/b3/air/AirArg.h	2026-11-12 20:50:01.489845150 -0600
 @@ -667,7 +667,12 @@
      {
          switch (scale) {
@@ -17670,7 +17670,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirArg.
              case MoveFloat:
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirCCallingConvention.cpp b/Source/JavaScriptCore/b3/air/AirCCallingConvention.cpp
 --- a/Source/JavaScriptCore/b3/air/AirCCallingConvention.cpp	2026-07-27 09:40:28.309017400 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirCCallingConvention.cpp	2026-11-08 14:47:36.688724795 -0600
++++ b/Source/JavaScriptCore/b3/air/AirCCallingConvention.cpp	2026-11-12 20:50:01.490027043 -0600
 @@ -36,6 +36,7 @@
  #include "B3Procedure.h"
  #include "B3ProcedureInlines.h"
@@ -17858,7 +17858,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirCCal
      return ArgumentValueList { procedure, block, types, WTF::move(underlyingArgs), WTF::move(argUnderlyingCounts) };
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirCCallSpecial.cpp b/Source/JavaScriptCore/b3/air/AirCCallSpecial.cpp
 --- a/Source/JavaScriptCore/b3/air/AirCCallSpecial.cpp	2026-07-27 09:40:28.308832200 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirCCallSpecial.cpp	2026-11-08 14:47:36.689111961 -0600
++++ b/Source/JavaScriptCore/b3/air/AirCCallSpecial.cpp	2026-11-12 20:50:01.490119445 -0600
 @@ -131,18 +131,35 @@
  
  CCallHelpers::Jump CCallSpecial::generate(Inst& inst, CCallHelpers& jit, GenerationContext&)
@@ -17900,7 +17900,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirCCal
          RELEASE_ASSERT_NOT_REACHED();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirCode.cpp b/Source/JavaScriptCore/b3/air/AirCode.cpp
 --- a/Source/JavaScriptCore/b3/air/AirCode.cpp	2026-07-27 09:40:28.309389600 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirCode.cpp	2026-11-08 14:47:36.689357665 -0600
++++ b/Source/JavaScriptCore/b3/air/AirCode.cpp	2026-11-12 20:50:01.490193656 -0600
 @@ -55,7 +55,7 @@
  
      // NOTE: on ARM64, if the callee saves have bigger offsets due to a potential tail call,
@@ -17959,7 +17959,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirCode
      } else
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirGenerate.cpp b/Source/JavaScriptCore/b3/air/AirGenerate.cpp
 --- a/Source/JavaScriptCore/b3/air/AirGenerate.cpp	2026-07-27 09:40:28.311792100 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirGenerate.cpp	2026-11-08 14:47:36.689766771 -0600
++++ b/Source/JavaScriptCore/b3/air/AirGenerate.cpp	2026-11-12 20:50:01.490275157 -0600
 @@ -51,6 +51,7 @@
  #include "B3Procedure.h"
  #include "CCallHelpers.h"
@@ -17984,7 +17984,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirGene
      // And now, we generate code.
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirHandleCalleeSaves.cpp b/Source/JavaScriptCore/b3/air/AirHandleCalleeSaves.cpp
 --- a/Source/JavaScriptCore/b3/air/AirHandleCalleeSaves.cpp	2026-07-27 09:40:28.312405300 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirHandleCalleeSaves.cpp	2026-11-08 14:47:36.690045895 -0600
++++ b/Source/JavaScriptCore/b3/air/AirHandleCalleeSaves.cpp	2026-11-12 20:50:01.490347598 -0600
 @@ -29,6 +29,7 @@
  #if ENABLE(B3_JIT)
  
@@ -18040,7 +18040,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirHand
      // Essentially, we might at any point clobber this, and it is a callee-save.
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirLowerStackArgs.cpp b/Source/JavaScriptCore/b3/air/AirLowerStackArgs.cpp
 --- a/Source/JavaScriptCore/b3/air/AirLowerStackArgs.cpp	2026-07-27 09:40:28.316405300 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirLowerStackArgs.cpp	2026-11-09 09:09:39.462300762 -0600
++++ b/Source/JavaScriptCore/b3/air/AirLowerStackArgs.cpp	2026-11-12 20:50:01.490414210 -0600
 @@ -35,6 +35,12 @@
  
  namespace JSC { namespace B3 { namespace Air {
@@ -18126,7 +18126,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirLowe
                      case Arg::CallArg:
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirOpcode.opcodes b/Source/JavaScriptCore/b3/air/AirOpcode.opcodes
 --- a/Source/JavaScriptCore/b3/air/AirOpcode.opcodes	2026-07-27 09:40:28.316405300 -0600
-+++ b/Source/JavaScriptCore/b3/air/AirOpcode.opcodes	2026-11-10 18:38:50.547431544 -0600
++++ b/Source/JavaScriptCore/b3/air/AirOpcode.opcodes	2026-11-12 20:50:01.490533291 -0600
 @@ -139,7 +139,7 @@
      Tmp, Addr
      Tmp, Index
@@ -19550,7 +19550,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/AirOpco
  Oops /terminal
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/opcode_generator.rb b/Source/JavaScriptCore/b3/air/opcode_generator.rb
 --- a/Source/JavaScriptCore/b3/air/opcode_generator.rb	2026-07-27 09:40:28.321405400 -0600
-+++ b/Source/JavaScriptCore/b3/air/opcode_generator.rb	2026-11-08 14:47:36.691485638 -0600
++++ b/Source/JavaScriptCore/b3/air/opcode_generator.rb	2026-11-12 20:50:01.490963199 -0600
 @@ -233,7 +233,7 @@
  end
  
@@ -19583,7 +19583,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/opcode_
      return unless archs
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/testair.cpp b/Source/JavaScriptCore/b3/air/testair.cpp
 --- a/Source/JavaScriptCore/b3/air/testair.cpp	2026-07-27 09:40:28.322405300 -0600
-+++ b/Source/JavaScriptCore/b3/air/testair.cpp	2026-11-08 14:47:36.692076447 -0600
++++ b/Source/JavaScriptCore/b3/air/testair.cpp	2026-11-12 20:50:01.491159392 -0600
 @@ -24,6 +24,9 @@
   */
  
@@ -19690,7 +19690,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/air/testair
                      "testair thread"_s,
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3AbstractHeapRepository.h b/Source/JavaScriptCore/b3/B3AbstractHeapRepository.h
 --- a/Source/JavaScriptCore/b3/B3AbstractHeapRepository.h	2026-07-27 09:40:28.276035800 -0600
-+++ b/Source/JavaScriptCore/b3/B3AbstractHeapRepository.h	2026-11-09 10:24:27.187225798 -0600
++++ b/Source/JavaScriptCore/b3/B3AbstractHeapRepository.h	2026-11-12 20:50:01.491386096 -0600
 @@ -40,6 +40,44 @@
      macro(OrderedHashTableData) \
  
@@ -19794,7 +19794,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3AbstractH
      macro(properties) \
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3CheckSpecial.cpp b/Source/JavaScriptCore/b3/B3CheckSpecial.cpp
 --- a/Source/JavaScriptCore/b3/B3CheckSpecial.cpp	2026-07-27 09:40:28.280405300 -0600
-+++ b/Source/JavaScriptCore/b3/B3CheckSpecial.cpp	2026-11-08 14:47:36.693321306 -0600
++++ b/Source/JavaScriptCore/b3/B3CheckSpecial.cpp	2026-11-12 20:50:01.491496238 -0600
 @@ -200,7 +200,22 @@
                              GPRReg valueGPR = args[1].gpr();
                              GPRReg scratchGPR = CCallHelpers::selectScratchGPR(valueGPR);
@@ -19838,7 +19838,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3CheckSpec
                              jit.or64(scratchGPR, valueGPR);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3Common.cpp b/Source/JavaScriptCore/b3/B3Common.cpp
 --- a/Source/JavaScriptCore/b3/B3Common.cpp	2026-07-27 09:40:28.280405300 -0600
-+++ b/Source/JavaScriptCore/b3/B3Common.cpp	2026-11-08 14:47:36.693617481 -0600
++++ b/Source/JavaScriptCore/b3/B3Common.cpp	2026-11-12 20:50:01.491576499 -0600
 @@ -71,11 +71,28 @@
  
  GPRReg extendedOffsetAddrRegister()
@@ -19871,7 +19871,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3Common.cp
  #else
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3Common.h b/Source/JavaScriptCore/b3/B3Common.h
 --- a/Source/JavaScriptCore/b3/B3Common.h	2026-07-27 09:40:28.280405300 -0600
-+++ b/Source/JavaScriptCore/b3/B3Common.h	2026-11-08 14:47:36.693819174 -0600
++++ b/Source/JavaScriptCore/b3/B3Common.h	2026-11-12 20:50:01.491642220 -0600
 @@ -38,6 +38,22 @@
  
  namespace JSC { namespace B3 {
@@ -19897,7 +19897,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3Common.h 
  inline constexpr ASCIILiteral tierName { "b3  "_s };
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3ConstDoubleValue.cpp b/Source/JavaScriptCore/b3/B3ConstDoubleValue.cpp
 --- a/Source/JavaScriptCore/b3/B3ConstDoubleValue.cpp	2026-07-27 09:40:28.282405400 -0600
-+++ b/Source/JavaScriptCore/b3/B3ConstDoubleValue.cpp	2026-11-08 14:47:36.694044737 -0600
++++ b/Source/JavaScriptCore/b3/B3ConstDoubleValue.cpp	2026-11-12 20:50:01.491703771 -0600
 @@ -34,6 +34,7 @@
  
  namespace JSC { namespace B3 {
@@ -19917,7 +19917,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3ConstDoub
  Value* ConstDoubleValue::purifyNaNConstant(Procedure& proc) const
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3ConstFloatValue.cpp b/Source/JavaScriptCore/b3/B3ConstFloatValue.cpp
 --- a/Source/JavaScriptCore/b3/B3ConstFloatValue.cpp	2026-07-27 09:40:28.282405400 -0600
-+++ b/Source/JavaScriptCore/b3/B3ConstFloatValue.cpp	2026-11-08 14:47:36.694270971 -0600
++++ b/Source/JavaScriptCore/b3/B3ConstFloatValue.cpp	2026-11-12 20:50:01.491775632 -0600
 @@ -34,6 +34,7 @@
  
  namespace JSC { namespace B3 {
@@ -19937,7 +19937,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3ConstFloa
  Value* ConstFloatValue::purifyNaNConstant(Procedure& proc) const
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3LowerMacros.cpp b/Source/JavaScriptCore/b3/B3LowerMacros.cpp
 --- a/Source/JavaScriptCore/b3/B3LowerMacros.cpp	2026-07-27 09:40:28.289405300 -0600
-+++ b/Source/JavaScriptCore/b3/B3LowerMacros.cpp	2026-11-08 14:47:36.694620206 -0600
++++ b/Source/JavaScriptCore/b3/B3LowerMacros.cpp	2026-11-12 20:50:01.491892904 -0600
 @@ -129,6 +129,12 @@
              switch (m_value->opcode()) {
              case Mod: {
@@ -20083,7 +20083,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3LowerMacr
      bool m_changed { false };
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3LowerToAir.cpp b/Source/JavaScriptCore/b3/B3LowerToAir.cpp
 --- a/Source/JavaScriptCore/b3/B3LowerToAir.cpp	2026-09-17 15:06:42.144497200 -0600
-+++ b/Source/JavaScriptCore/b3/B3LowerToAir.cpp	2026-11-09 09:09:39.463105824 -0600
++++ b/Source/JavaScriptCore/b3/B3LowerToAir.cpp	2026-11-12 20:50:01.492395562 -0600
 @@ -252,10 +252,24 @@
          case Opaque:
              return true;
@@ -20396,7 +20396,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3LowerToAi
                  break;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3StackmapSpecial.cpp b/Source/JavaScriptCore/b3/B3StackmapSpecial.cpp
 --- a/Source/JavaScriptCore/b3/B3StackmapSpecial.cpp	2026-07-27 09:40:28.296405300 -0600
-+++ b/Source/JavaScriptCore/b3/B3StackmapSpecial.cpp	2026-11-09 09:09:39.465315898 -0600
++++ b/Source/JavaScriptCore/b3/B3StackmapSpecial.cpp	2026-11-12 20:50:01.492831320 -0600
 @@ -297,11 +297,21 @@
      case Arg::ExtendedOffsetAddr:
          ASSERT(arg.base() == Tmp(GPRInfo::callFrameRegister));
@@ -20426,7 +20426,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3StackmapS
          return ValueRep();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3ValueKey.cpp b/Source/JavaScriptCore/b3/B3ValueKey.cpp
 --- a/Source/JavaScriptCore/b3/B3ValueKey.cpp	2026-07-27 09:40:28.301544200 -0600
-+++ b/Source/JavaScriptCore/b3/B3ValueKey.cpp	2026-11-08 14:47:36.697582572 -0600
++++ b/Source/JavaScriptCore/b3/B3ValueKey.cpp	2026-11-12 20:50:01.492902001 -0600
 @@ -251,11 +251,13 @@
              return proc.add<WasmRefTypeCheckValue>(kind(), type(), origin, targetHeapType, flags, WTF::move(targetRTT), child(proc, 0), child(proc, 1));
          return proc.add<WasmRefTypeCheckValue>(kind(), type(), origin, targetHeapType, flags, WTF::move(targetRTT), child(proc, 0));
@@ -20443,7 +20443,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/B3ValueKey.
      case Get:
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/testb3_1.cpp b/Source/JavaScriptCore/b3/testb3_1.cpp
 --- a/Source/JavaScriptCore/b3/testb3_1.cpp	2026-09-14 13:20:57.249617600 -0600
-+++ b/Source/JavaScriptCore/b3/testb3_1.cpp	2026-11-08 14:47:36.697955048 -0600
++++ b/Source/JavaScriptCore/b3/testb3_1.cpp	2026-11-12 20:50:01.493030183 -0600
 @@ -32,6 +32,106 @@
  
  Lock crashLock;
@@ -20610,7 +20610,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/testb3_1.cp
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/testb3_3.cpp b/Source/JavaScriptCore/b3/testb3_3.cpp
 --- a/Source/JavaScriptCore/b3/testb3_3.cpp	2026-07-27 09:40:28.325405400 -0600
-+++ b/Source/JavaScriptCore/b3/testb3_3.cpp	2026-11-08 14:47:36.698619458 -0600
++++ b/Source/JavaScriptCore/b3/testb3_3.cpp	2026-11-12 20:50:01.493272337 -0600
 @@ -2721,6 +2721,16 @@
      double result;
      __asm__("sqrtsd %1, %0" : "=x"(result) : "x"(value));
@@ -20630,7 +20630,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/testb3_3.cp
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/testb3.h b/Source/JavaScriptCore/b3/testb3.h
 --- a/Source/JavaScriptCore/b3/testb3.h	2026-09-14 13:20:57.249617600 -0600
-+++ b/Source/JavaScriptCore/b3/testb3.h	2026-11-08 14:47:36.699707135 -0600
++++ b/Source/JavaScriptCore/b3/testb3.h	2026-11-12 20:50:01.493537511 -0600
 @@ -263,11 +263,29 @@
  template <typename T>
  using TweakedArgument = typename ArgumentTweaker<T>::Result;
@@ -20673,7 +20673,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/b3/testb3.h b/
      
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/CallLinkInfo.cpp b/Source/JavaScriptCore/bytecode/CallLinkInfo.cpp
 --- a/Source/JavaScriptCore/bytecode/CallLinkInfo.cpp	2026-07-27 09:40:28.338405400 -0600
-+++ b/Source/JavaScriptCore/bytecode/CallLinkInfo.cpp	2026-11-08 14:47:36.700213453 -0600
++++ b/Source/JavaScriptCore/bytecode/CallLinkInfo.cpp	2026-11-12 20:50:01.493682244 -0600
 @@ -336,9 +336,14 @@
      // that's necessary for the test-and-branch operation but is avoidable by loading from the callee
      // address for each branch operation. Other MacroAssembler implementations handle this better by
@@ -20692,7 +20692,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/CallL
          found.append(jit.branchTestPtr(CCallHelpers::NonZero, calleeAddress, CCallHelpers::TrustedImm32(polymorphicCalleeMask)));
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/CodeBlock.cpp b/Source/JavaScriptCore/bytecode/CodeBlock.cpp
 --- a/Source/JavaScriptCore/bytecode/CodeBlock.cpp	2026-09-14 13:20:57.252617600 -0600
-+++ b/Source/JavaScriptCore/bytecode/CodeBlock.cpp	2026-11-10 03:53:09.115073575 -0600
++++ b/Source/JavaScriptCore/bytecode/CodeBlock.cpp	2026-11-12 20:50:01.493867117 -0600
 @@ -3033,10 +3033,23 @@
  }
  #endif
@@ -20737,7 +20737,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/CodeB
      UnlinkedCodeBlock* unlinkedCodeBlock = this->unlinkedCodeBlock();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/CodeBlockInlines.h b/Source/JavaScriptCore/bytecode/CodeBlockInlines.h
 --- a/Source/JavaScriptCore/bytecode/CodeBlockInlines.h	2026-07-27 09:40:28.341405200 -0600
-+++ b/Source/JavaScriptCore/bytecode/CodeBlockInlines.h	2026-11-08 14:47:36.700540438 -0600
++++ b/Source/JavaScriptCore/bytecode/CodeBlockInlines.h	2026-11-12 20:50:01.494078160 -0600
 @@ -29,6 +29,11 @@
  #include "BytecodeStructs.h"
  #include "CodeBlock.h"
@@ -20752,7 +20752,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/CodeB
  namespace JSC {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/InlineAccess.h b/Source/JavaScriptCore/bytecode/InlineAccess.h
 --- a/Source/JavaScriptCore/bytecode/InlineAccess.h	2026-07-27 09:40:28.349405300 -0600
-+++ b/Source/JavaScriptCore/bytecode/InlineAccess.h	2026-11-08 14:47:36.700797162 -0600
++++ b/Source/JavaScriptCore/bytecode/InlineAccess.h	2026-11-12 20:50:01.494140981 -0600
 @@ -55,6 +55,28 @@
          return 48;
  #elif CPU(RISCV64)
@@ -20802,7 +20802,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/Inlin
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp b/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp
 --- a/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp	2026-07-27 09:40:28.350405200 -0600
-+++ b/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp	2026-11-12 16:09:36.326330870 -0600
++++ b/Source/JavaScriptCore/bytecode/InlineCacheCompiler.cpp	2026-11-12 20:50:01.494754201 -0600
 @@ -1399,6 +1399,21 @@
  #elif CPU(RISCV64)
      static_assert(!maxFrameExtentForSlowPathCall);
@@ -20892,7 +20892,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/Inlin
          succeed();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/InlineCacheCompiler.h b/Source/JavaScriptCore/bytecode/InlineCacheCompiler.h
 --- a/Source/JavaScriptCore/bytecode/InlineCacheCompiler.h	2026-07-27 09:40:28.350405200 -0600
-+++ b/Source/JavaScriptCore/bytecode/InlineCacheCompiler.h	2026-11-08 14:47:36.703659936 -0600
++++ b/Source/JavaScriptCore/bytecode/InlineCacheCompiler.h	2026-11-12 20:50:01.495264820 -0600
 @@ -28,6 +28,13 @@
  #if ENABLE(JIT)
  
@@ -20922,7 +20922,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/bytecode/Inlin
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/CMakeLists.txt b/Source/JavaScriptCore/CMakeLists.txt
 --- a/Source/JavaScriptCore/CMakeLists.txt	2026-07-27 09:40:28.240405600 -0600
-+++ b/Source/JavaScriptCore/CMakeLists.txt	2026-11-11 21:00:29.137529654 -0600
++++ b/Source/JavaScriptCore/CMakeLists.txt	2026-11-12 20:50:01.495394542 -0600
 @@ -230,6 +230,39 @@
      list(APPEND OFFLINE_ASM_ARGS "--webkit-additions-path=${WebKitAdditions_HEADERS_DIR}")
      list(APPEND OFFLINE_ASM_INCLUDE_DIRS "-I${WebKitAdditions_HEADERS_DIR}")
@@ -21011,7 +21011,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/CMakeLists.txt
      wasm/WasmCallProfile.h
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGArrayMode.h b/Source/JavaScriptCore/dfg/DFGArrayMode.h
 --- a/Source/JavaScriptCore/dfg/DFGArrayMode.h	2026-07-27 09:40:28.381253200 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGArrayMode.h	2026-11-08 14:47:36.704781194 -0600
++++ b/Source/JavaScriptCore/dfg/DFGArrayMode.h	2026-11-12 20:50:01.495548054 -0600
 @@ -129,6 +129,18 @@
          u.asBytes.mayBeResizableOrGrowableSharedTypedArray = false;
      }
@@ -21033,7 +21033,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGArrayMo
          u.asWord = 0;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGByteCodeParser.cpp b/Source/JavaScriptCore/dfg/DFGByteCodeParser.cpp
 --- a/Source/JavaScriptCore/dfg/DFGByteCodeParser.cpp	2026-07-27 09:40:28.385495200 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGByteCodeParser.cpp	2026-11-12 16:09:36.330330928 -0600
++++ b/Source/JavaScriptCore/dfg/DFGByteCodeParser.cpp	2026-11-12 20:50:01.496498190 -0600
 @@ -3215,6 +3215,12 @@
          case AtomicsXorIntrinsic: {
              if (!is64Bit())
@@ -21049,7 +21049,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGByteCod
              Array::Action action = Array::Write;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGClobberize.h b/Source/JavaScriptCore/dfg/DFGClobberize.h
 --- a/Source/JavaScriptCore/dfg/DFGClobberize.h	2026-07-27 09:40:28.390376300 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGClobberize.h	2026-11-08 14:47:36.705226960 -0600
++++ b/Source/JavaScriptCore/dfg/DFGClobberize.h	2026-11-12 20:50:01.497314704 -0600
 @@ -2659,7 +2659,7 @@
              write(TypedArrayProperties);
          } else {
@@ -21061,7 +21061,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGClobber
      }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGFixupPhase.cpp b/Source/JavaScriptCore/dfg/DFGFixupPhase.cpp
 --- a/Source/JavaScriptCore/dfg/DFGFixupPhase.cpp	2026-09-14 13:20:57.257617700 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGFixupPhase.cpp	2026-11-09 02:15:07.024357363 -0600
++++ b/Source/JavaScriptCore/dfg/DFGFixupPhase.cpp	2026-11-12 20:50:01.497631259 -0600
 @@ -84,7 +84,7 @@
  
      void fixupArithDivInt32(Node* node, Edge& leftChild, Edge& rightChild)
@@ -21073,7 +21073,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGFixupPh
              // We need to be careful about skipping overflow check because div / mod can generate non integer values
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGNode.h b/Source/JavaScriptCore/dfg/DFGNode.h
 --- a/Source/JavaScriptCore/dfg/DFGNode.h	2026-07-27 09:40:28.409790000 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGNode.h	2026-11-08 14:47:36.706127544 -0600
++++ b/Source/JavaScriptCore/dfg/DFGNode.h	2026-11-12 20:50:01.498000505 -0600
 @@ -166,6 +166,20 @@
          };
          uint64_t asQuadWord;
@@ -21139,7 +21139,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGNode.h 
              requires (IntegralOrEnum<T> && sizeof(T) == 8)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGOperations.cpp b/Source/JavaScriptCore/dfg/DFGOperations.cpp
 --- a/Source/JavaScriptCore/dfg/DFGOperations.cpp	2026-07-27 09:40:28.416405200 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGOperations.cpp	2026-11-08 14:47:36.707054989 -0600
++++ b/Source/JavaScriptCore/dfg/DFGOperations.cpp	2026-11-12 20:50:01.498389682 -0600
 @@ -5551,8 +5551,31 @@
      double codePointAsDouble = value.toNumber(globalObject);
      OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
@@ -21175,7 +21175,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGOperati
      }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp
 --- a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp	2026-07-27 09:40:28.427405000 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp	2026-11-12 16:09:36.333504035 -0600
++++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT64.cpp	2026-11-12 20:50:01.499033052 -0600
 @@ -103,7 +103,7 @@
              m_gprs.retain(gpr, virtualRegister, SpillOrderSpilled);
              switch (spillFormat) {
@@ -21434,7 +21434,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpecula
                  RELEASE_ASSERT_NOT_REACHED();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp
 --- a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp	2026-09-17 15:06:42.146497200 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp	2026-11-12 16:09:36.337331031 -0600
++++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.cpp	2026-11-12 20:50:01.500564707 -0600
 @@ -248,6 +248,11 @@
  
  #if CPU(X86_64)
@@ -21848,7 +21848,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpecula
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.h b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.h
 --- a/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.h	2026-07-27 09:40:28.425341600 -0600
-+++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.h	2026-11-10 18:22:17.749869831 -0600
++++ b/Source/JavaScriptCore/dfg/DFGSpeculativeJIT.h	2026-11-12 20:50:01.501563984 -0600
 @@ -2071,6 +2071,9 @@
  
  #if USE(JSVALUE64)
@@ -21861,7 +21861,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/dfg/DFGSpecula
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/disassembler/CapstoneDisassembler.cpp b/Source/JavaScriptCore/disassembler/CapstoneDisassembler.cpp
 --- a/Source/JavaScriptCore/disassembler/CapstoneDisassembler.cpp	2026-07-27 09:40:28.446946900 -0600
-+++ b/Source/JavaScriptCore/disassembler/CapstoneDisassembler.cpp	2026-11-08 14:47:36.716134400 -0600
++++ b/Source/JavaScriptCore/disassembler/CapstoneDisassembler.cpp	2026-11-12 20:50:01.501752537 -0600
 @@ -33,13 +33,14 @@
  #include "MacroAssemblerCodeRef.h"
  #include "Options.h"
@@ -21952,7 +21952,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/disassembler/C
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/disassembler/Disassembler.h b/Source/JavaScriptCore/disassembler/Disassembler.h
 --- a/Source/JavaScriptCore/disassembler/Disassembler.h	2026-07-27 09:40:28.447127300 -0600
-+++ b/Source/JavaScriptCore/disassembler/Disassembler.h	2026-11-09 02:15:07.030536155 -0600
++++ b/Source/JavaScriptCore/disassembler/Disassembler.h	2026-11-12 20:50:01.501808628 -0600
 @@ -38,6 +38,17 @@
  
  #if ENABLE(DISASSEMBLER)
@@ -21973,7 +21973,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/disassembler/D
  {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLCompile.cpp b/Source/JavaScriptCore/ftl/FTLCompile.cpp
 --- a/Source/JavaScriptCore/ftl/FTLCompile.cpp	2026-07-27 09:40:28.464405000 -0600
-+++ b/Source/JavaScriptCore/ftl/FTLCompile.cpp	2026-11-08 14:47:36.716415904 -0600
++++ b/Source/JavaScriptCore/ftl/FTLCompile.cpp	2026-11-12 20:50:01.501871539 -0600
 @@ -271,6 +271,11 @@
  
  #if CPU(X86_64)
@@ -21997,7 +21997,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLCompile
              jit.untagPtr(NoPtrTag, CCallHelpers::linkRegister);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp b/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp
 --- a/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp	2026-09-17 15:06:42.151497400 -0600
-+++ b/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp	2026-11-12 16:09:36.344331134 -0600
++++ b/Source/JavaScriptCore/ftl/FTLLowerDFGToB3.cpp	2026-11-12 20:50:01.503658653 -0600
 @@ -2358,6 +2358,39 @@
          return result;
      }
@@ -22588,7 +22588,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLLowerDF
              DFG_CRASH(m_graph, m_node, "Bad element size");
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLSlowPathCall.cpp b/Source/JavaScriptCore/ftl/FTLSlowPathCall.cpp
 --- a/Source/JavaScriptCore/ftl/FTLSlowPathCall.cpp	2026-07-27 09:40:28.474452000 -0600
-+++ b/Source/JavaScriptCore/ftl/FTLSlowPathCall.cpp	2026-11-08 14:47:36.723668036 -0600
++++ b/Source/JavaScriptCore/ftl/FTLSlowPathCall.cpp	2026-11-12 20:50:01.505063082 -0600
 @@ -67,6 +67,29 @@
          callingConventionRegisters.add(GPRInfo::returnValueGPR, IgnoreVectors);
      if (indirectCallTargetRegister != InvalidGPRReg)
@@ -22621,7 +22621,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/ftl/FTLSlowPat
          
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/heap/MachineStackMarker.cpp b/Source/JavaScriptCore/heap/MachineStackMarker.cpp
 --- a/Source/JavaScriptCore/heap/MachineStackMarker.cpp	2026-07-27 09:40:28.497405000 -0600
-+++ b/Source/JavaScriptCore/heap/MachineStackMarker.cpp	2026-11-08 14:47:36.723984791 -0600
++++ b/Source/JavaScriptCore/heap/MachineStackMarker.cpp	2026-11-12 20:50:01.505134164 -0600
 @@ -58,6 +58,11 @@
  #if CPU(X86_64)
      // See http://people.freebsd.org/~obrien/amd64-elf-abi.pdf Section 3.2.2.
@@ -22636,7 +22636,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/heap/MachineSt
      // See https://developer.apple.com/library/ios/documentation/Xcode/Conceptual/iPhoneOSABIReference/Articles/ARM64FunctionCallingConventions.html#//apple_ref/doc/uid/TP40013702-SW7
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/heap/StructureAlignedMemoryAllocator.cpp b/Source/JavaScriptCore/heap/StructureAlignedMemoryAllocator.cpp
 --- a/Source/JavaScriptCore/heap/StructureAlignedMemoryAllocator.cpp	2026-07-27 09:40:28.503942300 -0600
-+++ b/Source/JavaScriptCore/heap/StructureAlignedMemoryAllocator.cpp	2026-11-08 14:47:36.724286596 -0600
++++ b/Source/JavaScriptCore/heap/StructureAlignedMemoryAllocator.cpp	2026-11-12 20:50:01.505204895 -0600
 @@ -34,7 +34,7 @@
  #include <wtf/BitVector.h>
  #include <wtf/RAMSize.h>
@@ -22660,7 +22660,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/heap/Structure
              RELEASE_ASSERT(sizeBoundedByPhysicalMemory);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/interpreter/CallFrame.h b/Source/JavaScriptCore/interpreter/CallFrame.h
 --- a/Source/JavaScriptCore/interpreter/CallFrame.h	2026-07-27 09:40:28.541580700 -0600
-+++ b/Source/JavaScriptCore/interpreter/CallFrame.h	2026-11-08 14:47:36.724636651 -0600
++++ b/Source/JavaScriptCore/interpreter/CallFrame.h	2026-11-12 20:50:01.505290776 -0600
 @@ -394,6 +394,28 @@
          ASSERT(JSC::isFromJSCode(removeCodePtrTag<void*>(__builtin_return_address(0)))); \
          std::bit_cast<JSC::CallFrame*>(*((uintptr_t**) _AddressOfReturnAddress() - 1)); \
@@ -22692,7 +22692,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/interpreter/Ca
  // sometimes gives us a signed pointer, and sometimes does not.
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/interpreter/InterpreterInlines.h b/Source/JavaScriptCore/interpreter/InterpreterInlines.h
 --- a/Source/JavaScriptCore/interpreter/InterpreterInlines.h	2026-07-27 09:40:28.543090800 -0600
-+++ b/Source/JavaScriptCore/interpreter/InterpreterInlines.h	2026-11-08 14:47:36.725018157 -0600
++++ b/Source/JavaScriptCore/interpreter/InterpreterInlines.h	2026-11-12 20:50:01.505368607 -0600
 @@ -192,6 +192,15 @@
          return;
  
@@ -22711,7 +22711,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/interpreter/In
      unsigned registerCount = currentCalleeSaves->registerCount();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHelpers.cpp b/Source/JavaScriptCore/jit/AssemblyHelpers.cpp
 --- a/Source/JavaScriptCore/jit/AssemblyHelpers.cpp	2026-09-04 08:58:43.213595600 -0600
-+++ b/Source/JavaScriptCore/jit/AssemblyHelpers.cpp	2026-11-08 14:47:36.725390923 -0600
++++ b/Source/JavaScriptCore/jit/AssemblyHelpers.cpp	2026-11-12 20:50:01.505497730 -0600
 @@ -346,11 +346,27 @@
          storeDouble(FPRInfo::toRegister(i), Address(GPRInfo::regT0));
      }
@@ -22820,7 +22820,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHe
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHelpers.h b/Source/JavaScriptCore/jit/AssemblyHelpers.h
 --- a/Source/JavaScriptCore/jit/AssemblyHelpers.h	2026-09-04 08:58:43.214595800 -0600
-+++ b/Source/JavaScriptCore/jit/AssemblyHelpers.h	2026-11-12 16:09:36.347436317 -0600
++++ b/Source/JavaScriptCore/jit/AssemblyHelpers.h	2026-11-12 20:50:01.505730203 -0600
 @@ -49,6 +49,7 @@
  #include <JavaScriptCore/TagRegistersMode.h>
  #include <JavaScriptCore/TypeofType.h>
@@ -22977,7 +22977,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/AssemblyHe
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/CallFrameShuffler.cpp b/Source/JavaScriptCore/jit/CallFrameShuffler.cpp
 --- a/Source/JavaScriptCore/jit/CallFrameShuffler.cpp	2026-07-27 09:40:28.548037000 -0600
-+++ b/Source/JavaScriptCore/jit/CallFrameShuffler.cpp	2026-11-08 14:47:36.726965037 -0600
++++ b/Source/JavaScriptCore/jit/CallFrameShuffler.cpp	2026-11-12 20:50:01.505921697 -0600
 @@ -392,11 +392,16 @@
      // sp will point to head1 since the callee's prologue pushes
      // the call frame and link register.
@@ -23009,7 +23009,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/CallFrameS
  #if CPU(ARM64E)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/CCallHelpers.cpp b/Source/JavaScriptCore/jit/CCallHelpers.cpp
 --- a/Source/JavaScriptCore/jit/CCallHelpers.cpp	2026-07-27 09:40:28.546824000 -0600
-+++ b/Source/JavaScriptCore/jit/CCallHelpers.cpp	2026-11-08 14:47:36.727296032 -0600
++++ b/Source/JavaScriptCore/jit/CCallHelpers.cpp	2026-11-12 20:50:01.506007548 -0600
 @@ -95,6 +95,10 @@
      push(X86Registers::ebp); // return address pushed by the call instruction
  #elif CPU(ARM64) || CPU(ARM_THUMB2) || CPU(RISCV64)
@@ -23032,7 +23032,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/CCallHelpe
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/CCallHelpers.h b/Source/JavaScriptCore/jit/CCallHelpers.h
 --- a/Source/JavaScriptCore/jit/CCallHelpers.h	2026-07-27 09:40:28.547189500 -0600
-+++ b/Source/JavaScriptCore/jit/CCallHelpers.h	2026-11-09 11:57:36.883347171 -0600
++++ b/Source/JavaScriptCore/jit/CCallHelpers.h	2026-11-12 20:50:01.506096499 -0600
 @@ -37,6 +37,7 @@
  #include <JavaScriptCore/StackAlignment.h>
  #include <wtf/FunctionTraits.h>
@@ -23235,7 +23235,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/CCallHelpe
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/ExecutableAllocator.cpp b/Source/JavaScriptCore/jit/ExecutableAllocator.cpp
 --- a/Source/JavaScriptCore/jit/ExecutableAllocator.cpp	2026-07-27 09:40:28.548734700 -0600
-+++ b/Source/JavaScriptCore/jit/ExecutableAllocator.cpp	2026-11-08 22:26:10.755143243 -0600
++++ b/Source/JavaScriptCore/jit/ExecutableAllocator.cpp	2026-11-12 20:50:01.506288793 -0600
 @@ -65,8 +65,12 @@
  #include <fcntl.h>
  #include <mach/mach.h>
@@ -23306,7 +23306,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/Executable
                      Assembler::fillNearTailCall<memcpyRepatchFlush>(currentIsland, target);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/FPRInfo.h b/Source/JavaScriptCore/jit/FPRInfo.h
 --- a/Source/JavaScriptCore/jit/FPRInfo.h	2026-07-27 09:40:28.549478300 -0600
-+++ b/Source/JavaScriptCore/jit/FPRInfo.h	2026-11-08 14:47:36.728733935 -0600
++++ b/Source/JavaScriptCore/jit/FPRInfo.h	2026-11-12 20:50:01.506440755 -0600
 @@ -422,6 +422,127 @@
  
  #endif // CPU(RISCV64)
@@ -23437,7 +23437,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/FPRInfo.h 
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/GdbJIT.cpp b/Source/JavaScriptCore/jit/GdbJIT.cpp
 --- a/Source/JavaScriptCore/jit/GdbJIT.cpp	2026-07-27 09:40:28.550395700 -0600
-+++ b/Source/JavaScriptCore/jit/GdbJIT.cpp	2026-11-08 14:47:36.729179132 -0600
++++ b/Source/JavaScriptCore/jit/GdbJIT.cpp	2026-11-12 20:50:01.506546217 -0600
 @@ -753,6 +753,11 @@
          header->cpuType = 7 | 0x01000000; // i386 | 64-bit ABI
          header->cpuSubtype = 3;
@@ -23482,7 +23482,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/GdbJIT.cpp
              : m_name(name)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/GPRInfo.h b/Source/JavaScriptCore/jit/GPRInfo.h
 --- a/Source/JavaScriptCore/jit/GPRInfo.h	2026-07-27 09:40:28.550152800 -0600
-+++ b/Source/JavaScriptCore/jit/GPRInfo.h	2026-11-08 14:47:36.729575578 -0600
++++ b/Source/JavaScriptCore/jit/GPRInfo.h	2026-11-12 20:50:01.506719300 -0600
 @@ -853,6 +853,163 @@
  
  #endif // CPU(RISCV64)
@@ -23649,7 +23649,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/GPRInfo.h 
  // architectural GPR, while on JSVALUE32_64, a JSValueRegs corresponds to a pair of 32-bit
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITArithmetic.cpp b/Source/JavaScriptCore/jit/JITArithmetic.cpp
 --- a/Source/JavaScriptCore/jit/JITArithmetic.cpp	2026-07-27 09:40:28.551405000 -0600
-+++ b/Source/JavaScriptCore/jit/JITArithmetic.cpp	2026-11-08 14:47:36.730190977 -0600
++++ b/Source/JavaScriptCore/jit/JITArithmetic.cpp	2026-11-12 20:50:01.506849532 -0600
 @@ -522,7 +522,7 @@
      slowPathCall.call();
  }
@@ -23679,7 +23679,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITArithme
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITCall.cpp b/Source/JavaScriptCore/jit/JITCall.cpp
 --- a/Source/JavaScriptCore/jit/JITCall.cpp	2026-07-27 09:40:28.552723000 -0600
-+++ b/Source/JavaScriptCore/jit/JITCall.cpp	2026-11-09 02:15:07.030787499 -0600
++++ b/Source/JavaScriptCore/jit/JITCall.cpp	2026-11-12 20:50:01.506965114 -0600
 @@ -103,7 +103,7 @@
          // Profile the argument count.
          load32(Address(regT5, CallFrameSlot::argumentCountIncludingThis * static_cast<int>(sizeof(Register)) + PayloadOffset), regT2);
@@ -23691,7 +23691,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITCall.cp
          auto lower = branch32(BelowOrEqual, regT2, regT0);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JIT.cpp b/Source/JavaScriptCore/jit/JIT.cpp
 --- a/Source/JavaScriptCore/jit/JIT.cpp	2026-07-27 09:40:28.551087000 -0600
-+++ b/Source/JavaScriptCore/jit/JIT.cpp	2026-11-08 22:29:25.060598735 -0600
++++ b/Source/JavaScriptCore/jit/JIT.cpp	2026-11-12 20:50:01.507078296 -0600
 @@ -812,6 +812,17 @@
          m_vm->jitSizeStatistics->markEnd(WTF::move(*sizeMarker), *this, m_plan);
  
@@ -23733,7 +23733,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JIT.cpp b/
          untagPtr(NoPtrTag, linkRegister);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITInlineCacheGenerator.h b/Source/JavaScriptCore/jit/JITInlineCacheGenerator.h
 --- a/Source/JavaScriptCore/jit/JITInlineCacheGenerator.h	2026-07-27 09:40:28.555067800 -0600
-+++ b/Source/JavaScriptCore/jit/JITInlineCacheGenerator.h	2026-11-08 14:47:36.731153172 -0600
++++ b/Source/JavaScriptCore/jit/JITInlineCacheGenerator.h	2026-11-12 20:50:01.507196498 -0600
 @@ -55,7 +55,16 @@
  enum class CacheType : int8_t;
  enum class JITType : uint8_t;
@@ -23753,7 +23753,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITInlineC
  protected:
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITInlines.h b/Source/JavaScriptCore/jit/JITInlines.h
 --- a/Source/JavaScriptCore/jit/JITInlines.h	2026-07-27 09:40:28.555154800 -0600
-+++ b/Source/JavaScriptCore/jit/JITInlines.h	2026-11-09 02:15:07.031232276 -0600
++++ b/Source/JavaScriptCore/jit/JITInlines.h	2026-11-12 20:50:01.507288599 -0600
 @@ -516,6 +516,10 @@
          return ARM64Assembler::canEncodePImmOffset<minAlign * 8>(offset) || ARM64Assembler::canEncodeSImmOffset(offset);
      };
@@ -23767,7 +23767,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITInlines
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITOpcodes.cpp b/Source/JavaScriptCore/jit/JITOpcodes.cpp
 --- a/Source/JavaScriptCore/jit/JITOpcodes.cpp	2026-07-27 09:40:28.557728000 -0600
-+++ b/Source/JavaScriptCore/jit/JITOpcodes.cpp	2026-11-10 03:48:20.446289443 -0600
++++ b/Source/JavaScriptCore/jit/JITOpcodes.cpp	2026-11-12 20:50:01.507422861 -0600
 @@ -1585,7 +1585,13 @@
  
          skipOptimize.append(jit.branchAdd32(Signed, TrustedImm32(Options::executionCounterIncrementForEntry()), Address(GPRInfo::jitDataRegister, BaselineJITData::offsetOfJITExecuteCounter())));
@@ -23785,7 +23785,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITOpcodes
          constexpr GPRReg vmPointerArgGPR { GPRInfo::argumentGPR0 };
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITOperations.cpp b/Source/JavaScriptCore/jit/JITOperations.cpp
 --- a/Source/JavaScriptCore/jit/JITOperations.cpp	2026-09-14 13:20:57.268617600 -0600
-+++ b/Source/JavaScriptCore/jit/JITOperations.cpp	2026-11-10 03:48:20.444907562 -0600
++++ b/Source/JavaScriptCore/jit/JITOperations.cpp	2026-11-12 20:50:01.507714216 -0600
 @@ -3044,6 +3044,17 @@
          RELEASE_ASSERT_NOT_REACHED();
      }
@@ -23815,7 +23815,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITOperati
  {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITOperations.h b/Source/JavaScriptCore/jit/JITOperations.h
 --- a/Source/JavaScriptCore/jit/JITOperations.h	2026-07-27 09:40:28.558421100 -0600
-+++ b/Source/JavaScriptCore/jit/JITOperations.h	2026-11-08 14:47:36.732845188 -0600
++++ b/Source/JavaScriptCore/jit/JITOperations.h	2026-11-12 20:50:01.508003441 -0600
 @@ -410,7 +410,7 @@
  JSC_DECLARE_NOEXCEPT_JIT_OPERATION(operationRetrieveAndClearExceptionIfCatchable, JSCell*, (VM*));
  JSC_DECLARE_JIT_OPERATION(operationInstanceOfCustom, size_t, (JSGlobalObject*, EncodedJSValue encodedValue, JSObject* constructor, EncodedJSValue encodedHasInstance));
@@ -23827,7 +23827,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/JITOperati
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/NativeArgumentCursor.h b/Source/JavaScriptCore/jit/NativeArgumentCursor.h
 --- a/Source/JavaScriptCore/jit/NativeArgumentCursor.h	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/JavaScriptCore/jit/NativeArgumentCursor.h	2026-11-11 21:13:17.401318119 -0600
++++ b/Source/JavaScriptCore/jit/NativeArgumentCursor.h	2026-11-12 20:50:01.508086332 -0600
 @@ -0,0 +1,349 @@
 +/*
 + * Copyright (C) 2026 Jordan Bettcher. All rights reserved.
@@ -24180,7 +24180,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/NativeArgu
 +} // namespace JSC
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/OperationResult.h b/Source/JavaScriptCore/jit/OperationResult.h
 --- a/Source/JavaScriptCore/jit/OperationResult.h	2026-07-27 09:40:28.562138300 -0600
-+++ b/Source/JavaScriptCore/jit/OperationResult.h	2026-11-08 14:47:36.733390227 -0600
++++ b/Source/JavaScriptCore/jit/OperationResult.h	2026-11-12 20:50:01.508236725 -0600
 @@ -48,8 +48,38 @@
      std::is_standard_layout_v<T>
      && std::is_trivially_copyable_v<T>
@@ -24224,7 +24224,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/OperationR
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/RegisterAtOffset.h b/Source/JavaScriptCore/jit/RegisterAtOffset.h
 --- a/Source/JavaScriptCore/jit/RegisterAtOffset.h	2026-07-27 09:40:28.562988300 -0600
-+++ b/Source/JavaScriptCore/jit/RegisterAtOffset.h	2026-11-08 14:47:36.733748472 -0600
++++ b/Source/JavaScriptCore/jit/RegisterAtOffset.h	2026-11-12 20:50:01.508306266 -0600
 @@ -47,8 +47,12 @@
      {
          ASSERT(!(offset & 0b11));
@@ -24257,7 +24257,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/RegisterAt
  } // namespace JSC
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/RegisterSet.cpp b/Source/JavaScriptCore/jit/RegisterSet.cpp
 --- a/Source/JavaScriptCore/jit/RegisterSet.cpp	2026-07-27 09:40:28.563367600 -0600
-+++ b/Source/JavaScriptCore/jit/RegisterSet.cpp	2026-11-08 14:47:36.733950436 -0600
++++ b/Source/JavaScriptCore/jit/RegisterSet.cpp	2026-11-12 20:50:01.508369777 -0600
 @@ -85,7 +85,16 @@
      FOR_EACH_FP_REGISTER(SET_IF_RESERVED)
  #undef SET_IF_RESERVED
@@ -24467,7 +24467,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/RegisterSe
  #elif CPU(ARM)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/RegisterSet.h b/Source/JavaScriptCore/jit/RegisterSet.h
 --- a/Source/JavaScriptCore/jit/RegisterSet.h	2026-07-27 09:40:28.563533000 -0600
-+++ b/Source/JavaScriptCore/jit/RegisterSet.h	2026-11-08 14:47:36.734336172 -0600
++++ b/Source/JavaScriptCore/jit/RegisterSet.h	2026-11-12 20:50:01.508493939 -0600
 @@ -285,6 +285,17 @@
      JS_EXPORT_PRIVATE static RegisterSet NODELETE specialRegisters();
      JS_EXPORT_PRIVATE static RegisterSet NODELETE calleeSaveRegisters();
@@ -24488,7 +24488,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/RegisterSe
      JS_EXPORT_PRIVATE static RegisterSet NODELETE llintBaselineCalleeSaveRegisters();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/ThunkGenerators.cpp b/Source/JavaScriptCore/jit/ThunkGenerators.cpp
 --- a/Source/JavaScriptCore/jit/ThunkGenerators.cpp	2026-07-27 09:40:28.566627500 -0600
-+++ b/Source/JavaScriptCore/jit/ThunkGenerators.cpp	2026-11-09 02:15:07.031698844 -0600
++++ b/Source/JavaScriptCore/jit/ThunkGenerators.cpp	2026-11-12 20:50:01.508622341 -0600
 @@ -700,8 +700,16 @@
          // instruction on ARM64 (addressMask is a valid logical immediate) and uses the
          // macro-assembler's reserved scratch (r11) on x86_64, so we don't burn a regT slot on
@@ -24573,7 +24573,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jit/ThunkGener
      jit.loadInt32Argument(0, SpecializedThunkJIT::regT0, nonIntJump);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jsc.cpp b/Source/JavaScriptCore/jsc.cpp
 --- a/Source/JavaScriptCore/jsc.cpp	2026-07-27 09:40:28.567578300 -0600
-+++ b/Source/JavaScriptCore/jsc.cpp	2026-11-08 14:47:36.735667042 -0600
++++ b/Source/JavaScriptCore/jsc.cpp	2026-11-12 20:50:01.508909326 -0600
 @@ -160,7 +160,7 @@
  #endif
  #endif
@@ -24621,7 +24621,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/jsc.cpp b/Sour
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/InPlaceInterpreter64.asm b/Source/JavaScriptCore/llint/InPlaceInterpreter64.asm
 --- a/Source/JavaScriptCore/llint/InPlaceInterpreter64.asm	2026-09-14 13:20:57.270617700 -0600
-+++ b/Source/JavaScriptCore/llint/InPlaceInterpreter64.asm	2026-11-09 10:24:27.188736268 -0600
++++ b/Source/JavaScriptCore/llint/InPlaceInterpreter64.asm	2026-11-12 20:50:01.509658749 -0600
 @@ -30,7 +30,7 @@
      subp IPIntCalleeSaveSpaceStackAligned, sp
      if ARM64 or ARM64E
@@ -31092,7 +31092,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/InPlaceI
      loadp [cfr], cfr
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/InPlaceInterpreter.asm b/Source/JavaScriptCore/llint/InPlaceInterpreter.asm
 --- a/Source/JavaScriptCore/llint/InPlaceInterpreter.asm	2026-07-27 09:40:28.567742000 -0600
-+++ b/Source/JavaScriptCore/llint/InPlaceInterpreter.asm	2026-11-09 11:57:36.884347186 -0600
++++ b/Source/JavaScriptCore/llint/InPlaceInterpreter.asm	2026-11-12 20:50:01.511214614 -0600
 @@ -65,7 +65,7 @@
  const alignUInt = constexpr JSC::IPInt::alignUInt
  const alignMInt = constexpr JSC::IPInt::alignMInt
@@ -31404,7 +31404,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/InPlaceI
  # For unimplemented architectures: make sure that the assertions can still find the labels
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/InPlaceInterpreter.cpp b/Source/JavaScriptCore/llint/InPlaceInterpreter.cpp
 --- a/Source/JavaScriptCore/llint/InPlaceInterpreter.cpp	2026-07-27 09:40:28.568132200 -0600
-+++ b/Source/JavaScriptCore/llint/InPlaceInterpreter.cpp	2026-11-08 14:47:36.741090096 -0600
++++ b/Source/JavaScriptCore/llint/InPlaceInterpreter.cpp	2026-11-12 20:50:01.511428718 -0600
 @@ -77,7 +77,7 @@
  
  void initialize()
@@ -31425,7 +31425,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/InPlaceI
      RELEASE_ASSERT(g_opcodeConfig.basePointerName == removeCodePtrTag(reinterpret_cast<void*>(targetAddress)));
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/InPlaceInterpreter.h b/Source/JavaScriptCore/llint/InPlaceInterpreter.h
 --- a/Source/JavaScriptCore/llint/InPlaceInterpreter.h	2026-07-27 09:40:28.568273300 -0600
-+++ b/Source/JavaScriptCore/llint/InPlaceInterpreter.h	2026-11-08 14:47:36.741320290 -0600
++++ b/Source/JavaScriptCore/llint/InPlaceInterpreter.h	2026-11-12 20:50:01.511499279 -0600
 @@ -783,7 +783,7 @@
      m(0x11, uint_stack_vector) \
      m(0x12, uint_ret) \
@@ -31485,7 +31485,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/InPlaceI
  void initialize();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h b/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h
 --- a/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h	2026-07-27 09:40:28.569840000 -0600
-+++ b/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h	2026-11-12 16:09:36.348210139 -0600
++++ b/Source/JavaScriptCore/llint/LLIntOfflineAsmConfig.h	2026-11-12 20:50:01.511592221 -0600
 @@ -40,6 +40,8 @@
  #define OFFLINE_ASM_ARMv7k 0
  #define OFFLINE_ASM_ARMv7s 0
@@ -31531,7 +31531,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LLIntOff
  #else
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LLIntThunks.cpp b/Source/JavaScriptCore/llint/LLIntThunks.cpp
 --- a/Source/JavaScriptCore/llint/LLIntThunks.cpp	2026-07-27 09:40:28.573404800 -0600
-+++ b/Source/JavaScriptCore/llint/LLIntThunks.cpp	2026-11-08 14:47:36.741904359 -0600
++++ b/Source/JavaScriptCore/llint/LLIntThunks.cpp	2026-11-12 20:50:01.511680432 -0600
 @@ -84,7 +84,7 @@
  {
      JSInterfaceJIT jit;
@@ -31682,7 +31682,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LLIntThu
          } \
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevelInterpreter64.asm b/Source/JavaScriptCore/llint/LowLevelInterpreter64.asm
 --- a/Source/JavaScriptCore/llint/LowLevelInterpreter64.asm	2026-07-27 09:40:28.575405000 -0600
-+++ b/Source/JavaScriptCore/llint/LowLevelInterpreter64.asm	2026-11-08 14:47:36.742545319 -0600
++++ b/Source/JavaScriptCore/llint/LowLevelInterpreter64.asm	2026-11-12 20:50:01.511903046 -0600
 @@ -126,7 +126,7 @@
      checkStackPointerAlignment(scratch, 0xbad0c002)
      if C_LOOP
@@ -31759,7 +31759,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevel
      ret
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevelInterpreter.asm b/Source/JavaScriptCore/llint/LowLevelInterpreter.asm
 --- a/Source/JavaScriptCore/llint/LowLevelInterpreter.asm	2026-07-27 09:40:28.573404800 -0600
-+++ b/Source/JavaScriptCore/llint/LowLevelInterpreter.asm	2026-11-12 16:09:36.348556474 -0600
++++ b/Source/JavaScriptCore/llint/LowLevelInterpreter.asm	2026-11-12 20:50:01.512172330 -0600
 @@ -225,7 +225,7 @@
  
  const maxFrameExtentForSlowPathCall = constexpr maxFrameExtentForSlowPathCall
@@ -32126,7 +32126,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevel
          btqz t2, .store
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp b/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp
 --- a/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp	2026-07-27 09:40:28.574405000 -0600
-+++ b/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp	2026-11-08 14:47:36.744451608 -0600
++++ b/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp	2026-11-12 20:50:01.512431194 -0600
 @@ -516,6 +516,8 @@
  #define OFFLINE_ASM_BEGIN_SPACER "brk #" STRINGIZE_VALUE_OF(WTF_FATAL_CRASH_CODE) "\n"
  #elif CPU(X86_64)
@@ -32219,7 +32219,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/llint/LowLevel
  #define OFFLINE_ASM_EXPORT_SYMBOL(symbol)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/lol/LOLJIT.cpp b/Source/JavaScriptCore/lol/LOLJIT.cpp
 --- a/Source/JavaScriptCore/lol/LOLJIT.cpp	2026-07-27 09:40:28.575740600 -0600
-+++ b/Source/JavaScriptCore/lol/LOLJIT.cpp	2026-11-08 14:47:36.745006637 -0600
++++ b/Source/JavaScriptCore/lol/LOLJIT.cpp	2026-11-12 20:50:01.512720859 -0600
 @@ -206,6 +206,11 @@
  
  #if CPU(X86_64)
@@ -32252,7 +32252,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/lol/LOLJIT.cpp
  {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/asm.rb b/Source/JavaScriptCore/offlineasm/asm.rb
 --- a/Source/JavaScriptCore/offlineasm/asm.rb	2026-07-27 09:40:28.577405000 -0600
-+++ b/Source/JavaScriptCore/offlineasm/asm.rb	2026-11-11 21:00:29.123796341 -0600
++++ b/Source/JavaScriptCore/offlineasm/asm.rb	2026-11-12 20:50:01.512949953 -0600
 @@ -309,6 +309,10 @@
      opts.on("--platform=[Windows]", "Specify a specific platform for lowering.") do |platform|
          $options[:platform] = platform
@@ -32266,7 +32266,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/asm
      end
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/backends.rb b/Source/JavaScriptCore/offlineasm/backends.rb
 --- a/Source/JavaScriptCore/offlineasm/backends.rb	2026-07-27 09:40:28.577405000 -0600
-+++ b/Source/JavaScriptCore/offlineasm/backends.rb	2026-11-08 14:47:36.746464530 -0600
++++ b/Source/JavaScriptCore/offlineasm/backends.rb	2026-11-12 20:50:01.513020154 -0600
 @@ -27,6 +27,7 @@
  require "ast"
  require "x86"
@@ -32293,7 +32293,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/bac
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/generate_offset_extractor.rb b/Source/JavaScriptCore/offlineasm/generate_offset_extractor.rb
 --- a/Source/JavaScriptCore/offlineasm/generate_offset_extractor.rb	2026-07-27 09:40:28.577405000 -0600
-+++ b/Source/JavaScriptCore/offlineasm/generate_offset_extractor.rb	2026-11-11 21:00:29.122112678 -0600
++++ b/Source/JavaScriptCore/offlineasm/generate_offset_extractor.rb	2026-11-12 20:50:01.513077785 -0600
 @@ -54,6 +54,10 @@
  $options = {}
  OptionParser.new do |opts|
@@ -32307,7 +32307,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/gen
      end
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/generate_settings_extractor.rb b/Source/JavaScriptCore/offlineasm/generate_settings_extractor.rb
 --- a/Source/JavaScriptCore/offlineasm/generate_settings_extractor.rb	2026-07-27 09:40:28.577405000 -0600
-+++ b/Source/JavaScriptCore/offlineasm/generate_settings_extractor.rb	2026-11-11 21:00:29.122398632 -0600
++++ b/Source/JavaScriptCore/offlineasm/generate_settings_extractor.rb	2026-11-12 20:50:01.513134956 -0600
 @@ -51,6 +51,10 @@
  $options = {}
  OptionParser.new do |opts|
@@ -32321,7 +32321,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/gen
      end
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/instructions.rb b/Source/JavaScriptCore/offlineasm/instructions.rb
 --- a/Source/JavaScriptCore/offlineasm/instructions.rb	2026-07-27 09:40:28.577405000 -0600
-+++ b/Source/JavaScriptCore/offlineasm/instructions.rb	2026-11-09 10:24:27.191532883 -0600
++++ b/Source/JavaScriptCore/offlineasm/instructions.rb	2026-11-12 20:50:01.513195807 -0600
 @@ -503,6 +503,44 @@
       "remqs"
      ]
@@ -32378,7 +32378,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/ins
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/ppc64.rb b/Source/JavaScriptCore/offlineasm/ppc64.rb
 --- a/Source/JavaScriptCore/offlineasm/ppc64.rb	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/JavaScriptCore/offlineasm/ppc64.rb	2026-11-11 21:00:18.605329953 -0600
++++ b/Source/JavaScriptCore/offlineasm/ppc64.rb	2026-11-12 20:50:01.513255208 -0600
 @@ -0,0 +1,3124 @@
 +# Copyright (C) 2026 Justin Bettcher. All rights reserved.
 +#
@@ -35506,7 +35506,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/offlineasm/ppc
 +end
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/AtomicsObject.cpp b/Source/JavaScriptCore/runtime/AtomicsObject.cpp
 --- a/Source/JavaScriptCore/runtime/AtomicsObject.cpp	2026-07-27 09:40:28.597643600 -0600
-+++ b/Source/JavaScriptCore/runtime/AtomicsObject.cpp	2026-11-12 16:09:36.349571680 -0600
++++ b/Source/JavaScriptCore/runtime/AtomicsObject.cpp	2026-11-12 20:50:01.514023121 -0600
 @@ -222,12 +222,38 @@
      return atomicReadModifyWrite(globalObject, globalObject->vm(), args, func);
  }
@@ -35622,7 +35622,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Atomic
      RETURN_IF_EXCEPTION(scope, { });
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/CachedBytecode.cpp b/Source/JavaScriptCore/runtime/CachedBytecode.cpp
 --- a/Source/JavaScriptCore/runtime/CachedBytecode.cpp	2026-07-27 09:40:28.603644400 -0600
-+++ b/Source/JavaScriptCore/runtime/CachedBytecode.cpp	2026-11-11 00:08:57.165388271 -0600
++++ b/Source/JavaScriptCore/runtime/CachedBytecode.cpp	2026-11-12 20:50:01.514136393 -0600
 @@ -41,21 +41,49 @@
      m_updates.append(CacheUpdate::GlobalUpdate { WTF::move(bytecode->m_payload) });
  }
@@ -35680,7 +35680,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Cached
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/CachedBytecode.h b/Source/JavaScriptCore/runtime/CachedBytecode.h
 --- a/Source/JavaScriptCore/runtime/CachedBytecode.h	2026-07-27 09:40:28.603730400 -0600
-+++ b/Source/JavaScriptCore/runtime/CachedBytecode.h	2026-11-11 00:08:57.165181637 -0600
++++ b/Source/JavaScriptCore/runtime/CachedBytecode.h	2026-11-12 20:50:01.514193324 -0600
 @@ -58,7 +58,8 @@
      LeafExecutableMap& leafExecutables() LIFETIME_BOUND { return m_leafExecutables; }
  
@@ -35701,7 +35701,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Cached
      CachePayload m_payload;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/CachedTypes.cpp b/Source/JavaScriptCore/runtime/CachedTypes.cpp
 --- a/Source/JavaScriptCore/runtime/CachedTypes.cpp	2026-07-27 09:40:28.604269000 -0600
-+++ b/Source/JavaScriptCore/runtime/CachedTypes.cpp	2026-11-11 00:08:57.164181989 -0600
++++ b/Source/JavaScriptCore/runtime/CachedTypes.cpp	2026-11-12 20:50:01.514318746 -0600
 @@ -1914,6 +1914,19 @@
      void encode(Encoder&, const UnlinkedFunctionExecutable&);
      UnlinkedFunctionExecutable* decode(Decoder&) const;
@@ -35738,7 +35738,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Cached
  WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/CachedTypes.h b/Source/JavaScriptCore/runtime/CachedTypes.h
 --- a/Source/JavaScriptCore/runtime/CachedTypes.h	2026-07-27 09:40:28.604352500 -0600
-+++ b/Source/JavaScriptCore/runtime/CachedTypes.h	2026-11-11 00:08:57.164990093 -0600
++++ b/Source/JavaScriptCore/runtime/CachedTypes.h	2026-11-12 20:50:01.514478078 -0600
 @@ -124,6 +124,9 @@
  
  JS_EXPORT_PRIVATE RefPtr<CachedBytecode> encodeFunctionCodeBlock(VM&, const UnlinkedFunctionCodeBlock*, BytecodeCacheError&);
@@ -35751,7 +35751,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Cached
  bool isCachedBytecodeStillValid(VM&, Ref<CachedBytecode>, const SourceCodeKey&, SourceCodeType);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/ErrorInstance.cpp b/Source/JavaScriptCore/runtime/ErrorInstance.cpp
 --- a/Source/JavaScriptCore/runtime/ErrorInstance.cpp	2026-07-27 09:40:28.631055800 -0600
-+++ b/Source/JavaScriptCore/runtime/ErrorInstance.cpp	2026-11-08 23:33:40.282175686 -0600
++++ b/Source/JavaScriptCore/runtime/ErrorInstance.cpp	2026-11-12 20:50:01.514546939 -0600
 @@ -110,8 +110,24 @@
      return appender(message, codeBlock->source().provider()->getRange(start, stop), type, ErrorInstance::SourceTextWhereErrorOccurred::FoundApproximateSource);
  }
@@ -35789,7 +35789,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/ErrorI
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/GenericTypedArrayView.h b/Source/JavaScriptCore/runtime/GenericTypedArrayView.h
 --- a/Source/JavaScriptCore/runtime/GenericTypedArrayView.h	2026-07-27 09:40:28.639100000 -0600
-+++ b/Source/JavaScriptCore/runtime/GenericTypedArrayView.h	2026-11-12 16:09:36.350005476 -0600
++++ b/Source/JavaScriptCore/runtime/GenericTypedArrayView.h	2026-11-12 20:50:01.514632431 -0600
 @@ -27,6 +27,7 @@
  
  #include <JavaScriptCore/ArrayBuffer.h>
@@ -35852,7 +35852,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Generi
              count * sizeof(typename Adaptor::Type),
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/GenericTypedArrayViewInlines.h b/Source/JavaScriptCore/runtime/GenericTypedArrayViewInlines.h
 --- a/Source/JavaScriptCore/runtime/GenericTypedArrayViewInlines.h	2026-07-27 09:40:28.639100000 -0600
-+++ b/Source/JavaScriptCore/runtime/GenericTypedArrayViewInlines.h	2026-11-12 16:09:36.350340642 -0600
++++ b/Source/JavaScriptCore/runtime/GenericTypedArrayViewInlines.h	2026-11-12 20:50:01.514692332 -0600
 @@ -80,6 +80,7 @@
          return nullptr;
  WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -35863,7 +35863,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Generi
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSCBytecodeCacheVersion.cpp b/Source/JavaScriptCore/runtime/JSCBytecodeCacheVersion.cpp
 --- a/Source/JavaScriptCore/runtime/JSCBytecodeCacheVersion.cpp	2026-07-27 09:40:28.661404600 -0600
-+++ b/Source/JavaScriptCore/runtime/JSCBytecodeCacheVersion.cpp	2026-11-08 14:47:36.748235197 -0600
++++ b/Source/JavaScriptCore/runtime/JSCBytecodeCacheVersion.cpp	2026-11-12 20:50:01.514757543 -0600
 @@ -35,6 +35,8 @@
  #include <dlfcn.h>
  #if OS(DARWIN)
@@ -35909,7 +35909,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSCByt
              cacheVersion.construct(SuperFastHash::computeHash(uuidString));
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSCJSValue.cpp b/Source/JavaScriptCore/runtime/JSCJSValue.cpp
 --- a/Source/JavaScriptCore/runtime/JSCJSValue.cpp	2026-07-27 09:40:28.662404800 -0600
-+++ b/Source/JavaScriptCore/runtime/JSCJSValue.cpp	2026-11-08 23:36:30.580957533 -0600
++++ b/Source/JavaScriptCore/runtime/JSCJSValue.cpp	2026-11-12 20:50:01.514824724 -0600
 @@ -216,6 +216,13 @@
  {
      VM& vm = globalObject->vm();
@@ -35926,7 +35926,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSCJSV
          RELEASE_AND_RETURN(scope, putToPrimitiveByIndex(globalObject, index.value(), value, slot.isStrictMode()));
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSCPtrTag.h b/Source/JavaScriptCore/runtime/JSCPtrTag.h
 --- a/Source/JavaScriptCore/runtime/JSCPtrTag.h	2026-07-27 09:40:28.664404600 -0600
-+++ b/Source/JavaScriptCore/runtime/JSCPtrTag.h	2026-11-08 14:47:36.748539152 -0600
++++ b/Source/JavaScriptCore/runtime/JSCPtrTag.h	2026-11-12 20:50:01.514901275 -0600
 @@ -37,6 +37,25 @@
  
  using PtrTag = WTF::PtrTag;
@@ -35991,7 +35991,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSCPtr
  #if ENABLE(JIT_OPERATION_VALIDATION_ASSERT)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewConstructor.cpp b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewConstructor.cpp
 --- a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewConstructor.cpp	2026-07-27 09:40:28.670740800 -0600
-+++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewConstructor.cpp	2026-11-08 14:47:36.748885807 -0600
++++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewConstructor.cpp	2026-11-12 20:50:01.514979937 -0600
 @@ -135,9 +135,18 @@
          if (SIMD::isNonZero(flags)) [[unlikely]]
              return false;
@@ -36033,7 +36033,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGene
                  for (; cursor + stride <= end; cursor += stride, output += halfStride) {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGenericTypedArrayView.h b/Source/JavaScriptCore/runtime/JSGenericTypedArrayView.h
 --- a/Source/JavaScriptCore/runtime/JSGenericTypedArrayView.h	2026-07-27 09:40:28.670615000 -0600
-+++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayView.h	2026-11-12 16:09:36.350585905 -0600
++++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayView.h	2026-11-12 20:50:01.515051328 -0600
 @@ -27,6 +27,7 @@
  
  #include <JavaScriptCore/JSArrayBufferView.h>
@@ -36044,7 +36044,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGene
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewInlines.h b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewInlines.h
 --- a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewInlines.h	2026-07-27 09:40:28.671303700 -0600
-+++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewInlines.h	2026-11-12 16:09:36.351025002 -0600
++++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewInlines.h	2026-11-12 20:50:01.515137369 -0600
 @@ -380,10 +380,12 @@
      }
      if constexpr (Adaptor::typeValue == TypeUint16 || Adaptor::typeValue == TypeInt16) {
@@ -36105,7 +36105,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGene
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototype.cpp b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototype.cpp
 --- a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototype.cpp	2026-07-27 09:40:28.671574000 -0600
-+++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototype.cpp	2026-11-08 14:47:36.749212112 -0600
++++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototype.cpp	2026-11-12 20:50:01.515249061 -0600
 @@ -253,8 +253,15 @@
              // masked             : 0H0L0H0L0H0L0H0L0H0L0H0L0H0L0H0L
              constexpr simde_uint8x16_t characters { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
@@ -36124,7 +36124,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGene
              return simde_vqtbl1q_u8(characters, masked);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototypeFunctions.h b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototypeFunctions.h
 --- a/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototypeFunctions.h	2026-07-27 09:40:28.671981600 -0600
-+++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototypeFunctions.h	2026-11-12 16:09:36.351499869 -0600
++++ b/Source/JavaScriptCore/runtime/JSGenericTypedArrayViewPrototypeFunctions.h	2026-11-12 20:50:01.515372493 -0600
 @@ -241,7 +241,7 @@
              JSValue element = jsUndefined();
              auto nativeValue = ViewClass::Adaptor::toNativeFromUndefined();
@@ -36253,7 +36253,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSGene
      return JSValue::encode(result);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSModuleLoader.cpp b/Source/JavaScriptCore/runtime/JSModuleLoader.cpp
 --- a/Source/JavaScriptCore/runtime/JSModuleLoader.cpp	2026-07-27 09:40:28.679404700 -0600
-+++ b/Source/JavaScriptCore/runtime/JSModuleLoader.cpp	2026-11-08 14:47:36.749543647 -0600
++++ b/Source/JavaScriptCore/runtime/JSModuleLoader.cpp	2026-11-12 20:50:01.515572117 -0600
 @@ -49,6 +49,7 @@
  #include "SyntheticModuleRecord.h"
  #include "TopExceptionScope.h"
@@ -36264,7 +36264,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSModu
  namespace JSC {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSString.h b/Source/JavaScriptCore/runtime/JSString.h
 --- a/Source/JavaScriptCore/runtime/JSString.h	2026-07-27 09:40:28.690404700 -0600
-+++ b/Source/JavaScriptCore/runtime/JSString.h	2026-11-10 11:49:22.730104978 -0600
++++ b/Source/JavaScriptCore/runtime/JSString.h	2026-11-12 20:50:01.515710349 -0600
 @@ -395,6 +395,11 @@
          static constexpr ptrdiff_t offsetOfFiber2() { return OBJECT_OFFSETOF(CompactFibers, m_fiber1Upper); }
          static constexpr ptrdiff_t offsetOfFiber1Lower() { return OBJECT_OFFSETOF(CompactFibers, m_fiber1Lower); }
@@ -36304,7 +36304,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/JSStri
      // If nullOrExecForOOM is null, resolveRope() will be do nothing in the event of an OOM error.
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/MachineContext.h b/Source/JavaScriptCore/runtime/MachineContext.h
 --- a/Source/JavaScriptCore/runtime/MachineContext.h	2026-07-27 09:40:28.699404700 -0600
-+++ b/Source/JavaScriptCore/runtime/MachineContext.h	2026-11-08 14:47:36.750688125 -0600
++++ b/Source/JavaScriptCore/runtime/MachineContext.h	2026-11-12 20:50:01.515842381 -0600
 @@ -34,6 +34,21 @@
  #include <wtf/PointerPreparations.h>
  #include <wtf/StdLibExtras.h>
@@ -36514,7 +36514,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Machin
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Options.cpp b/Source/JavaScriptCore/runtime/Options.cpp
 --- a/Source/JavaScriptCore/runtime/Options.cpp	2026-08-24 09:32:13.661397200 -0600
-+++ b/Source/JavaScriptCore/runtime/Options.cpp	2026-11-09 10:24:27.193213613 -0600
++++ b/Source/JavaScriptCore/runtime/Options.cpp	2026-11-12 20:50:01.516007324 -0600
 @@ -49,7 +49,7 @@
  #include <wtf/text/StringBuilder.h>
  #include <wtf/threads/Signals.h>
@@ -36620,7 +36620,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Option
          useOSLogOptionHasChanged = false;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Options.h b/Source/JavaScriptCore/runtime/Options.h
 --- a/Source/JavaScriptCore/runtime/Options.h	2026-08-24 09:32:13.661397200 -0600
-+++ b/Source/JavaScriptCore/runtime/Options.h	2026-11-08 14:47:36.751755161 -0600
++++ b/Source/JavaScriptCore/runtime/Options.h	2026-11-12 20:50:01.516137436 -0600
 @@ -175,7 +175,7 @@
      static unsigned computeNumberOfWorkerThreads(int maxNumberOfWorkerThreads, int minimum = 1);
      static int32_t computePriorityDeltaOfWorkerThreads(int32_t twoCorePriorityDelta, int32_t multiCorePriorityDelta);
@@ -36632,7 +36632,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Option
  #if PLATFORM(MAC)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/OptionsList.h b/Source/JavaScriptCore/runtime/OptionsList.h
 --- a/Source/JavaScriptCore/runtime/OptionsList.h	2026-07-27 09:40:28.712868700 -0600
-+++ b/Source/JavaScriptCore/runtime/OptionsList.h	2026-11-10 18:36:55.327997230 -0600
++++ b/Source/JavaScriptCore/runtime/OptionsList.h	2026-11-12 20:50:01.516217797 -0600
 @@ -637,6 +637,10 @@
      v(Bool, verboseExecutablePoolAllocation, false, Normal, nullptr) \
      v(Bool, useHandlerICInFTL, false, Normal, nullptr) \
@@ -36646,7 +36646,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Option
      v(Unsigned, libpasForcePGMWithRate, 0, Normal, "Forces on probablistic guard malloc and guards allocations with a rate 1/N (0 is disabled)"_s) \
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/ScriptExecutable.cpp b/Source/JavaScriptCore/runtime/ScriptExecutable.cpp
 --- a/Source/JavaScriptCore/runtime/ScriptExecutable.cpp	2026-07-27 09:40:28.726404700 -0600
-+++ b/Source/JavaScriptCore/runtime/ScriptExecutable.cpp	2026-11-08 14:47:36.752074926 -0600
++++ b/Source/JavaScriptCore/runtime/ScriptExecutable.cpp	2026-11-12 20:50:01.516329049 -0600
 @@ -26,6 +26,7 @@
  #include "config.h"
  
@@ -36657,7 +36657,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/runtime/Script
  #include "FunctionCodeBlock.h"
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/shell/CMakeLists.txt b/Source/JavaScriptCore/shell/CMakeLists.txt
 --- a/Source/JavaScriptCore/shell/CMakeLists.txt	2026-07-27 09:40:28.766877000 -0600
-+++ b/Source/JavaScriptCore/shell/CMakeLists.txt	2026-11-08 14:47:36.752461992 -0600
++++ b/Source/JavaScriptCore/shell/CMakeLists.txt	2026-11-12 20:50:01.516405830 -0600
 @@ -10,7 +10,7 @@
      $<TARGET_PROPERTY:JavaScriptCore,INCLUDE_DIRECTORIES>
  )
@@ -36669,7 +36669,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/shell/CMakeLis
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/Sources.txt b/Source/JavaScriptCore/Sources.txt
 --- a/Source/JavaScriptCore/Sources.txt	2026-07-27 09:40:28.261405500 -0600
-+++ b/Source/JavaScriptCore/Sources.txt	2026-11-08 14:47:36.752773497 -0600
++++ b/Source/JavaScriptCore/Sources.txt	2026-11-12 20:50:01.516484322 -0600
 @@ -56,6 +56,7 @@
  assembler/MacroAssemblerCodeRef.cpp
  assembler/MacroAssemblerPrinter.cpp
@@ -36680,7 +36680,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/Sources.txt b/
  assembler/Printer.cpp
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/tools/Integrity.cpp b/Source/JavaScriptCore/tools/Integrity.cpp
 --- a/Source/JavaScriptCore/tools/Integrity.cpp	2026-07-27 09:40:28.772404400 -0600
-+++ b/Source/JavaScriptCore/tools/Integrity.cpp	2026-11-08 14:47:36.753238584 -0600
++++ b/Source/JavaScriptCore/tools/Integrity.cpp	2026-11-12 20:50:01.516588363 -0600
 @@ -36,7 +36,7 @@
  #include "VMManager.h"
  #include <wtf/DataLog.h>
@@ -36701,7 +36701,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/tools/Integrit
      std::call_once(once, [] {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/generateWasmOpsHeader.py b/Source/JavaScriptCore/wasm/generateWasmOpsHeader.py
 --- a/Source/JavaScriptCore/wasm/generateWasmOpsHeader.py	2026-07-27 09:40:28.829404400 -0600
-+++ b/Source/JavaScriptCore/wasm/generateWasmOpsHeader.py	2026-11-08 14:47:36.753588460 -0600
++++ b/Source/JavaScriptCore/wasm/generateWasmOpsHeader.py	2026-11-12 20:50:01.516678455 -0600
 @@ -233,7 +233,7 @@
  
  #include <wtf/Platform.h>
@@ -36713,7 +36713,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/generateW
  #include <wtf/PrintStream.h>
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/js/JSToWasm.cpp b/Source/JavaScriptCore/wasm/js/JSToWasm.cpp
 --- a/Source/JavaScriptCore/wasm/js/JSToWasm.cpp	2026-07-27 09:40:28.830769800 -0600
-+++ b/Source/JavaScriptCore/wasm/js/JSToWasm.cpp	2026-11-09 10:24:27.193968386 -0600
++++ b/Source/JavaScriptCore/wasm/js/JSToWasm.cpp	2026-11-12 20:50:01.516782027 -0600
 @@ -324,6 +324,15 @@
          jit.loadPair64(CCallHelpers::Address(CCallHelpers::stackPointerRegister, 0 * 8), GPRInfo::regWA0, GPRInfo::regWA1);
          jit.loadPair64(CCallHelpers::Address(CCallHelpers::stackPointerRegister, 2 * 8), GPRInfo::regWA2, GPRInfo::regWA3);
@@ -36779,7 +36779,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/js/JSToWa
      Locker locker(m_jitCodeLock);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/js/JSWebAssemblyInstance.cpp b/Source/JavaScriptCore/wasm/js/JSWebAssemblyInstance.cpp
 --- a/Source/JavaScriptCore/wasm/js/JSWebAssemblyInstance.cpp	2026-07-27 09:40:28.832404400 -0600
-+++ b/Source/JavaScriptCore/wasm/js/JSWebAssemblyInstance.cpp	2026-11-09 11:57:36.885658317 -0600
++++ b/Source/JavaScriptCore/wasm/js/JSWebAssemblyInstance.cpp	2026-11-12 20:50:01.516923939 -0600
 @@ -50,6 +50,7 @@
  #include "WebAssemblyModuleRecord.h"
  #include "WebAssemblyWrapperFunction.h"
@@ -36826,7 +36826,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/js/JSWebA
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/js/WasmToJS.cpp b/Source/JavaScriptCore/wasm/js/WasmToJS.cpp
 --- a/Source/JavaScriptCore/wasm/js/WasmToJS.cpp	2026-07-27 09:40:28.835404400 -0600
-+++ b/Source/JavaScriptCore/wasm/js/WasmToJS.cpp	2026-11-09 13:17:35.816550195 -0600
++++ b/Source/JavaScriptCore/wasm/js/WasmToJS.cpp	2026-11-12 20:50:01.517025151 -0600
 @@ -275,12 +275,22 @@
              }
              case TypeKind::F32: {
@@ -36864,7 +36864,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/js/WasmTo
          case TypeKind::F64: {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmAddressType.cpp b/Source/JavaScriptCore/wasm/WasmAddressType.cpp
 --- a/Source/JavaScriptCore/wasm/WasmAddressType.cpp	2026-09-01 18:56:27.105398700 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmAddressType.cpp	2026-11-08 14:47:36.754624276 -0600
++++ b/Source/JavaScriptCore/wasm/WasmAddressType.cpp	2026-11-12 20:50:01.517108842 -0600
 @@ -52,7 +52,7 @@
      }
  }
@@ -36885,7 +36885,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmAddre
      switch (m_type) {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmAddressType.h b/Source/JavaScriptCore/wasm/WasmAddressType.h
 --- a/Source/JavaScriptCore/wasm/WasmAddressType.h	2026-09-01 18:56:27.106398800 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmAddressType.h	2026-11-08 14:47:36.754811959 -0600
++++ b/Source/JavaScriptCore/wasm/WasmAddressType.h	2026-11-12 20:50:01.517157743 -0600
 @@ -24,7 +24,7 @@
  
  #pragma once
@@ -36906,7 +36906,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmAddre
      explicit AddressType(bool is64bit);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmAirArgShim.h b/Source/JavaScriptCore/wasm/WasmAirArgShim.h
 --- a/Source/JavaScriptCore/wasm/WasmAirArgShim.h	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/JavaScriptCore/wasm/WasmAirArgShim.h	2026-11-08 14:47:36.754992871 -0600
++++ b/Source/JavaScriptCore/wasm/WasmAirArgShim.h	2026-11-12 20:50:01.517198394 -0600
 @@ -0,0 +1,114 @@
 +/*
 + * Copyright (C) 2026 Jordan Bettcher. All rights reserved.
@@ -37024,7 +37024,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmAirAr
 +#endif // ENABLE(WEBASSEMBLY)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmBBQJIT64.cpp b/Source/JavaScriptCore/wasm/WasmBBQJIT64.cpp
 --- a/Source/JavaScriptCore/wasm/WasmBBQJIT64.cpp	2026-07-27 09:40:28.799404400 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmBBQJIT64.cpp	2026-11-09 13:17:35.817254225 -0600
++++ b/Source/JavaScriptCore/wasm/WasmBBQJIT64.cpp	2026-11-12 20:50:01.517417807 -0600
 @@ -73,7 +73,20 @@
  
  namespace JSC { namespace Wasm { namespace BBQJITImpl {
@@ -37598,7 +37598,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmBBQJI
          m_jit.vectorPmin(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmBBQJIT.cpp b/Source/JavaScriptCore/wasm/WasmBBQJIT.cpp
 --- a/Source/JavaScriptCore/wasm/WasmBBQJIT.cpp	2026-07-27 09:40:28.798404500 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmBBQJIT.cpp	2026-11-09 13:17:35.818995769 -0600
++++ b/Source/JavaScriptCore/wasm/WasmBBQJIT.cpp	2026-11-12 20:50:01.517969696 -0600
 @@ -456,6 +456,25 @@
      return pairIntHash(static_cast<unsigned>(m_kind), m_index);
  }
@@ -37806,7 +37806,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmBBQJI
      switch (opType) {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmBBQJIT.h b/Source/JavaScriptCore/wasm/WasmBBQJIT.h
 --- a/Source/JavaScriptCore/wasm/WasmBBQJIT.h	2026-07-27 09:40:28.799404400 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmBBQJIT.h	2026-11-09 13:17:35.820809685 -0600
++++ b/Source/JavaScriptCore/wasm/WasmBBQJIT.h	2026-11-12 20:50:01.518360713 -0600
 @@ -126,6 +126,7 @@
          static Location NODELETE fromGlobal(int32_t globalOffset);
  
@@ -37830,7 +37830,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmBBQJI
      [[nodiscard]] PartialResult addFusedBranchCompare(OpType, ControlType& target, ExpressionType, ExpressionType, std::span<TypedExpression>);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmCallee.cpp b/Source/JavaScriptCore/wasm/WasmCallee.cpp
 --- a/Source/JavaScriptCore/wasm/WasmCallee.cpp	2026-07-27 09:40:28.801404500 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmCallee.cpp	2026-11-09 10:24:27.194537046 -0600
++++ b/Source/JavaScriptCore/wasm/WasmCallee.cpp	2026-11-12 20:50:01.518521445 -0600
 @@ -553,7 +553,11 @@
  
  CodePtr<WasmEntryPtrTag> JSToWasmCallee::entrypointImpl() const
@@ -37855,7 +37855,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmCalle
  #else
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmConstExprGenerator.cpp b/Source/JavaScriptCore/wasm/WasmConstExprGenerator.cpp
 --- a/Source/JavaScriptCore/wasm/WasmConstExprGenerator.cpp	2026-07-27 09:40:28.804404500 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmConstExprGenerator.cpp	2026-11-08 14:47:36.758889162 -0600
++++ b/Source/JavaScriptCore/wasm/WasmConstExprGenerator.cpp	2026-11-12 20:50:01.518632597 -0600
 @@ -714,9 +714,7 @@
      [[nodiscard]] PartialResult addSIMDI_V(SIMDLaneOperation, SIMDInfo, ExpressionType, ExpressionType&) CONST_EXPR_STUB
      [[nodiscard]] PartialResult addSIMDV_V(SIMDLaneOperation, SIMDInfo, ExpressionType, ExpressionType&) CONST_EXPR_STUB
@@ -37868,7 +37868,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmConst
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmFaultSignalHandler.cpp b/Source/JavaScriptCore/wasm/WasmFaultSignalHandler.cpp
 --- a/Source/JavaScriptCore/wasm/WasmFaultSignalHandler.cpp	2026-07-27 09:40:28.805404400 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmFaultSignalHandler.cpp	2026-11-08 14:47:36.759329139 -0600
++++ b/Source/JavaScriptCore/wasm/WasmFaultSignalHandler.cpp	2026-11-12 20:50:01.518731399 -0600
 @@ -60,6 +60,21 @@
  }
  }
@@ -37901,7 +37901,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmFault
  {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmFunctionParser.h b/Source/JavaScriptCore/wasm/WasmFunctionParser.h
 --- a/Source/JavaScriptCore/wasm/WasmFunctionParser.h	2026-09-14 13:20:57.275617600 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmFunctionParser.h	2026-11-08 14:47:36.759762655 -0600
++++ b/Source/JavaScriptCore/wasm/WasmFunctionParser.h	2026-11-12 20:50:01.518927412 -0600
 @@ -30,7 +30,7 @@
  
  #if ENABLE(WEBASSEMBLY)
@@ -37960,7 +37960,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmFunct
      FOR_EACH_WASM_BINARY_OP(CREATE_CASE)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmIPIntGenerator.cpp b/Source/JavaScriptCore/wasm/WasmIPIntGenerator.cpp
 --- a/Source/JavaScriptCore/wasm/WasmIPIntGenerator.cpp	2026-09-14 13:20:57.276617800 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmIPIntGenerator.cpp	2026-11-08 14:47:36.761245908 -0600
++++ b/Source/JavaScriptCore/wasm/WasmIPIntGenerator.cpp	2026-11-12 20:50:01.519258447 -0600
 @@ -265,9 +265,7 @@
      [[nodiscard]] PartialResult addSIMDI_V(SIMDLaneOperation, SIMDInfo, ExpressionType, ExpressionType&);
      [[nodiscard]] PartialResult addSIMDV_V(SIMDLaneOperation, SIMDInfo, ExpressionType, ExpressionType&);
@@ -37987,7 +37987,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmIPInt
  {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmIPIntGenerator.h b/Source/JavaScriptCore/wasm/WasmIPIntGenerator.h
 --- a/Source/JavaScriptCore/wasm/WasmIPIntGenerator.h	2026-09-14 13:20:57.276617800 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmIPIntGenerator.h	2026-11-09 10:24:27.195328330 -0600
++++ b/Source/JavaScriptCore/wasm/WasmIPIntGenerator.h	2026-11-12 20:50:01.519442290 -0600
 @@ -47,10 +47,19 @@
  namespace IPInt {
  
@@ -38022,7 +38022,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmIPInt
          v128_t v128;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmIPIntSlowPaths.cpp b/Source/JavaScriptCore/wasm/WasmIPIntSlowPaths.cpp
 --- a/Source/JavaScriptCore/wasm/WasmIPIntSlowPaths.cpp	2026-07-27 09:40:28.808404400 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmIPIntSlowPaths.cpp	2026-11-08 14:47:36.762072491 -0600
++++ b/Source/JavaScriptCore/wasm/WasmIPIntSlowPaths.cpp	2026-11-12 20:50:01.519543862 -0600
 @@ -1333,7 +1333,11 @@
  
  WASM_IPINT_EXTERN_CPP_DECL(memory_atomic_wait32, IPIntStackEntry* args)
@@ -38056,7 +38056,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmIPInt
      int32_t count = args[2].i32;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmIRGeneratorHelpers.h b/Source/JavaScriptCore/wasm/WasmIRGeneratorHelpers.h
 --- a/Source/JavaScriptCore/wasm/WasmIRGeneratorHelpers.h	2026-07-27 09:40:28.809404400 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmIRGeneratorHelpers.h	2026-11-08 14:47:36.762663540 -0600
++++ b/Source/JavaScriptCore/wasm/WasmIRGeneratorHelpers.h	2026-11-12 20:50:01.519681944 -0600
 @@ -215,6 +215,10 @@
      jit.untagPtr(callerSP, MacroAssembler::linkRegister);
      jit.validateUntaggedPtr(MacroAssembler::linkRegister);
@@ -38070,7 +38070,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmIRGen
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmLimits.h b/Source/JavaScriptCore/wasm/WasmLimits.h
 --- a/Source/JavaScriptCore/wasm/WasmLimits.h	2026-07-27 09:40:28.810404500 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmLimits.h	2026-11-08 14:47:36.762993875 -0600
++++ b/Source/JavaScriptCore/wasm/WasmLimits.h	2026-11-12 20:50:01.519747245 -0600
 @@ -27,7 +27,7 @@
  
  #include <wtf/Platform.h>
@@ -38082,7 +38082,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmLimit
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmMemory.h b/Source/JavaScriptCore/wasm/WasmMemory.h
 --- a/Source/JavaScriptCore/wasm/WasmMemory.h	2026-07-27 09:40:28.811404500 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmMemory.h	2026-11-08 14:47:36.763192139 -0600
++++ b/Source/JavaScriptCore/wasm/WasmMemory.h	2026-11-12 20:50:01.519797396 -0600
 @@ -27,7 +27,7 @@
  
  #include <wtf/Platform.h>
@@ -38094,7 +38094,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmMemor
  #include <JavaScriptCore/MemoryMode.h>
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmOMGIRGenerator.cpp b/Source/JavaScriptCore/wasm/WasmOMGIRGenerator.cpp
 --- a/Source/JavaScriptCore/wasm/WasmOMGIRGenerator.cpp	2026-09-21 11:39:49.945642000 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmOMGIRGenerator.cpp	2026-11-08 14:47:36.763662286 -0600
++++ b/Source/JavaScriptCore/wasm/WasmOMGIRGenerator.cpp	2026-11-12 20:50:01.520069161 -0600
 @@ -1658,8 +1658,13 @@
                          dataLog(context.gpr(src.jsr().payloadGPR()), " / ", (int) context.gpr(src.jsr().payloadGPR()));
                      else if (src.isFPR() && width <= Width::Width64)
@@ -38241,7 +38241,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmOMGIR
                      dataLogLn();
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmOperations.cpp b/Source/JavaScriptCore/wasm/WasmOperations.cpp
 --- a/Source/JavaScriptCore/wasm/WasmOperations.cpp	2026-07-27 09:40:28.815404400 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmOperations.cpp	2026-11-09 13:17:35.821988952 -0600
++++ b/Source/JavaScriptCore/wasm/WasmOperations.cpp	2026-11-12 20:50:01.520534799 -0600
 @@ -71,6 +71,19 @@
  static constexpr bool verbose = false;
  }
@@ -38353,7 +38353,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmOpera
              switch (type.kind()) {
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmOperationsInlines.h b/Source/JavaScriptCore/wasm/WasmOperationsInlines.h
 --- a/Source/JavaScriptCore/wasm/WasmOperationsInlines.h	2026-07-27 09:40:28.816404300 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmOperationsInlines.h	2026-11-09 10:24:27.196536321 -0600
++++ b/Source/JavaScriptCore/wasm/WasmOperationsInlines.h	2026-11-12 20:50:01.520748952 -0600
 @@ -40,6 +40,7 @@
  #include "WasmIPIntGenerator.h"
  #include "WasmModuleInformation.h"
@@ -38386,7 +38386,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmOpera
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmParser.h b/Source/JavaScriptCore/wasm/WasmParser.h
 --- a/Source/JavaScriptCore/wasm/WasmParser.h	2026-07-27 09:40:28.816404300 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmParser.h	2026-11-09 10:24:27.197033990 -0600
++++ b/Source/JavaScriptCore/wasm/WasmParser.h	2026-11-12 20:50:01.520843984 -0600
 @@ -41,6 +41,7 @@
  #include "Width.h"
  #include <type_traits>
@@ -38417,7 +38417,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmParse
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmSectionParser.cpp b/Source/JavaScriptCore/wasm/WasmSectionParser.cpp
 --- a/Source/JavaScriptCore/wasm/WasmSectionParser.cpp	2026-07-27 09:40:28.817404500 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmSectionParser.cpp	2026-11-08 14:47:36.766796484 -0600
++++ b/Source/JavaScriptCore/wasm/WasmSectionParser.cpp	2026-11-12 20:50:01.520956436 -0600
 @@ -789,7 +789,6 @@
          break;
      }
@@ -38441,7 +38441,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmSecti
          uint32_t index;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmSIMDOpcodes.h b/Source/JavaScriptCore/wasm/WasmSIMDOpcodes.h
 --- a/Source/JavaScriptCore/wasm/WasmSIMDOpcodes.h	2026-07-27 09:40:28.816404300 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmSIMDOpcodes.h	2026-11-08 14:47:36.767456815 -0600
++++ b/Source/JavaScriptCore/wasm/WasmSIMDOpcodes.h	2026-11-12 20:50:01.521090998 -0600
 @@ -28,7 +28,7 @@
  #include <wtf/Platform.h>
  #include <wtf/PrintStream.h>
@@ -38453,7 +38453,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmSIMDO
  
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmStreamingParser.cpp b/Source/JavaScriptCore/wasm/WasmStreamingParser.cpp
 --- a/Source/JavaScriptCore/wasm/WasmStreamingParser.cpp	2026-07-27 09:40:28.818404400 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmStreamingParser.cpp	2026-11-09 10:24:27.197368166 -0600
++++ b/Source/JavaScriptCore/wasm/WasmStreamingParser.cpp	2026-11-12 20:50:01.521180669 -0600
 @@ -35,6 +35,7 @@
  #include "WasmTypeDefinitionInlines.h"
  #include <wtf/FileHandle.h>
@@ -38474,7 +38474,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmStrea
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmTypeDefinition.cpp b/Source/JavaScriptCore/wasm/WasmTypeDefinition.cpp
 --- a/Source/JavaScriptCore/wasm/WasmTypeDefinition.cpp	2026-07-27 09:40:28.820404500 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmTypeDefinition.cpp	2026-11-08 14:47:36.767887391 -0600
++++ b/Source/JavaScriptCore/wasm/WasmTypeDefinition.cpp	2026-11-12 20:50:01.521287541 -0600
 @@ -1387,4 +1387,27 @@
  
  WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
@@ -38505,7 +38505,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmTypeD
  #endif // ENABLE(WEBASSEMBLY)
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmTypeDefinition.h b/Source/JavaScriptCore/wasm/WasmTypeDefinition.h
 --- a/Source/JavaScriptCore/wasm/WasmTypeDefinition.h	2026-07-27 09:40:28.820404500 -0600
-+++ b/Source/JavaScriptCore/wasm/WasmTypeDefinition.h	2026-11-08 14:47:36.768511591 -0600
++++ b/Source/JavaScriptCore/wasm/WasmTypeDefinition.h	2026-11-12 20:50:01.521432194 -0600
 @@ -27,7 +27,7 @@
  
  #include <wtf/Platform.h>
@@ -38545,7 +38545,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/wasm/WasmTypeD
      mutable ThreadSafeLazyUniquePtr<const IPIntSharedBytecode> m_argumINTBytecode;
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/yarr/YarrJIT.cpp b/Source/JavaScriptCore/yarr/YarrJIT.cpp
 --- a/Source/JavaScriptCore/yarr/YarrJIT.cpp	2026-09-07 07:27:22.677157200 -0600
-+++ b/Source/JavaScriptCore/yarr/YarrJIT.cpp	2026-11-10 12:01:11.749318706 -0600
++++ b/Source/JavaScriptCore/yarr/YarrJIT.cpp	2026-11-12 20:50:01.521775809 -0600
 @@ -89,6 +89,12 @@
  
  // The thunk code assumes that we return the result to areCanonicallyEquivalentCharArgReg.
@@ -39005,7 +39005,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/yarr/YarrJIT.c
      ASSERT(!pushCount);
 diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/yarr/YarrJITRegisters.h b/Source/JavaScriptCore/yarr/YarrJITRegisters.h
 --- a/Source/JavaScriptCore/yarr/YarrJITRegisters.h	2026-07-27 09:40:28.850404500 -0600
-+++ b/Source/JavaScriptCore/yarr/YarrJITRegisters.h	2026-11-08 14:47:36.772094226 -0600
++++ b/Source/JavaScriptCore/yarr/YarrJITRegisters.h	2026-11-12 20:50:01.522321918 -0600
 @@ -159,6 +159,51 @@
  
      static constexpr GPRReg returnRegister = RISCV64Registers::x10;
@@ -39060,7 +39060,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/JavaScriptCore/yarr/YarrJITRe
  
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/CMakeLists.txt b/Source/ThirdParty/skia/CMakeLists.txt
 --- a/Source/ThirdParty/skia/CMakeLists.txt	2026-09-14 13:20:57.448618700 -0600
-+++ b/Source/ThirdParty/skia/CMakeLists.txt	2026-11-09 23:03:21.344274185 -0600
++++ b/Source/ThirdParty/skia/CMakeLists.txt	2026-11-12 20:50:01.522411140 -0600
 @@ -175,6 +175,7 @@
      src/core/SkPaint.cpp
      src/core/SkPaintPriv.cpp
@@ -39116,7 +39116,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/CMakeLists.tx
      target_compile_definitions(Skia PUBLIC
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/include/core/SkTypes.h b/Source/ThirdParty/skia/include/core/SkTypes.h
 --- a/Source/ThirdParty/skia/include/core/SkTypes.h	2026-08-02 04:50:49.169070700 -0600
-+++ b/Source/ThirdParty/skia/include/core/SkTypes.h	2026-11-08 14:54:42.519672064 -0600
++++ b/Source/ThirdParty/skia/include/core/SkTypes.h	2026-11-12 20:50:01.522527782 -0600
 @@ -52,16 +52,20 @@
  #define SK_G32_SHIFT 8
  #define SK_A32_SHIFT 24
@@ -39142,7 +39142,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/include/core/
           SK_ ## C1 ## 32_SHIFT == 8  &&             \
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/codec/SkCodecPriv.h b/Source/ThirdParty/skia/src/codec/SkCodecPriv.h
 --- a/Source/ThirdParty/skia/src/codec/SkCodecPriv.h	2026-07-27 09:40:34.735394500 -0600
-+++ b/Source/ThirdParty/skia/src/codec/SkCodecPriv.h	2026-11-08 14:55:55.796183400 -0600
++++ b/Source/ThirdParty/skia/src/codec/SkCodecPriv.h	2026-11-12 20:50:01.522592873 -0600
 @@ -16,6 +16,7 @@
  #include "modules/skcms/skcms.h"
  #include "src/codec/SkColorPalette.h"
@@ -39153,7 +39153,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/codec/SkC
  #include <string_view>
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/codec/SkSwizzler.cpp b/Source/ThirdParty/skia/src/codec/SkSwizzler.cpp
 --- a/Source/ThirdParty/skia/src/codec/SkSwizzler.cpp	2026-08-02 04:50:49.273070300 -0600
-+++ b/Source/ThirdParty/skia/src/codec/SkSwizzler.cpp	2026-11-08 20:24:31.295868052 -0600
++++ b/Source/ThirdParty/skia/src/codec/SkSwizzler.cpp	2026-11-12 20:50:01.522692095 -0600
 @@ -526,7 +526,14 @@
      // sampling, deltaSrc should equal bpp.
      SkASSERT(deltaSrc == bpp);
@@ -39171,7 +39171,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/codec/SkS
  // 16-bits per component kRGB and kRGBA
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/Sk4px.h b/Source/ThirdParty/skia/src/core/Sk4px.h
 --- a/Source/ThirdParty/skia/src/core/Sk4px.h	2026-08-02 04:50:49.275070200 -0600
-+++ b/Source/ThirdParty/skia/src/core/Sk4px.h	2026-11-08 16:36:06.086267008 -0600
++++ b/Source/ThirdParty/skia/src/core/Sk4px.h	2026-11-12 20:50:01.522799486 -0600
 @@ -27,8 +27,13 @@
  
      // RGBA rgba XYZW xyzw -> AAAA aaaa WWWW wwww
@@ -39189,7 +39189,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/Sk4p
  
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkBlitter_ARGB32.cpp b/Source/ThirdParty/skia/src/core/SkBlitter_ARGB32.cpp
 --- a/Source/ThirdParty/skia/src/core/SkBlitter_ARGB32.cpp	2026-08-02 04:50:49.283070000 -0600
-+++ b/Source/ThirdParty/skia/src/core/SkBlitter_ARGB32.cpp	2026-11-08 16:36:26.940754390 -0600
++++ b/Source/ThirdParty/skia/src/core/SkBlitter_ARGB32.cpp	2026-11-12 20:50:01.522917488 -0600
 @@ -1887,7 +1887,12 @@
      auto cov = (const uint8_t*)mask;
      drive(dst, src, cov, n, [](U8x4 d, U8x4 s, U8x4 c) {
@@ -39205,7 +39205,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkBl
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkColor.cpp b/Source/ThirdParty/skia/src/core/SkColor.cpp
 --- a/Source/ThirdParty/skia/src/core/SkColor.cpp	2026-08-02 04:50:49.291070200 -0600
-+++ b/Source/ThirdParty/skia/src/core/SkColor.cpp	2026-11-08 20:13:08.083232644 -0600
++++ b/Source/ThirdParty/skia/src/core/SkColor.cpp	2026-11-12 20:50:01.523077711 -0600
 @@ -143,15 +143,28 @@
      return Sk4f_toL32(swizzle_rb(skvx::float4::Load(this->vec())));
  }
@@ -39255,8 +39255,8 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkCo
  
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkConvertPixels.cpp b/Source/ThirdParty/skia/src/core/SkConvertPixels.cpp
 --- a/Source/ThirdParty/skia/src/core/SkConvertPixels.cpp	2026-09-14 13:20:57.582619200 -0600
-+++ b/Source/ThirdParty/skia/src/core/SkConvertPixels.cpp	2026-11-08 20:24:31.295212162 -0600
-@@ -6,6 +6,8 @@
++++ b/Source/ThirdParty/skia/src/core/SkConvertPixels.cpp	2026-11-12 20:50:23.643871275 -0600
+@@ -6,8 +6,11 @@
   */
  #include "src/core/SkConvertPixels.h"
  
@@ -39264,15 +39264,50 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkCo
 +
  #include "include/core/SkColorType.h"
  #include "include/core/SkImageInfo.h"
++#include "include/core/SkPixmap.h"
  #include "include/core/SkSize.h"
-@@ -63,6 +65,38 @@
+ #include "include/private/SkAssert.h"
+ #include "include/private/SkTPin.h"
+@@ -25,6 +28,26 @@
+ #include <cstring>
+ #include <initializer_list>
+ 
++#if defined(SK_CPU_BENDIAN)
++void SkSwapGpuByteOrder8888ForRaster(const SkPixmap& pm) {
++    switch (pm.colorType()) {
++        case kRGBA_8888_SkColorType:
++        case kSRGBA_8888_SkColorType:
++        case kRGB_888x_SkColorType:
++            break;
++        default:
++            return;
++    }
++    for (int y = 0; y < pm.height(); y++) {
++        uint32_t* row = static_cast<uint32_t*>(pm.writable_addr(0, y));
++        for (int x = 0; x < pm.width(); x++) {
++            uint32_t px = row[x];
++            row[x] = (px >> 24) | ((px >> 8) & 0xff00) | ((px << 8) & 0xff0000) | (px << 24);
++        }
++    }
++}
++#endif
++
+ static bool rect_memcpy(const SkImageInfo& dstInfo,       void* dstPixels, size_t dstRB,
+                         const SkImageInfo& srcInfo, const void* srcPixels, size_t srcRB,
+                         const SkColorSpaceXformSteps& steps) {
+@@ -63,6 +86,43 @@
  
      const bool swapRB = dstInfo.colorType() != srcInfo.colorType();
  
 +#if defined(SK_CPU_BENDIAN)
-+    // Big-endian with SK_R32_SHIFT=16: kRGBA_8888 is byte order (memory R,G,B,A = word 0xRRGGBBAA)
-+    // while kBGRA_8888 is N32, the native word 0xAARRGGBB (memory A,R,G,B). SkOpts' swizzles assume
-+    // little-endian words (an R/B swap), so convert pixel by pixel through components here.
++    // Big-endian with SK_R32_SHIFT=16: the raster 8888 types are 32-bit *word* order, exactly as the
++    // raster pipeline's load_8888/store_8888 read them (R = bits 0-7, A = bits 24-31): kRGBA_8888 is the
++    // word 0xAABBGGRR (memory A,B,G,R) and kBGRA_8888 is N32, the word 0xAARRGGBB (memory A,R,G,B).
++    // This fast path must agree with the pipeline, which handles every conversion it declines (unpremul
++    // included): FrostByte 0.3.2 read kRGBA as 0xRRGGBBAA here, so premultiplying ImageData for
++    // putImageData took alpha from the red byte and opaque green/blue became transparent black.
++    // SkOpts' swizzles assume little-endian memory, so convert pixel by pixel through components.
++    // (Byte-order RGBA, as GL, PNG or ImageData want it, is the bswap of the kRGBA word.)
 +    {
 +        const bool srcRGBA = srcInfo.colorType() == kRGBA_8888_SkColorType;
 +        const bool dstRGBA = dstInfo.colorType() == kRGBA_8888_SkColorType;
@@ -39282,9 +39317,9 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkCo
 +            uint32_t* dst = (uint32_t*)dstPixels;
 +            for (int x = 0; x < dstInfo.width(); x++) {
 +                uint32_t px = src[x];
-+                unsigned r, g, b, a;
-+                if (srcRGBA) { r = px >> 24; g = (px >> 16) & 0xff; b = (px >> 8) & 0xff; a = px & 0xff; }
-+                else         { a = px >> 24; r = (px >> 16) & 0xff; g = (px >> 8) & 0xff; b = px & 0xff; }
++                unsigned r, g, b, a = px >> 24;
++                if (srcRGBA) { r = px & 0xff; g = (px >> 8) & 0xff; b = (px >> 16) & 0xff; }
++                else         { r = (px >> 16) & 0xff; g = (px >> 8) & 0xff; b = px & 0xff; }
 +                if (premul) {
 +                    r = (r * a + 127) / 255; g = (g * a + 127) / 255; b = (b * a + 127) / 255;
 +                } else if (unpremul && a && a != 255) {
@@ -39292,7 +39327,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkCo
 +                    g = std::min(255u, (g * 255 + a / 2) / a);
 +                    b = std::min(255u, (b * 255 + a / 2) / a);
 +                }
-+                dst[x] = dstRGBA ? (r << 24 | g << 16 | b << 8 | a) : (a << 24 | r << 16 | g << 8 | b);
++                dst[x] = dstRGBA ? (a << 24 | b << 16 | g << 8 | r) : (a << 24 | r << 16 | g << 8 | b);
 +            }
 +            dstPixels = SkTAddOffset<void>(dstPixels, dstRB);
 +            srcPixels = SkTAddOffset<const void>(srcPixels, srcRB);
@@ -39304,9 +39339,35 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkCo
      void (*fn)(uint32_t*, const uint32_t*, int) = nullptr;
  
      if (steps.fFlags.premul) {
+diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkConvertPixels.h b/Source/ThirdParty/skia/src/core/SkConvertPixels.h
+--- a/Source/ThirdParty/skia/src/core/SkConvertPixels.h	2026-07-27 09:40:34.763585800 -0600
++++ b/Source/ThirdParty/skia/src/core/SkConvertPixels.h	2026-11-12 20:50:23.643656972 -0600
+@@ -8,6 +8,8 @@
+ #ifndef SkConvertPixels_DEFINED
+ #define SkConvertPixels_DEFINED
+ 
++#include "include/core/SkTypes.h"
++
+ #include <cstddef>
+ 
+ struct SkImageInfo;
+@@ -16,4 +18,13 @@
+         const SkImageInfo& dstInfo,       void* dstPixels, size_t dstRowBytes,
+         const SkImageInfo& srcInfo, const void* srcPixels, size_t srcRowBytes);
+ 
++#if defined(SK_CPU_BENDIAN)
++struct SkPixmap;
++// FrostByte (Leopard ppc64): Ganesh hands client kRGBA_8888-family pixels (kRGBA_8888, kSRGBA_8888,
++// kRGB_888x) back in GL's byte order (R,G,B,A in memory; GrDataUtils is_byte_order_8888), but raster
++// Skia reads those colour types as 32-bit words (0xAABBGGRR). Call this on a raster copy of a GPU image
++// before the CPU uses it; it byte-swaps those colour types in place and leaves every other one alone.
++void SkSwapGpuByteOrder8888ForRaster(const SkPixmap&);
++#endif
++
+ #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkSemaphore.cpp b/Source/ThirdParty/skia/src/core/SkSemaphore.cpp
 --- a/Source/ThirdParty/skia/src/core/SkSemaphore.cpp	2026-08-14 16:51:14.566751500 -0600
-+++ b/Source/ThirdParty/skia/src/core/SkSemaphore.cpp	2026-11-09 00:51:50.518322758 -0600
++++ b/Source/ThirdParty/skia/src/core/SkSemaphore.cpp	2026-11-12 20:50:01.523214843 -0600
 @@ -9,7 +9,32 @@
  
  #include "include/private/SkFeatures.h" // IWYU pragma: keep
@@ -39343,7 +39404,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkSe
      struct SkSemaphore::OSSemaphore {
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkSwizzlePriv.h b/Source/ThirdParty/skia/src/core/SkSwizzlePriv.h
 --- a/Source/ThirdParty/skia/src/core/SkSwizzlePriv.h	2026-08-02 04:50:49.328070000 -0600
-+++ b/Source/ThirdParty/skia/src/core/SkSwizzlePriv.h	2026-11-08 16:18:21.705334155 -0600
++++ b/Source/ThirdParty/skia/src/core/SkSwizzlePriv.h	2026-11-12 20:50:01.523268014 -0600
 @@ -46,16 +46,28 @@
  #endif
  }
@@ -39378,7 +39439,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkSw
  #endif  // SkSwizzlePriv_DEFINED
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkVx.h b/Source/ThirdParty/skia/src/core/SkVx.h
 --- a/Source/ThirdParty/skia/src/core/SkVx.h	2026-08-14 16:51:14.570751400 -0600
-+++ b/Source/ThirdParty/skia/src/core/SkVx.h	2026-11-09 23:03:21.345052608 -0600
++++ b/Source/ThirdParty/skia/src/core/SkVx.h	2026-11-12 20:50:01.523352985 -0600
 @@ -73,6 +73,44 @@
  #define SINTU template <int N, typename T, typename U, \
                          typename=std::enable_if_t<std::is_convertible<U,T>::value>> SI
@@ -39561,9 +39622,117 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/core/SkVx
  
      SINT Vec<N,T> operator+(const Vec<N,T>& x, const Vec<N,T>& y) {
          return to_vec<N,T>(to_vext(x) + to_vext(y));
+diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/encode/SkJpegEncoderImpl.cpp b/Source/ThirdParty/skia/src/encode/SkJpegEncoderImpl.cpp
+--- a/Source/ThirdParty/skia/src/encode/SkJpegEncoderImpl.cpp	2026-09-14 13:20:57.590619300 -0600
++++ b/Source/ThirdParty/skia/src/encode/SkJpegEncoderImpl.cpp	2026-11-12 20:46:31.959452401 -0600
+@@ -154,6 +154,18 @@
+     }
+     SkASSERT(numComponents != 0);
+ 
++#if defined(SK_CPU_BENDIAN)
++    // FrostByte (Leopard ppc64): the 8888 types are 32-bit word order on big-endian, so in memory
++    // kRGBA_8888 is A,B,G,R, kBGRA_8888 (N32) is A,R,G,B and kRGB_888x is x,B,G,R. libjpeg-turbo's
++    // JCS_EXT_* spaces name byte orders: use the reversed ones.
++    switch (jpegColorType) {
++        case JCS_EXT_RGBA: jpegColorType = JCS_EXT_ABGR; break;
++        case JCS_EXT_BGRA: jpegColorType = JCS_EXT_ARGB; break;
++        case JCS_EXT_RGBX: jpegColorType = JCS_EXT_XBGR; break;
++        default: break;
++    }
++#endif
++
+     if (fUseColorXform) {
+         fSrcInfo = srcInfo.makeWH(srcInfo.width(), 1);
+         fDstInfo = dstInfo;
+diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/encode/SkPngEncoderBase.cpp b/Source/ThirdParty/skia/src/encode/SkPngEncoderBase.cpp
+--- a/Source/ThirdParty/skia/src/encode/SkPngEncoderBase.cpp	2026-08-02 04:50:49.341069700 -0600
++++ b/Source/ThirdParty/skia/src/encode/SkPngEncoderBase.cpp	2026-11-12 20:46:20.182961541 -0600
+@@ -19,6 +19,7 @@
+ #include "include/private/SkEncodedInfo.h"
+ #include "include/private/SkTemplates.h"
+ #include "src/core/SkConvertPixels.h"
++#include "src/core/SkEndian.h"
+ #include "src/core/SkImageInfoPriv.h"
+ #include "src/core/SkMSAN.h"
+ #include "src/core/SkSafeMath.h"
+@@ -202,6 +203,18 @@
+                                  fTargetInfo.fSrcRowInfo->minRowBytes())) {
+                 return false;
+             }
++#if defined(SK_CPU_BENDIAN)
++            // FrostByte (Leopard ppc64): the 8-bit row types are 32-bit word order on big-endian
++            // (kRGBA_8888 = word 0xAABBGGRR, memory A,B,G,R; kRGB_888x likewise with x for A), but
++            // libpng takes R,G,B,A (or R,G,B,x) bytes. Byte-swap each pixel of the converted row.
++            SkColorType rowCT = fTargetInfo.fDstRowInfo->colorType();
++            if (rowCT == kRGBA_8888_SkColorType || rowCT == kRGB_888x_SkColorType) {
++                uint32_t* px = reinterpret_cast<uint32_t*>(fStorage.get());
++                for (int x = 0; x < fSrc.width(); x++) {
++                    px[x] = SkEndianSwap32(px[x]);
++                }
++            }
++#endif
+         }
+ 
+         SkSpan<const uint8_t> rowToEncode(fStorage.get(), fTargetInfo.fDstRowSize);
+diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/encode/SkPngEncoderImpl.cpp b/Source/ThirdParty/skia/src/encode/SkPngEncoderImpl.cpp
+--- a/Source/ThirdParty/skia/src/encode/SkPngEncoderImpl.cpp	2026-09-14 13:20:57.590619300 -0600
++++ b/Source/ThirdParty/skia/src/encode/SkPngEncoderImpl.cpp	2026-11-12 20:46:24.331336080 -0600
+@@ -452,9 +452,12 @@
+     // Swap to big endian if we are storing more than a byte per color channel
+     // (SkColorTypes are little endian by default).
+     // By this point our data will either be 8888 or 16161616, so we only check that case.
++#if !defined(SK_CPU_BENDIAN)
++    // (FrostByte: on big-endian the native 16-bit channels already are PNG's big-endian order.)
+     if (png_get_bit_depth(fEncoderMgr->pngPtr(), fEncoderMgr->infoPtr()) == 16) {
+         png_set_swap(fEncoderMgr->pngPtr());
+     }
++#endif
+ 
+     png_write_rows(fEncoderMgr->pngPtr(), &rowPtr, 1);
+     return true;
+diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/encode/SkWebpEncoderImpl.cpp b/Source/ThirdParty/skia/src/encode/SkWebpEncoderImpl.cpp
+--- a/Source/ThirdParty/skia/src/encode/SkWebpEncoderImpl.cpp	2026-08-02 04:50:49.341069700 -0600
++++ b/Source/ThirdParty/skia/src/encode/SkWebpEncoderImpl.cpp	2026-11-12 20:46:46.628384924 -0600
+@@ -18,6 +18,7 @@
+ #include "include/core/SkStream.h"
+ #include "include/encode/SkEncoder.h"
+ #include "include/private/SkTemplates.h"
++#include "src/core/SkEndian.h"
+ #include "src/core/SkImageInfoPriv.h"
+ #include "src/encode/SkImageEncoderFns.h"
+ #include "src/encode/SkImageEncoderPriv.h"
+@@ -95,6 +96,28 @@
+         SkBitmap tmpBm;
+         WebPPictureImportProc importProc = nullptr;
+         const SkPixmap* src = &pixmap;
++#if defined(SK_CPU_BENDIAN)
++        // FrostByte (Leopard ppc64): the 8888 types are 32-bit word order on big-endian (kRGBA_8888 is
++        // A,B,G,R in memory, N32 is A,R,G,B), but libwebp's importers take byte orders. Convert every
++        // source to unpremultiplied kRGBA_8888 and byte-swap each pixel into R,G,B,A.
++        if (true) {
++            importProc = WebPPictureImportRGBA;
++            auto info = pixmap.info()
++                                .makeColorType(kRGBA_8888_SkColorType)
++                                .makeAlphaType(kUnpremul_SkAlphaType);
++            if (!tmpBm.tryAllocPixels(info) ||
++                !pixmap.readPixels(tmpBm.info(), tmpBm.getPixels(), tmpBm.rowBytes())) {
++                return false;
++            }
++            for (int y = 0; y < tmpBm.height(); y++) {
++                uint32_t* row = tmpBm.getAddr32(0, y);
++                for (int x = 0; x < tmpBm.width(); x++) {
++                    row[x] = SkEndianSwap32(row[x]);
++                }
++            }
++            src = &tmpBm.pixmap();
++        } else
++#endif
+         if (ct == kRGB_888x_SkColorType) {
+             importProc = WebPPictureImportRGBX;
+         } else if (!premul && ct == kRGBA_8888_SkColorType) {
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/gpu/ganesh/GrAtlasTypes.cpp b/Source/ThirdParty/skia/src/gpu/ganesh/GrAtlasTypes.cpp
 --- a/Source/ThirdParty/skia/src/gpu/ganesh/GrAtlasTypes.cpp	2026-08-14 16:51:14.572751500 -0600
-+++ b/Source/ThirdParty/skia/src/gpu/ganesh/GrAtlasTypes.cpp	2026-11-08 20:24:31.295518937 -0600
++++ b/Source/ThirdParty/skia/src/gpu/ganesh/GrAtlasTypes.cpp	2026-11-12 20:50:01.523501518 -0600
 @@ -98,7 +98,15 @@
      constexpr bool kBGRAIsNative = kN32_SkColorType == kBGRA_8888_SkColorType;
      if (4 == fBytesPerPixel && kBGRAIsNative) {
@@ -39582,7 +39751,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/gpu/ganes
          }
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/gpu/ganesh/GrDataUtils.cpp b/Source/ThirdParty/skia/src/gpu/ganesh/GrDataUtils.cpp
 --- a/Source/ThirdParty/skia/src/gpu/ganesh/GrDataUtils.cpp	2026-08-02 04:50:49.351069700 -0600
-+++ b/Source/ThirdParty/skia/src/gpu/ganesh/GrDataUtils.cpp	2026-11-08 20:41:51.429280226 -0600
++++ b/Source/ThirdParty/skia/src/gpu/ganesh/GrDataUtils.cpp	2026-11-12 20:50:01.523569799 -0600
 @@ -64,6 +64,20 @@
      return safe.ok() ? combinedBufferSize : 0;
  }
@@ -39624,9 +39793,55 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/gpu/ganes
      return swizzle;
  }
  
+diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/gpu/ganesh/image/SkImage_GaneshBase.cpp b/Source/ThirdParty/skia/src/gpu/ganesh/image/SkImage_GaneshBase.cpp
+--- a/Source/ThirdParty/skia/src/gpu/ganesh/image/SkImage_GaneshBase.cpp	2026-08-02 04:50:49.396069500 -0600
++++ b/Source/ThirdParty/skia/src/gpu/ganesh/image/SkImage_GaneshBase.cpp	2026-11-12 20:50:27.546076697 -0600
+@@ -29,6 +29,7 @@
+ #include "include/private/gpu/ganesh/GrTypesPriv.h"
+ #include "src/core/SkBitmapCache.h"
+ #include "src/core/SkColorSpacePriv.h"
++#include "src/core/SkConvertPixels.h"
+ #include "src/core/SkImageFilterTypes.h"
+ #include "src/core/SkImageFilter_Base.h"
+ #include "src/core/SkImageInfoPriv.h"
+@@ -161,6 +162,10 @@
+     if (!sContext->readPixels(dContext, pmap, {0, 0})) {
+         return false;
+     }
++#if defined(SK_CPU_BENDIAN)
++    // FrostByte: this copy is for raster use (drawing on a CPU canvas, image shaders, encoders).
++    SkSwapGpuByteOrder8888ForRaster(pmap);
++#endif
+ 
+     if (rec) {
+         SkBitmapCache::Add(std::move(rec), dst);
+diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/image/SkImage.cpp b/Source/ThirdParty/skia/src/image/SkImage.cpp
+--- a/Source/ThirdParty/skia/src/image/SkImage.cpp	2026-07-27 09:40:35.055976200 -0600
++++ b/Source/ThirdParty/skia/src/image/SkImage.cpp	2026-11-12 20:50:31.144157113 -0600
+@@ -19,6 +19,7 @@
+ #include "include/core/SkTileMode.h"
+ #include "include/core/SkTypes.h"
+ #include "src/core/SkColorSpacePriv.h"
++#include "src/core/SkConvertPixels.h"
+ #include "src/core/SkImageInfoPriv.h"
+ #include "src/core/SkMipmap.h"
+ #include "src/core/SkNextID.h"
+@@ -315,6 +316,12 @@
+     if (!this->readPixels(dContext, pm, 0, 0, chint)) {
+         return nullptr;
+     }
++#if defined(SK_CPU_BENDIAN)
++    // FrostByte: a GPU image's client 8888 pixels come back in GL byte order; make them raster words.
++    if (this->isTextureBacked()) {
++        SkSwapGpuByteOrder8888ForRaster(pm);
++    }
++#endif
+ 
+     return SkImages::RasterFromData(fInfo, std::move(data), rowBytes);
+ }
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/opts/SkBlitMask_opts.h b/Source/ThirdParty/skia/src/opts/SkBlitMask_opts.h
 --- a/Source/ThirdParty/skia/src/opts/SkBlitMask_opts.h	2026-08-02 04:50:49.474069000 -0600
-+++ b/Source/ThirdParty/skia/src/opts/SkBlitMask_opts.h	2026-11-08 16:36:06.087174673 -0600
++++ b/Source/ThirdParty/skia/src/opts/SkBlitMask_opts.h	2026-11-12 20:50:01.523665941 -0600
 @@ -402,8 +402,14 @@
              //   ~~~>
              // a = 1*aa + d(1-1*aa) = aa + d(1-aa)
@@ -39644,7 +39859,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/opts/SkBl
              Sk4px::MapDstAlpha(w, dst, mask, fn);
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/opts/SkMemset_opts.h b/Source/ThirdParty/skia/src/opts/SkMemset_opts.h
 --- a/Source/ThirdParty/skia/src/opts/SkMemset_opts.h	2026-08-02 04:50:49.474069000 -0600
-+++ b/Source/ThirdParty/skia/src/opts/SkMemset_opts.h	2026-11-09 23:03:21.345826961 -0600
++++ b/Source/ThirdParty/skia/src/opts/SkMemset_opts.h	2026-11-12 20:50:01.523739952 -0600
 @@ -9,12 +9,48 @@
  #define SkUtils_opts_DEFINED
  
@@ -39696,7 +39911,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/opts/SkMe
      #else
 diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/opts/SkRasterPipeline_opts.h b/Source/ThirdParty/skia/src/opts/SkRasterPipeline_opts.h
 --- a/Source/ThirdParty/skia/src/opts/SkRasterPipeline_opts.h	2026-08-02 04:50:49.475069000 -0600
-+++ b/Source/ThirdParty/skia/src/opts/SkRasterPipeline_opts.h	2026-11-09 23:03:21.346597503 -0600
++++ b/Source/ThirdParty/skia/src/opts/SkRasterPipeline_opts.h	2026-11-12 20:50:01.523973296 -0600
 @@ -16,6 +16,7 @@
  #include "src/core/SkRasterPipeline.h"
  #include "src/core/SkRasterPipelineContextUtils.h"
@@ -39913,7 +40128,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/ThirdParty/skia/src/opts/SkRa
          switch (swiz[i]) {
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/bindings/js/BytecodeCacheFile.cpp b/Source/WebCore/bindings/js/BytecodeCacheFile.cpp
 --- a/Source/WebCore/bindings/js/BytecodeCacheFile.cpp	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/WebCore/bindings/js/BytecodeCacheFile.cpp	2026-11-11 00:02:27.309079239 -0600
++++ b/Source/WebCore/bindings/js/BytecodeCacheFile.cpp	2026-11-12 20:50:01.524402213 -0600
 @@ -0,0 +1,263 @@
 +/*
 + * Copyright (C) 2026 Leopard/ppc64 port. Same license as the rest of WebCore.
@@ -40180,7 +40395,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/bindings/js/BytecodeC
 +} // namespace WebCore::BytecodeCacheFile
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/bindings/js/BytecodeCacheFile.h b/Source/WebCore/bindings/js/BytecodeCacheFile.h
 --- a/Source/WebCore/bindings/js/BytecodeCacheFile.h	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/WebCore/bindings/js/BytecodeCacheFile.h	2026-11-11 00:02:27.311580511 -0600
++++ b/Source/WebCore/bindings/js/BytecodeCacheFile.h	2026-11-12 20:50:01.524471514 -0600
 @@ -0,0 +1,101 @@
 +/*
 + * Copyright (C) 2026 Leopard/ppc64 port. Same license as the rest of WebCore.
@@ -40285,7 +40500,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/bindings/js/BytecodeC
 +} // namespace WebCore::BytecodeCacheFile
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/bindings/js/CachedScriptSourceProvider.cpp b/Source/WebCore/bindings/js/CachedScriptSourceProvider.cpp
 --- a/Source/WebCore/bindings/js/CachedScriptSourceProvider.cpp	1969-12-31 17:00:00.000000000 -0700
-+++ b/Source/WebCore/bindings/js/CachedScriptSourceProvider.cpp	2026-11-11 00:14:17.559496570 -0600
++++ b/Source/WebCore/bindings/js/CachedScriptSourceProvider.cpp	2026-11-12 20:50:01.524579226 -0600
 @@ -0,0 +1,346 @@
 +/*
 + * Copyright (C) 2026 Leopard/ppc64 port. Same license as the rest of WebCore.
@@ -40635,7 +40850,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/bindings/js/CachedScr
 +} // namespace WebCore
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/bindings/js/CachedScriptSourceProvider.h b/Source/WebCore/bindings/js/CachedScriptSourceProvider.h
 --- a/Source/WebCore/bindings/js/CachedScriptSourceProvider.h	2026-07-27 09:40:37.378390300 -0600
-+++ b/Source/WebCore/bindings/js/CachedScriptSourceProvider.h	2026-11-11 00:07:20.519211298 -0600
++++ b/Source/WebCore/bindings/js/CachedScriptSourceProvider.h	2026-11-12 20:50:01.524727228 -0600
 @@ -25,11 +25,14 @@
  
  #pragma once
@@ -40699,7 +40914,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/bindings/js/CachedScr
  inline unsigned CachedScriptSourceProvider::hash() const
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/CMakeLists.txt b/Source/WebCore/CMakeLists.txt
 --- a/Source/WebCore/CMakeLists.txt	2026-07-27 09:40:36.386581400 -0600
-+++ b/Source/WebCore/CMakeLists.txt	2026-11-08 14:51:17.369161896 -0600
++++ b/Source/WebCore/CMakeLists.txt	2026-11-12 20:50:01.524864320 -0600
 @@ -3280,7 +3280,7 @@
  # Force CXX linker -- swiftc mishandles -I include paths during linking.
  set_target_properties(WebCore PROPERTIES LINKER_LANGUAGE CXX)
@@ -40720,7 +40935,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/CMakeLists.txt b/Sour
          set_target_properties(WebCore PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/crypto/CryptoKey.cpp b/Source/WebCore/crypto/CryptoKey.cpp
 --- a/Source/WebCore/crypto/CryptoKey.cpp	2026-07-27 09:40:37.525390000 -0600
-+++ b/Source/WebCore/crypto/CryptoKey.cpp	2026-11-08 15:47:43.536063258 -0600
++++ b/Source/WebCore/crypto/CryptoKey.cpp	2026-11-12 20:50:01.525042103 -0600
 @@ -76,7 +76,7 @@
      return WebCoreOpaqueRoot { key };
  }
@@ -40732,7 +40947,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/crypto/CryptoKey.cpp 
      Vector<uint8_t> result(size);
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/crypto/keys/CryptoKeyEC.cpp b/Source/WebCore/crypto/keys/CryptoKeyEC.cpp
 --- a/Source/WebCore/crypto/keys/CryptoKeyEC.cpp	2026-07-27 09:40:37.550390000 -0600
-+++ b/Source/WebCore/crypto/keys/CryptoKeyEC.cpp	2026-11-08 15:13:58.690507799 -0600
++++ b/Source/WebCore/crypto/keys/CryptoKeyEC.cpp	2026-11-12 20:50:01.525099644 -0600
 @@ -31,7 +31,7 @@
  #include "JsonWebKey.h"
  #include <wtf/text/Base64.h>
@@ -40744,7 +40959,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/crypto/keys/CryptoKey
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/crypto/keys/CryptoKeyEC.h b/Source/WebCore/crypto/keys/CryptoKeyEC.h
 --- a/Source/WebCore/crypto/keys/CryptoKeyEC.h	2026-07-27 09:40:37.550390000 -0600
-+++ b/Source/WebCore/crypto/keys/CryptoKeyEC.h	2026-11-08 15:13:58.690926726 -0600
++++ b/Source/WebCore/crypto/keys/CryptoKeyEC.h	2026-11-12 20:50:01.525159945 -0600
 @@ -29,7 +29,7 @@
  #include <WebCore/CryptoKeyPair.h>
  
@@ -40756,7 +40971,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/crypto/keys/CryptoKey
  #include <pal/crypto/CryptoTypes.h>
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/crypto/keys/CryptoKeyRSA.h b/Source/WebCore/crypto/keys/CryptoKeyRSA.h
 --- a/Source/WebCore/crypto/keys/CryptoKeyRSA.h	2026-07-27 09:40:37.551390000 -0600
-+++ b/Source/WebCore/crypto/keys/CryptoKeyRSA.h	2026-11-08 15:13:58.691245551 -0600
++++ b/Source/WebCore/crypto/keys/CryptoKeyRSA.h	2026-11-12 20:50:01.525212266 -0600
 @@ -28,7 +28,7 @@
  #include "CryptoKey.h"
  #include <wtf/Function.h>
@@ -40768,7 +40983,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/crypto/keys/CryptoKey
  typedef CCRSACryptorRef PlatformRSAKey;
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/dom/Document.cpp b/Source/WebCore/dom/Document.cpp
 --- a/Source/WebCore/dom/Document.cpp	2026-10-02 07:10:08.890806700 -0600
-+++ b/Source/WebCore/dom/Document.cpp	2026-11-08 23:04:06.766646302 -0600
++++ b/Source/WebCore/dom/Document.cpp	2026-11-12 20:50:01.525630403 -0600
 @@ -8937,7 +8937,9 @@
          return;
  
@@ -40782,7 +40997,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/dom/Document.cpp b/So
              isServicingRequestVideoFrameCallbacks = true;
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/domjit/DOMJITHelpers.h b/Source/WebCore/domjit/DOMJITHelpers.h
 --- a/Source/WebCore/domjit/DOMJITHelpers.h	2026-07-27 09:40:38.070881600 -0600
-+++ b/Source/WebCore/domjit/DOMJITHelpers.h	2026-11-08 23:38:47.914700617 -0600
++++ b/Source/WebCore/domjit/DOMJITHelpers.h	2026-11-12 20:50:01.526141821 -0600
 @@ -66,7 +66,13 @@
      jit.loadPtr(CCallHelpers::Address(wrapped, ScriptWrappable::offsetOfWrapper<WrappedType>()), resultGPR);
      failureCases.append(jit.branchTestPtr(CCallHelpers::Zero, resultGPR));
@@ -40799,7 +41014,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/domjit/DOMJITHelpers.
  template<typename WrappedType, typename ToJSFunction>
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/AudioBuffer.cpp b/Source/WebCore/Modules/webaudio/AudioBuffer.cpp
 --- a/Source/WebCore/Modules/webaudio/AudioBuffer.cpp	2026-07-27 09:40:36.878759600 -0600
-+++ b/Source/WebCore/Modules/webaudio/AudioBuffer.cpp	2026-11-12 16:10:43.434464005 -0600
++++ b/Source/WebCore/Modules/webaudio/AudioBuffer.cpp	2026-11-12 20:50:01.526215673 -0600
 @@ -42,6 +42,7 @@
  #include "WebCoreOpaqueRoot.h"
  #include <JavaScriptCore/JSCInlines.h>
@@ -40826,7 +41041,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Audi
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/AudioBufferSourceNode.cpp b/Source/WebCore/Modules/webaudio/AudioBufferSourceNode.cpp
 --- a/Source/WebCore/Modules/webaudio/AudioBufferSourceNode.cpp	2026-07-27 09:40:36.880242300 -0600
-+++ b/Source/WebCore/Modules/webaudio/AudioBufferSourceNode.cpp	2026-11-12 16:10:16.338936103 -0600
++++ b/Source/WebCore/Modules/webaudio/AudioBufferSourceNode.cpp	2026-11-12 20:50:01.526306854 -0600
 @@ -39,6 +39,7 @@
  #include "ScriptExecutionContext.h"
  #include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
@@ -40895,7 +41110,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Audi
      } else if (reverse) {
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/AudioWorkletProcessor.cpp b/Source/WebCore/Modules/webaudio/AudioWorkletProcessor.cpp
 --- a/Source/WebCore/Modules/webaudio/AudioWorkletProcessor.cpp	2026-07-27 09:40:36.892358300 -0600
-+++ b/Source/WebCore/Modules/webaudio/AudioWorkletProcessor.cpp	2026-11-12 16:11:27.845536452 -0600
++++ b/Source/WebCore/Modules/webaudio/AudioWorkletProcessor.cpp	2026-11-12 20:50:01.526400316 -0600
 @@ -45,6 +45,7 @@
  #include <JavaScriptCore/JSGlobalObjectInlines.h>
  #include <JavaScriptCore/JSTypedArrays.h>
@@ -40947,7 +41162,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Audi
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/BiquadFilterNode.cpp b/Source/WebCore/Modules/webaudio/BiquadFilterNode.cpp
 --- a/Source/WebCore/Modules/webaudio/BiquadFilterNode.cpp	2026-07-27 09:40:36.896729200 -0600
-+++ b/Source/WebCore/Modules/webaudio/BiquadFilterNode.cpp	2026-11-12 16:11:27.844272993 -0600
++++ b/Source/WebCore/Modules/webaudio/BiquadFilterNode.cpp	2026-11-12 20:50:01.526475557 -0600
 @@ -32,6 +32,7 @@
  #include "BaseAudioContext.h"
  #include "ExceptionOr.h"
@@ -40978,7 +41193,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Biqu
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/ConvolverNode.cpp b/Source/WebCore/Modules/webaudio/ConvolverNode.cpp
 --- a/Source/WebCore/Modules/webaudio/ConvolverNode.cpp	2026-07-27 09:40:36.900850000 -0600
-+++ b/Source/WebCore/Modules/webaudio/ConvolverNode.cpp	2026-11-12 16:10:33.366171065 -0600
++++ b/Source/WebCore/Modules/webaudio/ConvolverNode.cpp	2026-11-12 20:50:01.526538858 -0600
 @@ -37,6 +37,7 @@
  #include "ExceptionOr.h"
  #include "Reverb.h"
@@ -41010,7 +41225,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Conv
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/IIRFilterNode.cpp b/Source/WebCore/Modules/webaudio/IIRFilterNode.cpp
 --- a/Source/WebCore/Modules/webaudio/IIRFilterNode.cpp	2026-07-27 09:40:36.905589600 -0600
-+++ b/Source/WebCore/Modules/webaudio/IIRFilterNode.cpp	2026-11-12 16:11:27.844631628 -0600
++++ b/Source/WebCore/Modules/webaudio/IIRFilterNode.cpp	2026-11-12 20:50:01.526608609 -0600
 @@ -35,6 +35,7 @@
  #include "ScriptExecutionContext.h"
  #include <JavaScriptCore/ConsoleTypes.h>
@@ -41041,7 +41256,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/IIRF
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/OfflineAudioDestinationNode.cpp b/Source/WebCore/Modules/webaudio/OfflineAudioDestinationNode.cpp
 --- a/Source/WebCore/Modules/webaudio/OfflineAudioDestinationNode.cpp	2026-07-27 09:40:36.910916800 -0600
-+++ b/Source/WebCore/Modules/webaudio/OfflineAudioDestinationNode.cpp	2026-11-12 16:10:33.367305309 -0600
++++ b/Source/WebCore/Modules/webaudio/OfflineAudioDestinationNode.cpp	2026-11-12 20:50:01.526675630 -0600
 @@ -42,6 +42,7 @@
  #include <JavaScriptCore/GenericTypedArrayViewInlines.h>
  #include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
@@ -41060,7 +41275,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Offl
          m_destinationOffset += framesAvailableToCopy;
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/PeriodicWave.cpp b/Source/WebCore/Modules/webaudio/PeriodicWave.cpp
 --- a/Source/WebCore/Modules/webaudio/PeriodicWave.cpp	2026-07-27 09:40:36.914259400 -0600
-+++ b/Source/WebCore/Modules/webaudio/PeriodicWave.cpp	2026-11-12 16:11:27.845192837 -0600
++++ b/Source/WebCore/Modules/webaudio/PeriodicWave.cpp	2026-11-12 20:50:01.526741691 -0600
 @@ -39,6 +39,7 @@
  #include "VectorMath.h"
  #include <algorithm>
@@ -41084,7 +41299,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Peri
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/RealtimeAnalyser.cpp b/Source/WebCore/Modules/webaudio/RealtimeAnalyser.cpp
 --- a/Source/WebCore/Modules/webaudio/RealtimeAnalyser.cpp	2026-07-27 09:40:36.915206400 -0600
-+++ b/Source/WebCore/Modules/webaudio/RealtimeAnalyser.cpp	2026-11-12 16:10:52.848857180 -0600
++++ b/Source/WebCore/Modules/webaudio/RealtimeAnalyser.cpp	2026-11-12 20:50:01.526809583 -0600
 @@ -38,6 +38,7 @@
  #include <algorithm>
  #include <complex>
@@ -41112,7 +41327,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Real
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/ScriptProcessorNode.cpp b/Source/WebCore/Modules/webaudio/ScriptProcessorNode.cpp
 --- a/Source/WebCore/Modules/webaudio/ScriptProcessorNode.cpp	2026-07-27 09:40:36.915621500 -0600
-+++ b/Source/WebCore/Modules/webaudio/ScriptProcessorNode.cpp	2026-11-12 16:10:33.366981394 -0600
++++ b/Source/WebCore/Modules/webaudio/ScriptProcessorNode.cpp	2026-11-12 20:50:01.526882464 -0600
 @@ -40,6 +40,7 @@
  #include "EventTargetInlines.h"
  #include "ExceptionOr.h"
@@ -41140,7 +41355,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Scri
      m_bufferReadWriteIndex = (m_bufferReadWriteIndex + framesToProcess) % bufferSize();
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/WaveShaperNode.cpp b/Source/WebCore/Modules/webaudio/WaveShaperNode.cpp
 --- a/Source/WebCore/Modules/webaudio/WaveShaperNode.cpp	2026-07-27 09:40:36.917148800 -0600
-+++ b/Source/WebCore/Modules/webaudio/WaveShaperNode.cpp	2026-11-12 16:11:27.844911113 -0600
++++ b/Source/WebCore/Modules/webaudio/WaveShaperNode.cpp	2026-11-12 20:50:01.526947225 -0600
 @@ -33,6 +33,7 @@
  #include <JavaScriptCore/JSCInlines.h>
  #include <JavaScriptCore/TypedArrayInlines.h>
@@ -41162,7 +41377,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Modules/webaudio/Wave
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/page/Crypto.cpp b/Source/WebCore/page/Crypto.cpp
 --- a/Source/WebCore/page/Crypto.cpp	2026-07-27 09:40:38.543388400 -0600
-+++ b/Source/WebCore/page/Crypto.cpp	2026-11-08 15:13:58.692596499 -0600
++++ b/Source/WebCore/page/Crypto.cpp	2026-11-12 20:50:01.527004486 -0600
 @@ -38,7 +38,7 @@
  #include <wtf/CryptographicallyRandomNumber.h>
  #include <wtf/UUID.h>
@@ -41183,7 +41398,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/page/Crypto.cpp b/Sou
  #else
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/PAL/pal/CMakeLists.txt b/Source/WebCore/PAL/pal/CMakeLists.txt
 --- a/Source/WebCore/PAL/pal/CMakeLists.txt	2026-07-27 09:40:37.120927600 -0600
-+++ b/Source/WebCore/PAL/pal/CMakeLists.txt	2026-11-08 14:51:17.370057600 -0600
++++ b/Source/WebCore/PAL/pal/CMakeLists.txt	2026-11-12 20:50:01.527062457 -0600
 @@ -107,7 +107,7 @@
          ${PAL_DIR}/pal/crypto/WTFExtras.swift
      )
@@ -41195,7 +41410,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/PAL/pal/CMakeLists.tx
          # pre-build PCMs with the right context.
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/audio/DirectConvolver.cpp b/Source/WebCore/platform/audio/DirectConvolver.cpp
 --- a/Source/WebCore/platform/audio/DirectConvolver.cpp	2026-07-27 09:40:38.752388000 -0600
-+++ b/Source/WebCore/platform/audio/DirectConvolver.cpp	2026-11-09 02:27:34.467888678 -0600
++++ b/Source/WebCore/platform/audio/DirectConvolver.cpp	2026-11-12 20:50:01.527124938 -0600
 @@ -32,7 +32,7 @@
  
  #include "DirectConvolver.h"
@@ -41207,7 +41422,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/audio/Direct
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/gstreamer/ImageGStreamerSkia.cpp b/Source/WebCore/platform/graphics/gstreamer/ImageGStreamerSkia.cpp
 --- a/Source/WebCore/platform/graphics/gstreamer/ImageGStreamerSkia.cpp	2026-07-27 09:40:38.972387600 -0600
-+++ b/Source/WebCore/platform/graphics/gstreamer/ImageGStreamerSkia.cpp	2026-11-09 00:08:06.530238995 -0600
++++ b/Source/WebCore/platform/graphics/gstreamer/ImageGStreamerSkia.cpp	2026-11-12 20:50:01.527196439 -0600
 @@ -70,11 +70,24 @@
          colorType = kBGRA_8888_SkColorType;
          alphaType = kUnpremul_SkAlphaType;
@@ -41235,7 +41450,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/gst
          alphaType = kOpaque_SkAlphaType;
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/PixelBufferConversion.cpp b/Source/WebCore/platform/graphics/PixelBufferConversion.cpp
 --- a/Source/WebCore/platform/graphics/PixelBufferConversion.cpp	2026-09-14 13:20:57.717620000 -0600
-+++ b/Source/WebCore/platform/graphics/PixelBufferConversion.cpp	2026-11-08 16:34:00.785413295 -0600
++++ b/Source/WebCore/platform/graphics/PixelBufferConversion.cpp	2026-11-12 20:50:01.527270820 -0600
 @@ -206,8 +206,31 @@
      auto destinationSkiaColorType = toSkiaColorType(destination.format.pixelFormat);
      if (!destinationSkiaColorType)
@@ -41281,7 +41496,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/Pix
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/skia/ComplexTextControllerSkia.cpp b/Source/WebCore/platform/graphics/skia/ComplexTextControllerSkia.cpp
 --- a/Source/WebCore/platform/graphics/skia/ComplexTextControllerSkia.cpp	2026-07-27 09:40:38.996849500 -0600
-+++ b/Source/WebCore/platform/graphics/skia/ComplexTextControllerSkia.cpp	2026-11-10 02:09:39.444373761 -0600
++++ b/Source/WebCore/platform/graphics/skia/ComplexTextControllerSkia.cpp	2026-11-12 20:50:01.527361032 -0600
 @@ -35,6 +35,8 @@
  #include <hb-icu.h>
  #include <hb-ot.h>
@@ -41308,9 +41523,26 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/ski
  
      // The computed "locale" equals the "lang" attribute. The latter must be a valid BCP 47 language tag,
      // according to <https://html.spec.whatwg.org/multipage/dom.html#attr-lang>.
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/skia/NativeImageSkia.cpp b/Source/WebCore/platform/graphics/skia/NativeImageSkia.cpp
+--- a/Source/WebCore/platform/graphics/skia/NativeImageSkia.cpp	2026-07-27 09:40:39.000387700 -0600
++++ b/Source/WebCore/platform/graphics/skia/NativeImageSkia.cpp	2026-11-12 20:50:06.357485828 -0600
+@@ -99,7 +99,13 @@
+             return std::nullopt;
+ 
+         ASSERT(m_grContext);
++#if CPU(BIG_ENDIAN)
++        // FrostByte (big-endian): read through N32. Ganesh returns a client kRGBA_8888 buffer in GL's byte order
++        // (R,G,B,A), but SkPixmap::getColor() reads kRGBA_8888 as Skia's raster word 0xAABBGGRR.
++        const auto imageInfo = platformImage->imageInfo().makeColorType(kN32_SkColorType);
++#else
+         const auto& imageInfo = platformImage->imageInfo();
++#endif
+         uint32_t pixel;
+         SkPixmap pixmap(imageInfo, &pixel, imageInfo.minRowBytes());
+         if (!platformImage->readPixels(m_grContext, pixmap, 0, 0))
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/skia/PlatformDisplaySkia.cpp b/Source/WebCore/platform/graphics/skia/PlatformDisplaySkia.cpp
 --- a/Source/WebCore/platform/graphics/skia/PlatformDisplaySkia.cpp	2026-10-02 07:10:08.902806800 -0600
-+++ b/Source/WebCore/platform/graphics/skia/PlatformDisplaySkia.cpp	2026-11-10 02:09:39.443988855 -0600
++++ b/Source/WebCore/platform/graphics/skia/PlatformDisplaySkia.cpp	2026-11-12 20:50:01.527435753 -0600
 @@ -51,6 +51,7 @@
  
  #include <wtf/MemoryPressureHandler.h>
@@ -41359,7 +41591,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/ski
              options.fGlyphCacheTextureMaximumBytes = *bytes;
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/GStreamer.cmake b/Source/WebCore/platform/GStreamer.cmake
 --- a/Source/WebCore/platform/GStreamer.cmake	2026-07-27 09:40:38.705388000 -0600
-+++ b/Source/WebCore/platform/GStreamer.cmake	2026-11-08 22:52:06.124529048 -0600
++++ b/Source/WebCore/platform/GStreamer.cmake	2026-11-12 20:50:01.527509604 -0600
 @@ -1,6 +1,8 @@
  include(CheckCXXSymbolExists)
  
@@ -41372,7 +41604,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/GStreamer.cm
      )
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/sql/SQLiteDatabase.cpp b/Source/WebCore/platform/sql/SQLiteDatabase.cpp
 --- a/Source/WebCore/platform/sql/SQLiteDatabase.cpp	2026-07-27 09:40:39.154605000 -0600
-+++ b/Source/WebCore/platform/sql/SQLiteDatabase.cpp	2026-11-08 23:15:42.839583598 -0600
++++ b/Source/WebCore/platform/sql/SQLiteDatabase.cpp	2026-11-12 20:50:01.527587266 -0600
 @@ -67,7 +67,10 @@
          // aren't confident that it really is, and we still support ancient versions of SQLite. So
          // std::call_once is used to stay on the safe side. See bug #143245.
@@ -41387,7 +41619,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/sql/SQLiteDa
              // In the Network process, this function can be called on a background thread when
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/PlatformWPE.cmake b/Source/WebCore/PlatformWPE.cmake
 --- a/Source/WebCore/PlatformWPE.cmake	2026-07-27 09:40:37.247786500 -0600
-+++ b/Source/WebCore/PlatformWPE.cmake	2026-11-08 23:06:13.277427944 -0600
++++ b/Source/WebCore/PlatformWPE.cmake	2026-11-12 20:50:01.527677497 -0600
 @@ -180,3 +180,12 @@
  list(APPEND WebCore_PRIVATE_DEFINITIONS
       BITMAP_TEXTURE_POOL_MAX_SIZE_IN_MB=80
@@ -41403,7 +41635,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/PlatformWPE.cmake b/S
 +endif ()
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Sources.txt b/Source/WebCore/Sources.txt
 --- a/Source/WebCore/Sources.txt	2026-10-02 07:10:08.886806700 -0600
-+++ b/Source/WebCore/Sources.txt	2026-11-11 00:09:11.254069191 -0600
++++ b/Source/WebCore/Sources.txt	2026-11-12 20:50:01.527840580 -0600
 @@ -672,6 +672,8 @@
  bindings/js/BindingsJSTZoneImpls.cpp
  bindings/js/CachedModuleScriptLoader.cpp
@@ -41431,7 +41663,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/Sources.txt b/Source/
  style/values/filter-effects/StyleHueRotateFunction.cpp
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/CMakeLists.txt b/Source/WebKit/CMakeLists.txt
 --- a/Source/WebKit/CMakeLists.txt	2026-10-05 13:40:00.973096400 -0600
-+++ b/Source/WebKit/CMakeLists.txt	2026-11-08 14:51:17.367516400 -0600
++++ b/Source/WebKit/CMakeLists.txt	2026-11-12 20:50:01.528114474 -0600
 @@ -774,7 +774,7 @@
      WebCore
      bmalloc
@@ -41461,7 +41693,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/CMakeLists.txt b/Sourc
          PROPERTY LINK_LIBRARY_OVERRIDE_WebKitLegacy REEXPORT_FRAMEWORK)
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Headers.cmake b/Source/WebKit/Headers.cmake
 --- a/Source/WebKit/Headers.cmake	2026-07-27 09:40:39.747896200 -0600
-+++ b/Source/WebKit/Headers.cmake	2026-11-08 14:51:17.368325663 -0600
++++ b/Source/WebKit/Headers.cmake	2026-11-12 20:50:01.528241987 -0600
 @@ -151,7 +151,7 @@
  
  # The low-level WebKit C API is the public API on non-Cocoa ports (Windows, PlayStation),
@@ -41482,7 +41714,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Headers.cmake b/Source
      Shared/API/Cocoa/WKFoundation.h
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/NetworkConnectionToWebProcess.cpp b/Source/WebKit/NetworkProcess/NetworkConnectionToWebProcess.cpp
 --- a/Source/WebKit/NetworkProcess/NetworkConnectionToWebProcess.cpp	2026-10-02 07:10:08.914806600 -0600
-+++ b/Source/WebKit/NetworkProcess/NetworkConnectionToWebProcess.cpp	2026-11-08 15:33:34.956462335 -0600
++++ b/Source/WebKit/NetworkProcess/NetworkConnectionToWebProcess.cpp	2026-11-12 20:50:01.528380129 -0600
 @@ -492,7 +492,7 @@
      // Protect ourself as we might be otherwise be deleted during this function.
      Ref<NetworkConnectionToWebProcess> protector(*this);
@@ -41494,7 +41726,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/Network
      CONNECTION_RELEASE_LOG(Loading, "didClose: WebProcess closed its connection. Aborting related loaders.");
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/NetworkProcess.cpp b/Source/WebKit/NetworkProcess/NetworkProcess.cpp
 --- a/Source/WebKit/NetworkProcess/NetworkProcess.cpp	2026-10-02 07:10:08.915806500 -0600
-+++ b/Source/WebKit/NetworkProcess/NetworkProcess.cpp	2026-11-08 15:33:34.963462529 -0600
++++ b/Source/WebKit/NetworkProcess/NetworkProcess.cpp	2026-11-12 20:50:01.528720634 -0600
 @@ -1924,7 +1924,7 @@
          if (connection->sessionID() != sessionID || activeWebProcesses.contains(identifier))
              continue;
@@ -41506,7 +41738,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/Network
          // Connection is not available.
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/webrtc/NetworkMDNSRegister.cpp b/Source/WebKit/NetworkProcess/webrtc/NetworkMDNSRegister.cpp
 --- a/Source/WebKit/NetworkProcess/webrtc/NetworkMDNSRegister.cpp	2026-07-27 09:40:39.804246700 -0600
-+++ b/Source/WebKit/NetworkProcess/webrtc/NetworkMDNSRegister.cpp	2026-11-08 15:33:34.969270582 -0600
++++ b/Source/WebKit/NetworkProcess/webrtc/NetworkMDNSRegister.cpp	2026-11-12 20:50:01.528926508 -0600
 @@ -33,7 +33,7 @@
  #include <wtf/UUID.h>
  #include <wtf/text/MakeString.h>
@@ -41518,7 +41750,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/webrtc/
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Attachment.h b/Source/WebKit/Platform/IPC/Attachment.h
 --- a/Source/WebKit/Platform/IPC/Attachment.h	2026-07-27 09:40:39.810386400 -0600
-+++ b/Source/WebKit/Platform/IPC/Attachment.h	2026-11-08 15:33:34.978379889 -0600
++++ b/Source/WebKit/Platform/IPC/Attachment.h	2026-11-12 20:50:01.528993159 -0600
 @@ -26,7 +26,7 @@
  
  #pragma once
@@ -41539,7 +41771,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Attachmen
  struct Attachment { }; // Windows does not need attachments at the moment.
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Connection.cpp b/Source/WebKit/Platform/IPC/Connection.cpp
 --- a/Source/WebKit/Platform/IPC/Connection.cpp	2026-07-27 09:40:39.810386400 -0600
-+++ b/Source/WebKit/Platform/IPC/Connection.cpp	2026-11-08 15:33:34.982834595 -0600
++++ b/Source/WebKit/Platform/IPC/Connection.cpp	2026-11-12 20:50:01.529091671 -0600
 @@ -669,7 +669,7 @@
      }
  
@@ -41560,7 +41792,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Connectio
      RELEASE_LOG_ERROR(IPC, "Connection::waitForSyncReply: Timed-out while waiting for reply for %s, id=%" PRIu64, description(messageName).characters(), syncRequestID.toUInt64());
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Connection.h b/Source/WebKit/Platform/IPC/Connection.h
 --- a/Source/WebKit/Platform/IPC/Connection.h	2026-07-27 09:40:39.810386400 -0600
-+++ b/Source/WebKit/Platform/IPC/Connection.h	2026-11-08 15:33:34.992820117 -0600
++++ b/Source/WebKit/Platform/IPC/Connection.h	2026-11-12 20:50:01.529245753 -0600
 @@ -76,7 +76,7 @@
  #include <wtf/android/RefPtrAndroid.h>
  #endif
@@ -41599,7 +41831,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Connectio
      void initializeSendSource();
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/ConnectionHandle.h b/Source/WebKit/Platform/IPC/ConnectionHandle.h
 --- a/Source/WebKit/Platform/IPC/ConnectionHandle.h	2026-07-27 09:40:39.810386400 -0600
-+++ b/Source/WebKit/Platform/IPC/ConnectionHandle.h	2026-11-08 15:33:34.973881233 -0600
++++ b/Source/WebKit/Platform/IPC/ConnectionHandle.h	2026-11-12 20:50:01.529350435 -0600
 @@ -31,7 +31,7 @@
  
  #if USE(UNIX_DOMAIN_SOCKETS)
@@ -41629,7 +41861,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Connectio
  };
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/ConnectionHandle.serialization.in b/Source/WebKit/Platform/IPC/ConnectionHandle.serialization.in
 --- a/Source/WebKit/Platform/IPC/ConnectionHandle.serialization.in	2026-07-27 09:40:39.810386400 -0600
-+++ b/Source/WebKit/Platform/IPC/ConnectionHandle.serialization.in	2026-11-08 15:33:34.988322520 -0600
++++ b/Source/WebKit/Platform/IPC/ConnectionHandle.serialization.in	2026-11-12 20:50:01.529397136 -0600
 @@ -28,7 +28,7 @@
  #if OS(WINDOWS)
      Win32Handle m_handle;
@@ -41641,7 +41873,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Connectio
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Encoder.cpp b/Source/WebKit/Platform/IPC/Encoder.cpp
 --- a/Source/WebKit/Platform/IPC/Encoder.cpp	2026-07-27 09:40:39.812386300 -0600
-+++ b/Source/WebKit/Platform/IPC/Encoder.cpp	2026-11-08 15:33:34.997881590 -0600
++++ b/Source/WebKit/Platform/IPC/Encoder.cpp	2026-11-12 20:50:01.529447026 -0600
 @@ -35,7 +35,7 @@
  #include <wtf/TZoneMallocInlines.h>
  #include <wtf/UniqueRef.h>
@@ -41653,7 +41885,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Encoder.c
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Encoder.h b/Source/WebKit/Platform/IPC/Encoder.h
 --- a/Source/WebKit/Platform/IPC/Encoder.h	2026-07-27 09:40:39.812386300 -0600
-+++ b/Source/WebKit/Platform/IPC/Encoder.h	2026-11-08 15:33:35.002408477 -0600
++++ b/Source/WebKit/Platform/IPC/Encoder.h	2026-11-12 20:50:01.529501317 -0600
 @@ -35,7 +35,7 @@
  #include <wtf/TZoneMalloc.h>
  #include <wtf/Vector.h>
@@ -41674,7 +41906,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/Encoder.h
      using OutOfLineBufferSpan = MallocSpan<uint8_t>;
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/glib/ConnectionGLib.cpp b/Source/WebKit/Platform/IPC/glib/ConnectionGLib.cpp
 --- a/Source/WebKit/Platform/IPC/glib/ConnectionGLib.cpp	2026-07-27 09:40:39.823083900 -0600
-+++ b/Source/WebKit/Platform/IPC/glib/ConnectionGLib.cpp	2026-11-08 16:12:13.019693725 -0600
++++ b/Source/WebKit/Platform/IPC/glib/ConnectionGLib.cpp	2026-11-12 20:50:01.529574349 -0600
 @@ -49,6 +49,16 @@
  namespace IPC {
  
@@ -41773,7 +42005,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/glib/Conn
          return false;
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/unix/IPCUtilitiesUnix.cpp b/Source/WebKit/Platform/IPC/unix/IPCUtilitiesUnix.cpp
 --- a/Source/WebKit/Platform/IPC/unix/IPCUtilitiesUnix.cpp	2026-07-27 09:40:39.823386200 -0600
-+++ b/Source/WebKit/Platform/IPC/unix/IPCUtilitiesUnix.cpp	2026-11-08 16:05:48.511047728 -0600
++++ b/Source/WebKit/Platform/IPC/unix/IPCUtilitiesUnix.cpp	2026-11-12 20:50:01.529695501 -0600
 @@ -48,7 +48,23 @@
      }
  #endif
@@ -41800,7 +42032,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Platform/IPC/unix/IPCU
          RELEASE_ASSERT(setCloseOnExec(sockets[1]));
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/PlatformWPE.cmake b/Source/WebKit/PlatformWPE.cmake
 --- a/Source/WebKit/PlatformWPE.cmake	2026-10-05 13:40:00.974096500 -0600
-+++ b/Source/WebKit/PlatformWPE.cmake	2026-11-08 21:57:34.856263192 -0600
++++ b/Source/WebKit/PlatformWPE.cmake	2026-11-12 20:50:01.529772342 -0600
 @@ -824,3 +824,18 @@
      NO_IMPLICIT_SOURCES
  )
@@ -41822,7 +42054,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/PlatformWPE.cmake b/So
 +endif ()
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Shared/glib/ProcessExecutablePathGLib.cpp b/Source/WebKit/Shared/glib/ProcessExecutablePathGLib.cpp
 --- a/Source/WebKit/Shared/glib/ProcessExecutablePathGLib.cpp	2026-07-27 09:40:40.030386000 -0600
-+++ b/Source/WebKit/Shared/glib/ProcessExecutablePathGLib.cpp	2026-11-11 21:02:08.549986799 -0600
++++ b/Source/WebKit/Shared/glib/ProcessExecutablePathGLib.cpp	2026-11-12 20:50:01.529860003 -0600
 @@ -44,6 +44,17 @@
  
  static String findWebKitProcess(const ASCIILiteral processName)
@@ -41843,7 +42075,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Shared/glib/ProcessExe
      if (execDirectory) {
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Shared/unix/AuxiliaryProcessMain.cpp b/Source/WebKit/Shared/unix/AuxiliaryProcessMain.cpp
 --- a/Source/WebKit/Shared/unix/AuxiliaryProcessMain.cpp	2026-07-27 09:40:40.044742800 -0600
-+++ b/Source/WebKit/Shared/unix/AuxiliaryProcessMain.cpp	2026-11-08 18:41:43.929111013 -0600
++++ b/Source/WebKit/Shared/unix/AuxiliaryProcessMain.cpp	2026-11-12 20:50:01.529921114 -0600
 @@ -49,6 +49,53 @@
  __attribute__((weak)) extern "C" int __llvm_profile_dump(void);
  #endif
@@ -41910,7 +42142,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Shared/unix/AuxiliaryP
      // data from auxiliary processes would make PGO collection impractical.
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Shared/WebCoreArgumentCoders.serialization.in b/Source/WebKit/Shared/WebCoreArgumentCoders.serialization.in
 --- a/Source/WebKit/Shared/WebCoreArgumentCoders.serialization.in	2026-07-27 09:40:39.988386200 -0600
-+++ b/Source/WebKit/Shared/WebCoreArgumentCoders.serialization.in	2026-11-08 15:33:35.008463776 -0600
++++ b/Source/WebKit/Shared/WebCoreArgumentCoders.serialization.in	2026-11-12 20:50:01.530134478 -0600
 @@ -1653,7 +1653,7 @@
  #if USE(UNIX_DOMAIN_SOCKETS)
  headers: <wtf/unix/UnixFileDescriptor.h> "ArgumentCodersUnix.h"
@@ -41931,7 +42163,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/Shared/WebCoreArgument
  #if OS(WINDOWS)
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/C/WKNativeEvent.h b/Source/WebKit/UIProcess/API/C/WKNativeEvent.h
 --- a/Source/WebKit/UIProcess/API/C/WKNativeEvent.h	2026-07-27 09:40:40.070386000 -0600
-+++ b/Source/WebKit/UIProcess/API/C/WKNativeEvent.h	2026-11-08 15:41:42.608433314 -0600
++++ b/Source/WebKit/UIProcess/API/C/WKNativeEvent.h	2026-11-12 20:50:01.530414502 -0600
 @@ -34,7 +34,7 @@
  extern "C" {
  #endif
@@ -41943,7 +42175,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/C/WKNati
  #elif __cplusplus
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/C/WKPagePrivate.h b/Source/WebKit/UIProcess/API/C/WKPagePrivate.h
 --- a/Source/WebKit/UIProcess/API/C/WKPagePrivate.h	2026-07-27 09:40:40.075385800 -0600
-+++ b/Source/WebKit/UIProcess/API/C/WKPagePrivate.h	2026-11-08 15:41:42.608649819 -0600
++++ b/Source/WebKit/UIProcess/API/C/WKPagePrivate.h	2026-11-12 20:50:01.530469213 -0600
 @@ -244,7 +244,7 @@
  typedef void (*WKPageDoAfterProcessingAllPendingMouseEventsFunction)(void* functionContext);
  WK_EXPORT void WKPageDoAfterProcessingAllPendingMouseEvents(WKPageRef page, void* context, WKPageDoAfterProcessingAllPendingMouseEventsFunction function);
@@ -41955,7 +42187,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/C/WKPage
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp b/Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp
 --- a/Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp	2026-09-17 15:07:49.924674500 -0600
-+++ b/Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp	2026-11-08 15:58:57.516390088 -0600
++++ b/Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp	2026-11-12 20:50:01.530638556 -0600
 @@ -209,6 +209,20 @@
      WebKitSettings* settings = WEBKIT_SETTINGS(object);
      [[maybe_unused]] RefPtr prefs = settings->priv->preferences.get();
@@ -41979,7 +42211,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/glib/Web
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp b/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp
 --- a/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp	2026-07-27 09:40:40.357385400 -0600
-+++ b/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp	2026-11-08 22:50:55.534573188 -0600
++++ b/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp	2026-11-12 20:50:01.530854480 -0600
 @@ -79,6 +79,8 @@
  WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
  #endif
@@ -42008,7 +42240,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/glib/WebProc
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/Launcher/ProcessLauncher.cpp b/Source/WebKit/UIProcess/Launcher/ProcessLauncher.cpp
 --- a/Source/WebKit/UIProcess/Launcher/ProcessLauncher.cpp	2026-07-27 09:40:40.274356800 -0600
-+++ b/Source/WebKit/UIProcess/Launcher/ProcessLauncher.cpp	2026-11-08 15:33:35.020920499 -0600
++++ b/Source/WebKit/UIProcess/Launcher/ProcessLauncher.cpp	2026-11-12 20:50:01.530918931 -0600
 @@ -30,7 +30,7 @@
  #include <wtf/SystemTracing.h>
  #include <wtf/WorkQueue.h>
@@ -42020,7 +42252,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/Launcher/Pro
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/Network/NetworkProcessProxy.cpp b/Source/WebKit/UIProcess/Network/NetworkProcessProxy.cpp
 --- a/Source/WebKit/UIProcess/Network/NetworkProcessProxy.cpp	2026-10-02 07:10:08.926806700 -0600
-+++ b/Source/WebKit/UIProcess/Network/NetworkProcessProxy.cpp	2026-11-08 15:33:35.025537020 -0600
++++ b/Source/WebKit/UIProcess/Network/NetworkProcessProxy.cpp	2026-11-12 20:50:01.531023892 -0600
 @@ -360,7 +360,7 @@
  
  #if USE(UNIX_DOMAIN_SOCKETS) || OS(WINDOWS)
@@ -42041,7 +42273,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/Network/Netw
      RELEASE_LOG_ERROR(Process, "%p - NetworkProcessProxy::didClose (Network Process crash)", this);
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/WebProcessProxy.cpp b/Source/WebKit/UIProcess/WebProcessProxy.cpp
 --- a/Source/WebKit/UIProcess/WebProcessProxy.cpp	2026-10-02 07:10:08.933806700 -0600
-+++ b/Source/WebKit/UIProcess/WebProcessProxy.cpp	2026-11-08 15:33:35.014463942 -0600
++++ b/Source/WebKit/UIProcess/WebProcessProxy.cpp	2026-11-12 20:50:01.531263166 -0600
 @@ -1445,7 +1445,7 @@
  
  void WebProcessProxy::didClose(IPC::Connection& connection)
@@ -42053,7 +42285,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/WebProcessPr
      WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "didClose (web process crash)");
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/WebsiteData/WebsiteDataStore.cpp b/Source/WebKit/UIProcess/WebsiteData/WebsiteDataStore.cpp
 --- a/Source/WebKit/UIProcess/WebsiteData/WebsiteDataStore.cpp	2026-07-27 09:40:40.343385500 -0600
-+++ b/Source/WebKit/UIProcess/WebsiteData/WebsiteDataStore.cpp	2026-11-08 15:33:35.032464441 -0600
++++ b/Source/WebKit/UIProcess/WebsiteData/WebsiteDataStore.cpp	2026-11-12 20:50:01.531532251 -0600
 @@ -85,7 +85,7 @@
  #include <wtf/RunLoop.h>
  #include <wtf/text/MakeString.h>
@@ -42065,7 +42297,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/WebsiteData/
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/wpe/AcceleratedBackingStore.cpp b/Source/WebKit/UIProcess/wpe/AcceleratedBackingStore.cpp
 --- a/Source/WebKit/UIProcess/wpe/AcceleratedBackingStore.cpp	2026-07-27 09:40:40.404313300 -0600
-+++ b/Source/WebKit/UIProcess/wpe/AcceleratedBackingStore.cpp	2026-11-08 15:41:42.608977536 -0600
++++ b/Source/WebKit/UIProcess/wpe/AcceleratedBackingStore.cpp	2026-11-12 20:50:01.531728434 -0600
 @@ -41,6 +41,14 @@
  #include <drm/drm_fourcc.h>
  #elif USE(LIBDRM)
@@ -42083,7 +42315,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/wpe/Accelera
  WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/NonCompositedFrameRenderer.cpp b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/NonCompositedFrameRenderer.cpp
 --- a/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/NonCompositedFrameRenderer.cpp	2026-10-02 07:10:08.937806600 -0600
-+++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/NonCompositedFrameRenderer.cpp	2026-11-08 21:59:39.359660650 -0600
++++ b/Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/NonCompositedFrameRenderer.cpp	2026-11-12 20:50:01.531816106 -0600
 @@ -41,7 +41,85 @@
  #include <wtf/SetForScope.h>
  #include <wtf/SystemTracing.h>
@@ -42223,7 +42455,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebPage/Coo
          if (m_context) {
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebProcess.cpp b/Source/WebKit/WebProcess/WebProcess.cpp
 --- a/Source/WebKit/WebProcess/WebProcess.cpp	2026-10-02 07:10:08.943806600 -0600
-+++ b/Source/WebKit/WebProcess/WebProcess.cpp	2026-11-08 15:33:35.038464607 -0600
++++ b/Source/WebKit/WebProcess/WebProcess.cpp	2026-11-12 20:50:01.531966668 -0600
 @@ -1451,7 +1451,7 @@
  
  void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connection)
@@ -42235,7 +42467,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebProcess.
      WEBPROCESS_RELEASE_LOG(Loading, "networkProcessConnectionClosed: NetworkProcess closed its connection (Crashed)");
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/CMakeLists.txt b/Source/WTF/CMakeLists.txt
 --- a/Source/WTF/CMakeLists.txt	2026-07-27 09:40:36.073210000 -0600
-+++ b/Source/WTF/CMakeLists.txt	2026-11-08 15:12:45.324499895 -0600
++++ b/Source/WTF/CMakeLists.txt	2026-11-12 20:50:01.532113311 -0600
 @@ -2,6 +2,6 @@
  
  add_subdirectory(wtf)
@@ -42246,7 +42478,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/CMakeLists.txt b/Source/W
  endif ()
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/ApproximateTime.h b/Source/WTF/wtf/ApproximateTime.h
 --- a/Source/WTF/wtf/ApproximateTime.h	2026-07-27 09:40:36.169392000 -0600
-+++ b/Source/WTF/wtf/ApproximateTime.h	2026-11-08 14:47:36.772423122 -0600
++++ b/Source/WTF/wtf/ApproximateTime.h	2026-11-12 20:50:01.532166922 -0600
 @@ -51,7 +51,18 @@
      WTF_EXPORT_PRIVATE uint64_t toMachApproximateTime() const;
  #endif
@@ -42268,7 +42500,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/ApproximateTime.h b/S
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/Assertions.cpp b/Source/WTF/wtf/Assertions.cpp
 --- a/Source/WTF/wtf/Assertions.cpp	2026-08-24 09:32:13.663397300 -0600
-+++ b/Source/WTF/wtf/Assertions.cpp	2026-11-08 14:47:36.772703876 -0600
++++ b/Source/WTF/wtf/Assertions.cpp	2026-11-12 20:50:01.532233523 -0600
 @@ -58,6 +58,8 @@
  #include <array>
  #include <sys/sysctl.h>
@@ -42280,7 +42512,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/Assertions.cpp b/Sour
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/Assertions.h b/Source/WTF/wtf/Assertions.h
 --- a/Source/WTF/wtf/Assertions.h	2026-08-24 09:32:13.663397300 -0600
-+++ b/Source/WTF/wtf/Assertions.h	2026-11-08 14:47:36.773154923 -0600
++++ b/Source/WTF/wtf/Assertions.h	2026-11-12 20:50:01.532337264 -0600
 @@ -330,6 +330,11 @@
  #define WTFBreakpointTrap()  __builtin_trap()
  #elif CPU(X86_64) || CPU(X86) || CPU(ARM64) || CPU(ARM_THUMB2)
@@ -42295,7 +42527,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/Assertions.h b/Source
  #endif
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/Atomics.h b/Source/WTF/wtf/Atomics.h
 --- a/Source/WTF/wtf/Atomics.h	2026-07-27 09:40:36.170392000 -0600
-+++ b/Source/WTF/wtf/Atomics.h	2026-11-09 02:15:07.036641485 -0600
++++ b/Source/WTF/wtf/Atomics.h	2026-11-12 20:50:01.532444576 -0600
 @@ -297,6 +297,24 @@
  inline void storeStoreFence() { compilerFence(); }
  inline void crossModifyingCodeFence() { x86_cpuid(); }
@@ -42363,7 +42595,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/Atomics.h b/Source/WT
          UNUSED_PARAM(m_value);
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/CMakeLists.txt b/Source/WTF/wtf/CMakeLists.txt
 --- a/Source/WTF/wtf/CMakeLists.txt	2026-09-14 13:20:57.694620000 -0600
-+++ b/Source/WTF/wtf/CMakeLists.txt	2026-11-08 14:47:36.773674041 -0600
++++ b/Source/WTF/wtf/CMakeLists.txt	2026-11-12 20:50:01.532536038 -0600
 @@ -717,7 +717,18 @@
          win/SoftLinking.h
          win/Win32Handle.h
@@ -42386,7 +42618,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/CMakeLists.txt b/Sour
      )
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/CompactVariantOperations.h b/Source/WTF/wtf/CompactVariantOperations.h
 --- a/Source/WTF/wtf/CompactVariantOperations.h	2026-07-27 09:40:36.181392200 -0600
-+++ b/Source/WTF/wtf/CompactVariantOperations.h	2026-11-10 18:56:51.162986534 -0600
++++ b/Source/WTF/wtf/CompactVariantOperations.h	2026-11-12 20:50:01.532646480 -0600
 @@ -89,6 +89,22 @@
          return static_cast<Index>(static_cast<uint8_t>((value & indexMask) >> indexShift));
      }
@@ -42457,7 +42689,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/CompactVariantOperati
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/CompletionHandler.h b/Source/WTF/wtf/CompletionHandler.h
 --- a/Source/WTF/wtf/CompletionHandler.h	2026-07-27 09:40:36.182392100 -0600
-+++ b/Source/WTF/wtf/CompletionHandler.h	2026-11-08 14:47:36.774076797 -0600
++++ b/Source/WTF/wtf/CompletionHandler.h	2026-11-12 20:50:01.532725661 -0600
 @@ -60,7 +60,7 @@
      {
      }
@@ -42469,7 +42701,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/CompletionHandler.h b
  #ifndef __swift__
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/ContinuousApproximateTime.h b/Source/WTF/wtf/ContinuousApproximateTime.h
 --- a/Source/WTF/wtf/ContinuousApproximateTime.h	2026-07-27 09:40:36.183392000 -0600
-+++ b/Source/WTF/wtf/ContinuousApproximateTime.h	2026-11-08 14:47:36.774359592 -0600
++++ b/Source/WTF/wtf/ContinuousApproximateTime.h	2026-11-12 20:50:01.532780292 -0600
 @@ -54,7 +54,18 @@
      WTF_EXPORT_PRIVATE uint64_t toMachContinuousApproximateTime() const;
  #endif
@@ -42491,7 +42723,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/ContinuousApproximate
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/ContinuousTime.h b/Source/WTF/wtf/ContinuousTime.h
 --- a/Source/WTF/wtf/ContinuousTime.h	2026-07-27 09:40:36.183392000 -0600
-+++ b/Source/WTF/wtf/ContinuousTime.h	2026-11-08 14:47:36.774554745 -0600
++++ b/Source/WTF/wtf/ContinuousTime.h	2026-11-12 20:50:01.532830253 -0600
 @@ -51,7 +51,18 @@
      WTF_EXPORT_PRIVATE uint64_t toMachContinuousTime() const;
  #endif
@@ -42513,7 +42745,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/ContinuousTime.h b/So
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/CurrentTime.cpp b/Source/WTF/wtf/CurrentTime.cpp
 --- a/Source/WTF/wtf/CurrentTime.cpp	2026-07-27 09:40:36.186392000 -0600
-+++ b/Source/WTF/wtf/CurrentTime.cpp	2026-11-10 11:52:15.005385923 -0600
++++ b/Source/WTF/wtf/CurrentTime.cpp	2026-11-12 20:50:01.532885594 -0600
 @@ -227,7 +227,12 @@
  
  #endif
@@ -42606,7 +42838,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/CurrentTime.cpp b/Sou
      return fromMachContinuousApproximateTime(mach_continuous_approximate_time());
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/FlipBytes.h b/Source/WTF/wtf/FlipBytes.h
 --- a/Source/WTF/wtf/FlipBytes.h	2026-07-27 09:40:36.195392100 -0600
-+++ b/Source/WTF/wtf/FlipBytes.h	2026-11-12 16:09:36.352407313 -0600
++++ b/Source/WTF/wtf/FlipBytes.h	2026-11-12 20:50:01.532967335 -0600
 @@ -64,8 +64,37 @@
      return value;
  }
@@ -42647,7 +42879,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/FlipBytes.h b/Source/
  using WTF::needToFlipBytesIfLittleEndian;
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/Function.h b/Source/WTF/wtf/Function.h
 --- a/Source/WTF/wtf/Function.h	2026-07-27 09:40:36.196392000 -0600
-+++ b/Source/WTF/wtf/Function.h	2026-11-08 14:47:36.775092263 -0600
++++ b/Source/WTF/wtf/Function.h	2026-11-12 20:50:01.533016486 -0600
 @@ -84,7 +84,7 @@
      Function(FunctionType f)
          : m_callableWrapper(makeUnique<Detail::CallableWrapper<FunctionType, Out, In...>>(std::forward<FunctionType>(f))) { }
@@ -42659,7 +42891,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/Function.h b/Source/W
  #ifndef __swift__
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/generic/MemoryFootprintGeneric.cpp b/Source/WTF/wtf/generic/MemoryFootprintGeneric.cpp
 --- a/Source/WTF/wtf/generic/MemoryFootprintGeneric.cpp	2026-07-27 09:40:36.304391900 -0600
-+++ b/Source/WTF/wtf/generic/MemoryFootprintGeneric.cpp	2026-11-08 14:47:36.775357057 -0600
++++ b/Source/WTF/wtf/generic/MemoryFootprintGeneric.cpp	2026-11-12 20:50:01.533070557 -0600
 @@ -28,13 +28,26 @@
  #include <wtf/AvailableMemory.h>
  #include <wtf/MemoryFootprint.h>
@@ -42689,7 +42921,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/generic/MemoryFootpri
  } // namespace WTF
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/MonotonicTime.h b/Source/WTF/wtf/MonotonicTime.h
 --- a/Source/WTF/wtf/MonotonicTime.h	2026-07-27 09:40:36.218392100 -0600
-+++ b/Source/WTF/wtf/MonotonicTime.h	2026-11-08 14:47:36.775538840 -0600
++++ b/Source/WTF/wtf/MonotonicTime.h	2026-11-12 20:50:01.533122037 -0600
 @@ -51,11 +51,28 @@
      constexpr MonotonicTime() = default;
  
@@ -42721,7 +42953,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/MonotonicTime.h b/Sou
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PageBlock.h b/Source/WTF/wtf/PageBlock.h
 --- a/Source/WTF/wtf/PageBlock.h	2026-07-27 09:40:36.225392000 -0600
-+++ b/Source/WTF/wtf/PageBlock.h	2026-11-08 14:47:36.775797764 -0600
++++ b/Source/WTF/wtf/PageBlock.h	2026-11-12 20:50:01.533172828 -0600
 @@ -53,7 +53,7 @@
  // Use 64 KiB for any unknown CPUs to be conservative.
  #if OS(DARWIN) || PLATFORM(PLAYSTATION) || CPU(MIPS) || CPU(MIPS64) || CPU(LOONGARCH64) || (OS(LINUX) && CPU(ARM64) && !USE(64KB_PAGE_BLOCK))
@@ -42733,7 +42965,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PageBlock.h b/Source/
  constexpr size_t CeilingOnPageSize = 4 * KB;
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformCPU.h b/Source/WTF/wtf/PlatformCPU.h
 --- a/Source/WTF/wtf/PlatformCPU.h	2026-07-27 09:40:36.228392100 -0600
-+++ b/Source/WTF/wtf/PlatformCPU.h	2026-11-08 14:47:36.776077748 -0600
++++ b/Source/WTF/wtf/PlatformCPU.h	2026-11-12 20:50:01.533229189 -0600
 @@ -68,6 +68,13 @@
      && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
  #define WTF_CPU_PPC64 1
@@ -42750,7 +42982,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformCPU.h b/Sourc
  /* CPU(PPC64LE) - PowerPC 64-bit Little Endian */
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformEnable.h b/Source/WTF/wtf/PlatformEnable.h
 --- a/Source/WTF/wtf/PlatformEnable.h	2026-07-27 09:40:36.228392100 -0600
-+++ b/Source/WTF/wtf/PlatformEnable.h	2026-11-09 02:15:07.037052982 -0600
++++ b/Source/WTF/wtf/PlatformEnable.h	2026-11-12 20:50:01.533317121 -0600
 @@ -739,6 +739,45 @@
  #define ENABLE_WEBASSEMBLY_BBQJIT 0
  #endif
@@ -42867,7 +43099,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformEnable.h b/So
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformHave.h b/Source/WTF/wtf/PlatformHave.h
 --- a/Source/WTF/wtf/PlatformHave.h	2026-07-27 09:40:36.230392000 -0600
-+++ b/Source/WTF/wtf/PlatformHave.h	2026-11-08 14:47:36.776938882 -0600
++++ b/Source/WTF/wtf/PlatformHave.h	2026-11-12 20:50:01.533461693 -0600
 @@ -72,7 +72,16 @@
  #define WTF_OS_CONSTANT_EFFECTIVE_ADDRESS_WIDTH 36
  /* iOS simulators lie about the size of the address space */
@@ -42948,7 +43180,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformHave.h b/Sour
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformJSCOnly.cmake b/Source/WTF/wtf/PlatformJSCOnly.cmake
 --- a/Source/WTF/wtf/PlatformJSCOnly.cmake	2026-10-02 07:10:08.881806600 -0600
-+++ b/Source/WTF/wtf/PlatformJSCOnly.cmake	2026-11-08 14:47:36.777503220 -0600
++++ b/Source/WTF/wtf/PlatformJSCOnly.cmake	2026-11-12 20:50:01.533584315 -0600
 @@ -76,7 +76,9 @@
          win/MemoryFootprintWin.cpp
          win/MemoryPressureHandlerWin.cpp
@@ -42962,7 +43194,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformJSCOnly.cmake
          OUTPUT
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformRegisters.h b/Source/WTF/wtf/PlatformRegisters.h
 --- a/Source/WTF/wtf/PlatformRegisters.h	2026-07-27 09:40:36.232392000 -0600
-+++ b/Source/WTF/wtf/PlatformRegisters.h	2026-11-08 14:47:36.777743574 -0600
++++ b/Source/WTF/wtf/PlatformRegisters.h	2026-11-12 20:50:01.533646466 -0600
 @@ -65,7 +65,13 @@
  
  inline PlatformRegisters& registersFromUContext(ucontext_t* ucontext)
@@ -42979,7 +43211,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformRegisters.h b
  #elif OS(WINDOWS)
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformUse.h b/Source/WTF/wtf/PlatformUse.h
 --- a/Source/WTF/wtf/PlatformUse.h	2026-07-27 09:40:36.232392000 -0600
-+++ b/Source/WTF/wtf/PlatformUse.h	2026-11-12 16:09:36.352723948 -0600
++++ b/Source/WTF/wtf/PlatformUse.h	2026-11-12 20:50:01.533707367 -0600
 @@ -123,7 +123,7 @@
  #define USE_PTHREADS 1
  #endif
@@ -43003,7 +43235,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformUse.h b/Sourc
 +#endif
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformWPE.cmake b/Source/WTF/wtf/PlatformWPE.cmake
 --- a/Source/WTF/wtf/PlatformWPE.cmake	2026-10-02 07:10:08.881806600 -0600
-+++ b/Source/WTF/wtf/PlatformWPE.cmake	2026-11-08 14:56:09.956846565 -0600
++++ b/Source/WTF/wtf/PlatformWPE.cmake	2026-11-12 20:50:01.533768248 -0600
 @@ -20,9 +20,6 @@
      glib/TimeZoneGLib.cpp
      glib/URLGLib.cpp
@@ -43034,7 +43266,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/PlatformWPE.cmake b/S
          unix/MemoryPressureHandlerUnix.cpp
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/posix/CPUTimePOSIX.cpp b/Source/WTF/wtf/posix/CPUTimePOSIX.cpp
 --- a/Source/WTF/wtf/posix/CPUTimePOSIX.cpp	2026-07-27 09:40:36.319392000 -0600
-+++ b/Source/WTF/wtf/posix/CPUTimePOSIX.cpp	2026-11-08 14:47:36.778288412 -0600
++++ b/Source/WTF/wtf/posix/CPUTimePOSIX.cpp	2026-11-12 20:50:01.533820179 -0600
 @@ -28,6 +28,9 @@
  
  #include <sys/resource.h>
@@ -43069,7 +43301,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/posix/CPUTimePOSIX.cp
  }
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/RandomDevice.cpp b/Source/WTF/wtf/RandomDevice.cpp
 --- a/Source/WTF/wtf/RandomDevice.cpp	2026-07-27 09:40:36.235392000 -0600
-+++ b/Source/WTF/wtf/RandomDevice.cpp	2026-11-08 14:47:36.778478065 -0600
++++ b/Source/WTF/wtf/RandomDevice.cpp	2026-11-12 20:50:01.533879690 -0600
 @@ -29,7 +29,7 @@
  
  #include <stdlib.h>
@@ -43126,7 +43358,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/RandomDevice.cpp b/So
      zx_cprng_draw(buffer.data(), buffer.size());
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/RandomDevice.h b/Source/WTF/wtf/RandomDevice.h
 --- a/Source/WTF/wtf/RandomDevice.h	2026-07-27 09:40:36.235392000 -0600
-+++ b/Source/WTF/wtf/RandomDevice.h	2026-11-08 14:47:36.778728939 -0600
++++ b/Source/WTF/wtf/RandomDevice.h	2026-11-12 20:50:01.533930721 -0600
 @@ -36,7 +36,7 @@
      WTF_MAKE_NONCOPYABLE(RandomDevice);
      WTF_DEPRECATED_MAKE_FAST_ALLOCATED(RandomDevice);
@@ -43147,7 +43379,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/RandomDevice.h b/Sour
  #else
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/simde/arm/neon.h b/Source/WTF/wtf/simde/arm/neon.h
 --- a/Source/WTF/wtf/simde/arm/neon.h	2026-07-27 09:40:36.331391800 -0600
-+++ b/Source/WTF/wtf/simde/arm/neon.h	2026-11-09 02:15:07.050620350 -0600
++++ b/Source/WTF/wtf/simde/arm/neon.h	2026-11-12 20:50:01.542659279 -0600
 @@ -63297,11 +63297,45 @@
    #define vld1q_f16(a) simde_vld1q_f16((a))
  #endif
@@ -43355,7 +43587,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/simde/arm/neon.h b/So
    #elif defined(HEDLEY_GCC_VERSION)
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/SIMDHelpers.h b/Source/WTF/wtf/SIMDHelpers.h
 --- a/Source/WTF/wtf/SIMDHelpers.h	2026-07-27 09:40:36.242392000 -0600
-+++ b/Source/WTF/wtf/SIMDHelpers.h	2026-11-10 12:00:18.777078863 -0600
++++ b/Source/WTF/wtf/SIMDHelpers.h	2026-11-12 20:50:01.545144127 -0600
 @@ -58,8 +58,35 @@
  #include <wtf/simde/simde.h>
  #include <wtf/text/Latin1Character.h>
@@ -43555,7 +43787,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/SIMDHelpers.h b/Sourc
          return end;
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/StackPointer.cpp b/Source/WTF/wtf/StackPointer.cpp
 --- a/Source/WTF/wtf/StackPointer.cpp	2026-07-27 09:40:36.252392000 -0600
-+++ b/Source/WTF/wtf/StackPointer.cpp	2026-11-08 14:47:36.800838512 -0600
++++ b/Source/WTF/wtf/StackPointer.cpp	2026-11-12 20:50:01.545259209 -0600
 @@ -160,6 +160,32 @@
       ".previous" "\n"
  );
@@ -43591,7 +43823,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/StackPointer.cpp b/So
      ".text" "\n"
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/text/AdaptiveStringSearcher.h b/Source/WTF/wtf/text/AdaptiveStringSearcher.h
 --- a/Source/WTF/wtf/text/AdaptiveStringSearcher.h	2026-07-27 09:40:36.357391800 -0600
-+++ b/Source/WTF/wtf/text/AdaptiveStringSearcher.h	2026-11-10 12:00:18.777514039 -0600
++++ b/Source/WTF/wtf/text/AdaptiveStringSearcher.h	2026-11-12 20:50:01.545338880 -0600
 @@ -312,6 +312,7 @@
      unsigned failureCount = 0;
      constexpr unsigned failureThreshold = 16;
@@ -43602,7 +43834,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/text/AdaptiveStringSe
          auto mask1 = SIMD::equal(firstBlock, firstVec);
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/text/RapidHash.h b/Source/WTF/wtf/text/RapidHash.h
 --- a/Source/WTF/wtf/text/RapidHash.h	2026-08-14 16:51:14.638751700 -0600
-+++ b/Source/WTF/wtf/text/RapidHash.h	2026-11-09 03:36:18.467252112 -0600
++++ b/Source/WTF/wtf/text/RapidHash.h	2026-11-12 20:50:01.545426891 -0600
 @@ -37,6 +37,7 @@
  
  #include <wtf/FastMalloc.h>
@@ -43667,7 +43899,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/text/RapidHash.h b/So
              for (size_t i = 0; i < 4; ++i)
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/text/StringImpl.h b/Source/WTF/wtf/text/StringImpl.h
 --- a/Source/WTF/wtf/text/StringImpl.h	2026-07-27 09:40:36.366392000 -0600
-+++ b/Source/WTF/wtf/text/StringImpl.h	2026-11-09 03:36:18.467906423 -0600
++++ b/Source/WTF/wtf/text/StringImpl.h	2026-11-12 20:50:01.545536183 -0600
 @@ -801,7 +801,7 @@
      auto* characters2Ptr = characters2.data();
      size_t position = 0;
@@ -43690,7 +43922,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/text/StringImpl.h b/S
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/WallTime.h b/Source/WTF/wtf/WallTime.h
 --- a/Source/WTF/wtf/WallTime.h	2026-07-27 09:40:36.273392000 -0600
-+++ b/Source/WTF/wtf/WallTime.h	2026-11-08 14:47:36.801104426 -0600
++++ b/Source/WTF/wtf/WallTime.h	2026-11-12 20:50:01.545678426 -0600
 @@ -50,7 +50,18 @@
      // This is the epoch. So, x.secondsSinceEpoch() should be the same as x - WallTime().
      constexpr WallTime() = default;
@@ -43712,7 +43944,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/WallTime.h b/Source/W
      WTF_EXPORT_PRIVATE Seconds secondsSinceEpoch() const;
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/WTFAssertions.cpp b/Source/WTF/wtf/WTFAssertions.cpp
 --- a/Source/WTF/wtf/WTFAssertions.cpp	2026-07-27 09:40:36.272392000 -0600
-+++ b/Source/WTF/wtf/WTFAssertions.cpp	2026-11-08 14:47:36.801311719 -0600
++++ b/Source/WTF/wtf/WTFAssertions.cpp	2026-11-12 20:50:01.545727296 -0600
 @@ -41,8 +41,10 @@
  
  static_assert(sizeof(RefPtr<DummyStruct>) == sizeof(DummyStruct*));
@@ -43728,7 +43960,7 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/WTFAssertions.cpp b/S
  
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/wtf/WTFConfig.cpp b/Source/WTF/wtf/WTFConfig.cpp
 --- a/Source/WTF/wtf/WTFConfig.cpp	2026-07-27 09:40:36.272392000 -0600
-+++ b/Source/WTF/wtf/WTFConfig.cpp	2026-11-08 14:47:36.801506602 -0600
++++ b/Source/WTF/wtf/WTFConfig.cpp	2026-11-12 20:50:01.545786657 -0600
 @@ -36,6 +36,11 @@
  #include <dlfcn.h>
  #include <mach-o/getsect.h>
