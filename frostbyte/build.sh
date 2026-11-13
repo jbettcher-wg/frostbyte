@@ -18,11 +18,13 @@ case "$LEOPARD_TARGET" in t4240) UPDATE_TARGET=e6500 ;; *) UPDATE_TARGET="$LEOPA
 TARGET_DEFS="$TARGET_DEFS -DFROSTBYTE_UPDATE_TARGET=\"$UPDATE_TARGET\""
 # toolchain/sdkfix: 10.5 SDK header bug fixes (LP64 CMSG_*), the same ones WebKit and the deps get.
 CF="-m64 $LEOPARD_CPU_FLAGS $TARGET_DEFS -isystem $F/../toolchain/sdkfix -std=gnu11 -O2 -Wall -fno-strict-aliasing $(pkg-config --cflags wpe-webkit-2.0 wpe-platform-2.0 epoxy hogweed)"
-O="$F/build$LEOPARD_SUFFIX"
+# FROSTBYTE_OUT=<dir> builds elsewhere (test compiles that must not replace the deployed build).
+O="${FROSTBYTE_OUT:-$F/build$LEOPARD_SUFFIX}"
 mkdir -p "$O"
 $CC1 $CF -fnext-runtime -fobjc-abi-version=2 -c "$F/platform/wpe-cocoa.m" -o "$O/wpe-cocoa.o"
 $CC1 $CF -c "$F/platform/wpe-cocoa-egl.c" -o "$O/wpe-cocoa-egl.o"
-SHELL_OBJS=""
+SHELL_OBJS="$O/fb-webgl-probe.o"
+$CC1 $CF -c "$F/shell/fb-webgl-probe.c" -o "$O/fb-webgl-probe.o"   # the --gl33-probe helper (plain C, libepoxy)
 for m in frostbyte-shell fb-defaults fb-hardware fb-window fb-chrome fb-bookmarks fb-history fb-library fb-omnibox fb-preferences fb-about fb-update; do
     $CC1 $CF -c -fnext-runtime -fobjc-abi-version=2 "$F/shell/$m.m" -o "$O/$m.o"
     SHELL_OBJS="$SHELL_OBJS $O/$m.o"

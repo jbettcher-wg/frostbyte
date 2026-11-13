@@ -299,6 +299,9 @@ int main(int argc, char **argv)
 {
     /* First non-option argument is a URL to open. Skip the Finder/Dock's -psn_0_<n> process serial
      * number and any other -options, so a normal launch opens the homepage. */
+    /* The WebGL capability probe (fb-webgl-probe.c): a helper run of this executable, without AppKit. */
+    if (argc > 1 && !strcmp(argv[1], "--gl33-probe"))
+        return fbWebGLProbeMain();
     const char *url = NULL;
     for (int i = 1; i < argc && !url; i++)
         if (argv[i][0] && argv[i][0] != '-')

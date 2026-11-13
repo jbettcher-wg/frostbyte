@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 #include <dlfcn.h>
+#include <signal.h>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <mach-o/dyld.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
@@ -25,6 +29,8 @@
 FBGraphicsCapabilities fbGraphics;
 BOOL fbGPUActive, fbZeroCopyActive;
 BOOL fbHardwareVideoActive;
+BOOL fbWebGLActive;
+NSString *fbWebGLStatus = @"";
 static NSMutableArray *s_envWeSet;             /* variables set from preferences: dropped on restart */
 
 /* UVD, the Radeon's video decoder: read-only IORegistry look at the RadeonNI framebuffer (nothing is
@@ -354,6 +360,201 @@ static void raiseDescriptorLimit(void)
         fprintf(stderr, "frostbyte: open file limit %llu -> %llu\n", (unsigned long long)was, (unsigned long long)want);
 }
 
+/* ---- WebGL: the verdict (docs/webgl-plan.md 1.3) ----
+ * The probe runs in a helper (this executable with --gl33-probe, fb-webgl-probe.c), never in the UI process:
+ * a driver crash or GPU hang cannot take the browser down, and the driver's modern-context mode must be asked
+ * for before a process makes its first CGL context, which this one already has (detectGraphics). The verdict
+ * is cached in the defaults, keyed by what can change it: the GL driver bundle, the RadeonNI kext, the card
+ * and FrostByte itself. Preferences > Hardware > Test again forgets it. */
+static NSString *const kWebGLProbeCache = @"WebGLProbeCache";
+
+static NSString *fileStamp(NSString *path)
+{
+    struct stat st;
+    if (stat([path fileSystemRepresentation], &st))
+        return @"-";
+    return [NSString stringWithFormat:@"%llu.%ld", (unsigned long long)st.st_size, (long)st.st_mtime];
+}
+
+static NSString *executablePath(void)
+{
+    char path[4096];
+    uint32_t size = sizeof path;
+    return _NSGetExecutablePath(path, &size) ? nil : [[NSString stringWithUTF8String:path] stringByStandardizingPath];
+}
+
+static NSString *radeonDeviceID(void)
+{
+    NSString *result = @"-";
+    io_iterator_t iter = 0;
+    if (IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceMatching("RadeonNI"), &iter) != KERN_SUCCESS)
+        return result;
+    io_service_t service = IOIteratorNext(iter);
+    if (service) {
+        io_name_t plane;
+        g_strlcpy(plane, kIOServicePlane, sizeof plane);
+        CFTypeRef device = IORegistryEntrySearchCFProperty(service, plane, CFSTR("device-id"), kCFAllocatorDefault,
+                                                           kIORegistryIterateRecursively | kIORegistryIterateParents);
+        if (device) {
+            if (CFGetTypeID(device) == CFDataGetTypeID() && CFDataGetLength(device) >= 2) {
+                const UInt8 *b = CFDataGetBytePtr(device);
+                result = [NSString stringWithFormat:@"%02x%02x", b[1], b[0]];   /* OF device-id: little-endian */
+            }
+            CFRelease(device);
+        }
+        IOObjectRelease(service);
+    }
+    IOObjectRelease(iter);
+    return result;
+}
+
+static NSString *webGLProbeKey(void)
+{
+    NSDictionary *kext = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/Extensions/RadeonNI.kext/Contents/Info.plist"];
+    return [NSString stringWithFormat:@"gld=%@ kext=%@ device=%@ frostbyte=%@",
+            fileStamp(@"/System/Library/Extensions/RadeonNIGLDriver.bundle/Contents/MacOS/RadeonNIGLDriver"),
+            [kext objectForKey:@"CFBundleVersion"] ?: @"-", radeonDeviceID(), fileStamp(executablePath() ?: @"")];
+}
+
+/* Spawn the helper, give it 5 s, read its one line. YES only for exit 0 and an "ok" line. */
+static BOOL runWebGLProbe(NSString **reason)
+{
+    NSString *exe = executablePath();
+    if (!exe) {
+        *reason = @"cannot find our own executable";
+        return NO;
+    }
+    int fds[2];
+    if (pipe(fds)) {
+        *reason = @"pipe failed";
+        return NO;
+    }
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_adddup2(&actions, fds[1], STDOUT_FILENO);
+    posix_spawn_file_actions_addclose(&actions, fds[0]);
+    char *argv[] = { (char *)[exe fileSystemRepresentation], (char *)"--gl33-probe", NULL };
+    extern char **environ;
+    pid_t pid = 0;
+    int spawned = posix_spawn(&pid, argv[0], &actions, NULL, argv, environ);
+    posix_spawn_file_actions_destroy(&actions);
+    close(fds[1]);
+    if (spawned) {
+        close(fds[0]);
+        *reason = @"cannot start the probe helper";
+        return NO;
+    }
+    int status = 0;
+    BOOL exited = NO;
+    for (int waited = 0; waited < 5000; waited += 20) {
+        if (waitpid(pid, &status, WNOHANG) == pid) {
+            exited = YES;
+            break;
+        }
+        usleep(20000);
+    }
+    if (!exited) {
+        kill(pid, SIGKILL);
+        waitpid(pid, &status, 0);
+    }
+    char line[512] = "";
+    ssize_t n = read(fds[0], line, sizeof line - 1);
+    close(fds[0]);
+    line[n > 0 ? n : 0] = 0;
+    line[strcspn(line, "\n")] = 0;
+    NSString *output = [str(line) stringByReplacingOccurrencesOfString:@"webgl-probe: " withString:@""];
+    if (!exited)
+        *reason = @"the probe timed out (5 s)";
+    else if (WIFSIGNALED(status))
+        *reason = [NSString stringWithFormat:@"the probe crashed (signal %d)", WTERMSIG(status)];
+    else if (WIFEXITED(status) && WEXITSTATUS(status) == 0 && [output hasPrefix:@"ok"])
+        *reason = output;
+    else
+        *reason = [output length] ? output : @"the probe failed";
+    return exited && WIFEXITED(status) && WEXITSTATUS(status) == 0 && [output hasPrefix:@"ok"];
+}
+
+void fbRetestWebGL(void)
+{
+    [prefs() removeObjectForKey:kWebGLProbeCache];
+}
+
+/* Decides fbWebGLActive. Returns YES when the GPU tier should be gl33 for it. */
+static BOOL decideWebGL(NSUserDefaults *defaults, BOOL gpu, FBGraphicsCapabilities caps)
+{
+    const char *forced = getenv("LEOPARD_WPE_WEBGL");
+    fbWebGLActive = NO;
+    if (forced && *forced) {
+        fbWebGLActive = strcmp(forced, "0") != 0;
+        fbWebGLStatus = fbWebGLActive ? @"forced on (LEOPARD_WPE_WEBGL=1)" : @"forced off (LEOPARD_WPE_WEBGL=0)";
+        return NO;                                  /* the tester sets LEOPARD_WPE_GL too */
+    }
+    /* WebGL preview (0.4-dev): the Hardware pane's switch. On = WebGL 1 on the GPU tier (gl21, any accelerated
+     * renderer); LEOPARD_WPE_WEBGL=1 reaches LeopardEGL, WebKit and ANGLE in every process this run starts. */
+    /* "On2": WebGL 1 + 2 on the gl33 tier (OpenGL ES 3.0 over RadeonNI's modern-context bridge). Until the driver
+     * reports GL 3.x on big-endian by itself (webgl-plan D11) and resolves MSAA (D7), Mesa's version is forced. */
+    if ([[defaults stringForKey:PrefWebGL] caseInsensitiveCompare:@"On2"] == NSOrderedSame) {
+        if (!gpu || !caps.radeon) {
+            fbWebGLStatus = !gpu ? @"off: needs GPU graphics (set Graphics to Automatic or GPU)"
+                                 : @"WebGL 2 needs the RadeonNI driver; using WebGL 1";
+            if (!gpu)
+                return NO;
+            setenv("LEOPARD_WPE_WEBGL", "1", 1);
+            fbWebGLActive = YES;
+            return NO;
+        }
+        setenv("LEOPARD_WPE_WEBGL", "1", 1);
+        setenv("MESA_GL_VERSION_OVERRIDE", "4.6COMPAT", 0);
+        setenv("LEOPARD_GL33_MAX_SAMPLES", "4", 0);
+        fbWebGLActive = YES;
+        fbWebGLStatus = @"on (WebGL 1 and 2 on the RadeonNI modern context, experimental)";
+        return YES;                                   /* moves an automatic GPU tier to gl33 */
+    }
+    if ([[defaults stringForKey:PrefWebGL] caseInsensitiveCompare:@"On"] == NSOrderedSame) {
+        if (!gpu) {
+            fbWebGLStatus = @"off: needs GPU graphics (set Graphics to Automatic or GPU)";
+            return NO;
+        }
+        setenv("LEOPARD_WPE_WEBGL", "1", 1);
+        fbWebGLActive = YES;
+        fbWebGLStatus = @"on (WebGL 1 on the GPU, preview)";
+        return NO;
+    }
+    if (!FROSTBYTE_WEBGL_AUTO) {
+        fbWebGLStatus = @"off";
+        return NO;
+    }
+    if ([[defaults stringForKey:PrefWebGL] caseInsensitiveCompare:@"Off"] == NSOrderedSame) {
+        fbWebGLStatus = @"turned off in Preferences";
+        return NO;
+    }
+    if (!gpu) {
+        fbWebGLStatus = @"needs GPU graphics";
+        return NO;
+    }
+    if (!caps.radeon) {
+        fbWebGLStatus = @"needs the RadeonNI driver";
+        return NO;
+    }
+    NSString *key = webGLProbeKey();
+    NSDictionary *cached = [defaults dictionaryForKey:kWebGLProbeCache];
+    NSString *reason = nil;
+    BOOL passed;
+    if (cached && [[cached objectForKey:@"Key"] isEqualToString:key]) {
+        passed = [[cached objectForKey:@"Passed"] boolValue];
+        reason = [cached objectForKey:@"Reason"];
+    } else {
+        passed = runWebGLProbe(&reason);
+        [defaults setObject:[NSDictionary dictionaryWithObjectsAndKeys:key, @"Key",
+                             [NSNumber numberWithBool:passed], @"Passed", reason ?: @"", @"Reason", nil]
+                     forKey:kWebGLProbeCache];
+        fprintf(stderr, "frostbyte: webgl: probe %s: %s\n", passed ? "passed" : "failed", [reason UTF8String]);
+    }
+    fbWebGLActive = passed;
+    fbWebGLStatus = passed ? [NSString stringWithFormat:@"on (%@)", reason] : [NSString stringWithFormat:@"off: %@", reason];
+    return passed;
+}
+
 void applyStartupPreferences(void)
 {
     raiseDescriptorLimit();
@@ -381,6 +582,11 @@ void applyStartupPreferences(void)
                 && (caps.radeon || (FROSTBYTE_GL_ANY_ACCELERATED && caps.accelerated)));
         setenvFromPreference("LEOPARD_WPE_GL", gpu ? "gl21" : "soft");
     }
+    /* WebGL runs on the gl33 tier only; a passing probe moves an automatic GPU tier there. */
+    if (decideWebGL(defaults, gpu, caps) && !(forced && *forced))
+        setenvFromPreference("LEOPARD_WPE_GL", "gl33");
+    fbWebGLStatus = [fbWebGLStatus copy];          /* outlives main()'s start-up autorelease pool */
+    fprintf(stderr, "frostbyte: webgl: %s\n", [fbWebGLStatus UTF8String]);
     if (!zeroCopy || !caps.sharedBuffers)
         setenvFromPreference("LEOPARD_WPE_ZEROCOPY", "0");
     fbGPUActive = gpu;

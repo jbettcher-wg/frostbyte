@@ -53,6 +53,7 @@ extern NSString *const PrefSearchSuggestions;          /* BOOL: ask the search p
 extern NSString *const PrefGraphics;                   /* Auto | On | Off  (next launch) */
 extern NSString *const PrefZeroCopy;                   /* (next launch) */
 extern NSString *const PrefVideoDecoding;              /* Auto | On | Off: UVD H.264 decoding (rdnvdh264dec) */
+extern NSString *const PrefWebGL;                      /* Off | On (WebGL 1) | On2 (WebGL 1 + 2, experimental) (next launch) */
 extern NSString *const PrefPreferH264;                 /* BOOL: with hardware decoding on, steer sites to H.264 */
 extern NSString *const PrefJIT;                        /* (next launch) */
 extern NSString *const PrefRasterThreads;              /* 0 = automatic, 1..16 (next launch) */
@@ -98,6 +99,18 @@ extern FBGraphicsCapabilities fbGraphics;               /* detected at startup *
 #endif
 extern BOOL fbGPUActive, fbZeroCopyActive;              /* what this run uses */
 extern BOOL fbHardwareVideoActive;                      /* UVD decoding on in this run */
+/* WebGL (FrostByte 0.4). The verdict reaches WebKit as enable-webgl on every view's settings. The Hardware pane's
+ * WebGL switch (Off by default) turns it on: WebGL 1 on the GPU tier, or WebGL 1 + 2 on the gl33 tier (RadeonNI).
+ * LEOPARD_WPE_WEBGL=1|0 in the environment overrides everything (testing). Automatic detection (GPU graphics,
+ * RadeonNI, a cached probe of the gl33 tier) exists only in builds with FROSTBYTE_WEBGL_AUTO=1; it is 0 for now,
+ * so nothing is probed and the Test Again button is hidden. */
+#ifndef FROSTBYTE_WEBGL_AUTO
+#define FROSTBYTE_WEBGL_AUTO 0
+#endif
+extern BOOL fbWebGLActive;                              /* WebGL on in this run */
+extern NSString *fbWebGLStatus;                         /* why, for Preferences and the log */
+void fbRetestWebGL(void);                               /* forget the cached probe verdict */
+int fbWebGLProbeMain(void);                             /* fb-webgl-probe.c: the --gl33-probe helper */
 void applyStartupPreferences(void);
 void relaunch(void);
 

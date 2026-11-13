@@ -24,6 +24,7 @@ NSString *const PrefShowStatusBar = @"ShowStatusBar";
 NSString *const PrefGraphics = @"GraphicsAcceleration";
 NSString *const PrefZeroCopy = @"ZeroCopyFrames";
 NSString *const PrefVideoDecoding = @"HardwareVideoDecoding";
+NSString *const PrefWebGL = @"WebGL";
 NSString *const PrefPreferH264 = @"PreferH264WithHardwareDecoding";
 NSString *const PrefJIT = @"JavaScriptJIT";
 NSString *const PrefRasterThreads = @"CPURasterThreads";
@@ -53,6 +54,7 @@ void registerDefaults(void)
         @"Auto", PrefGraphics,
         [NSNumber numberWithBool:YES], PrefZeroCopy,
         @"Auto", PrefVideoDecoding,
+        @"Off", PrefWebGL,
         [NSNumber numberWithBool:YES], PrefPreferH264,
         [NSNumber numberWithBool:YES], PrefJIT,
         [NSNumber numberWithInt:0], PrefRasterThreads,

@@ -224,7 +224,7 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
 
 - (NSView *)hardwarePane
 {
-    NSView *v = [self paneWithHeight:430];
+    NSView *v = [self paneWithHeight:490];
     NSArray *autoOnOff = [NSArray arrayWithObjects:@"Automatic", @"On", @"Off", nil];
     NSArray *autoOnOffValues = [NSArray arrayWithObjects:@"Auto", @"On", @"Off", nil];
     CGFloat y = 20;
@@ -263,6 +263,30 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
     [[self checkbox:@"Prefer H.264 so the card decodes it (YouTube)" key:PrefPreferH264 in:v y:y]
         setEnabled:fbGraphics.uvdSessions];
     y += 30;
+    [self label:@"WebGL:" in:v y:y];
+    NSPopUpButton *webgl = [self popup:[NSArray arrayWithObjects:@"Off", @"WebGL 1", @"WebGL 1 + 2 (experimental)", nil]
+                                values:[NSArray arrayWithObjects:@"Off", @"On", @"On2", nil]
+                                   key:PrefWebGL in:v y:y width:200];
+    /* Only what this machine can do is selectable: WebGL 1 needs an accelerated OpenGL renderer (any vendor),
+     * WebGL 2 needs RadeonNI's modern (OpenGL 3+) contexts. A stored choice the hardware lost falls back at launch. */
+    BOOL canWebGL1 = fbGraphics.radeon || fbGraphics.accelerated, canWebGL2 = fbGraphics.radeon;
+    [webgl setAutoenablesItems:NO];
+    [[webgl itemAtIndex:1] setEnabled:canWebGL1];
+    [[webgl itemAtIndex:2] setEnabled:canWebGL2];
+    NSButton *retest = [[[NSButton alloc] initWithFrame:NSMakeRect(kPaneWidth - 140, y - 2, 120, 26)] autorelease];
+    [retest setBezelStyle:NSRoundedBezelStyle];
+    [retest setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+    [retest setTitle:@"Test Again"];
+    [retest setTarget:self];
+    [retest setAction:@selector(retestWebGL:)];
+    [retest setEnabled:FROSTBYTE_WEBGL_AUTO];
+    [retest setHidden:!FROSTBYTE_WEBGL_AUTO];
+    [v addSubview:retest];
+    y += 26;
+    [self note:[NSString stringWithFormat:@"Now: %@.%@ Changes apply when FrostByte is next opened.", fbWebGLStatus,
+                !canWebGL1 ? @" Needs an accelerated graphics card." : !canWebGL2 ? @" WebGL 2 needs a Radeon with the RadeonNI driver." : @""]
+              in:v y:y];
+    y += 34;
     [self separator:v y:y];
     y += 14;
     [self text:@"Advanced" in:v frame:NSMakeRect(20, y, 200, 17) align:NSLeftTextAlignment small:NO];
@@ -410,6 +434,7 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
 
 - (void)restart:(id)sender { (void)sender; relaunch(); }
 - (void)checkForUpdatesNow:(id)sender { (void)sender; fbCheckForUpdates(); }
+- (void)retestWebGL:(id)sender { (void)sender; fbRetestWebGL(); }   /* the probe runs again at the next launch */
 
 - (void)updateCacheNote
 {

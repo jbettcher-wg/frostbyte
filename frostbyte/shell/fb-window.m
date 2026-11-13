@@ -740,6 +740,8 @@ static FBToolButton *toolButton(FBWindowController *self, NSView *bar, FBIcon ic
     if (console && *console && strcmp(console, "0"))
         webkit_settings_set_enable_write_console_messages_to_stdout(webkit_web_view_get_settings(view), TRUE);
     addDebugUserScript(view);
+    /* WebGL: this run's verdict (fb-hardware.m); off unless the Preferences switch or LEOPARD_WPE_WEBGL said yes. */
+    webkit_settings_set_enable_webgl(webkit_web_view_get_settings(view), fbWebGLActive);
     /* With UVD decoding on, codecs only a hardware decoder may play are the ones UVD lacks: sites (YouTube)
      * then see VP9/VP8/AV1 as unsupported in MSE/canPlayType and send H.264, which the card decodes. */
     if (fbHardwareVideoActive && [prefs() boolForKey:PrefPreferH264])
