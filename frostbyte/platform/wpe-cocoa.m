@@ -117,11 +117,14 @@ static guint keysymForCharacter(unichar c)
     guint buttonState;             /* WPE_MODIFIER_POINTER_BUTTON* currently held */
     NSCursor *cursor;              /* what WebKit asked for over this view */
     NSOpenGLContext *glContext;    /* zero-copy frames: shared GPU buffers drawn with OpenGL */
+    BOOL surfaceStale;             /* the GL surface was resized during a live resize, see -reattachSurface */
 }
 - (void)setPageCursor:(NSCursor *)c;
 - (BOOL)presentDMABuf:(WPEBufferDMABuf *)buffer;
 - (void)leaveGL;
 @end
+
+static void presentCommittedAgain(WPEView *view);
 
 /* ---- zero-copy frames (LeopardGPU shared buffers from the web process, see leopardegl/egl.c) ---- */
 #define LEOPARD_RADEONNI_COMPAT_RENDERER 0x00021a00
@@ -173,6 +176,43 @@ static void importedBufferFree(gpointer data)
 {
     if (glContext && [glContext view])
         [glContext clearDrawable];
+}
+
+/* After a window is resized by dragging (live resize), the window server's GL compositor keeps texturing this
+ * view's GL surface at its size from before the drag (CGSGetSurfaceBounds reports the new bounds; the stale
+ * size is in the compositor's texture of our drawable, RadeonNI on board 1, 10.5.8). Frames look right while
+ * the server copies the surface straight to the screen, but whenever it composites it, because another window
+ * overlaps the page (the link-status bubble on every link hover, a menu, a utility window), the page shrinks or
+ * grows by old/new size with edge-clamped streaks past the frame. -update after the drag doesn't help (same
+ * size, no-op); detaching and re-attaching the drawable does, but not at once: a re-attach 6 ms after
+ * -viewDidEndLiveResize still left it stale, 20, 150 and 300 ms fixed it (measured on board 1). */
+- (void)reattachSurface
+{
+    surfaceStale = NO;
+    if (!glContext || [glContext view] != self)
+        return;
+    [glContext clearDrawable];
+    [glContext setView:self];
+}
+
+static gboolean reattachAfterLiveResize(gpointer data)
+{
+    FBWPEView *view = data;
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    if (view->surfaceStale && ![view inLiveResize] && view->wpeView) {
+        [view reattachSurface];
+        presentCommittedAgain(view->wpeView);   /* the new surface is empty until something draws into it */
+    }
+    [pool release];
+    [view release];
+    return G_SOURCE_REMOVE;
+}
+
+- (void)viewDidEndLiveResize
+{
+    [super viewDidEndLiveResize];
+    if (surfaceStale)
+        g_timeout_add(150, reattachAfterLiveResize, [self retain]);   /* once the window server is done with it */
 }
 
 - (BOOL)presentDMABuf:(WPEBufferDMABuf *)buffer
@@ -313,8 +353,11 @@ static void importedBufferFree(gpointer data)
 - (void)setFrameSize:(NSSize)size
 {
     [super setFrameSize:size];
-    if (glContext && [glContext view] == self)
+    if (glContext && [glContext view] == self) {
         [glContext update];
+        if ([self inLiveResize])
+            surfaceStale = YES;
+    }
     if (wpeView)
         wpe_view_resized(wpeView, (int)size.width, (int)size.height);
 }
@@ -672,6 +715,14 @@ static gboolean frameCallback(gpointer data)
     if (self->committedBuffer)
         wpe_view_buffer_rendered(view, self->committedBuffer);
     return G_SOURCE_CONTINUE;
+}
+
+/* Draw the frame on screen again (a re-attached GL surface starts empty). */
+static void presentCommittedAgain(WPEView *view)
+{
+    WPEViewCocoa *self = WPE_VIEW_COCOA(view);
+    if (self->committedBuffer && WPE_IS_BUFFER_DMA_BUF(self->committedBuffer))
+        [self->nsview presentDMABuf:WPE_BUFFER_DMA_BUF(self->committedBuffer)];
 }
 
 static gboolean frameDispatch(GSource *source, GSourceFunc callback, gpointer userData)
