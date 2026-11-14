@@ -24,7 +24,7 @@
 #include <string.h>
 #include "../platform/wpe-cocoa.h"
 
-#define FROSTBYTE_VERSION "0.4-dev"
+#define FROSTBYTE_VERSION "0.4"
 
 /* GLib's loop (WebKit's signals) calls into Cocoa outside any AppKit autorelease pool. */
 #define FB_POOL_BEGIN NSAutoreleasePool *fbPool = [[NSAutoreleasePool alloc] init]
