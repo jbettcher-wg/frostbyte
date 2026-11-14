@@ -157,7 +157,8 @@ def isa_scan(path, isa):
         if len(raw) == 4 and (raw[:2] == ['ff', 'ff'] or raw[:2] == ['00', '00']):
             continue
         mn = parts[1].split(' ', 1)[0].strip()
-        if mn in forbidden or mn.startswith(VSX_PREFIXES):
+        # isel's extended forms (isellt, iselgt, iseleq...) are what llvm-objdump prints for most of them
+        if mn in forbidden or mn.startswith(VSX_PREFIXES) or mn.startswith('isel'):
             bad[mn] = bad.get(mn, 0) + 1
     return bad
 
