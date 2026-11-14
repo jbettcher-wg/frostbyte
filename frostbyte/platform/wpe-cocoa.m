@@ -118,6 +118,14 @@ static guint keysymForCharacter(unichar c)
     NSCursor *cursor;              /* what WebKit asked for over this view */
     NSOpenGLContext *glContext;    /* zero-copy frames: shared GPU buffers drawn with OpenGL */
     BOOL surfaceStale;             /* the GL surface was resized during a live resize, see -reattachSurface */
+    /* a drop from another application in progress over this view (see -draggingEntered:) */
+    NSPoint dropPoint;             /* last pointer position, WPE coordinates */
+    WPEDragOperation dropOperations;
+    gint64 dropForwarded;          /* when WebKit last got a motion (g_get_monotonic_time) */
+    guint dropTicksAlone;          /* heartbeat ticks since AppKit last called us about it */
+    guint dropDeferred;            /* a drop waiting for the page to catch up (see -performDragOperation:) */
+    int dropCatchUp;               /* motions still to send before it */
+    guint dropTimer;               /* the dragover heartbeat */
 }
 - (void)setPageCursor:(NSCursor *)c;
 - (BOOL)presentDMABuf:(WPEBufferDMABuf *)buffer;
@@ -163,6 +171,11 @@ static void importedBufferFree(gpointer data)
 
 - (void)dealloc
 {
+    [self unregisterDraggedTypes];
+    if (dropTimer)
+        g_source_remove(dropTimer);
+    if (dropDeferred)
+        g_source_remove(dropDeferred);
     if (image)
         CGImageRelease(image);
     [cursor release];
@@ -482,6 +495,250 @@ static guint wpeButton(NSEvent *event)
 /* Let Cmd-key combinations reach the page as well as the menu bar. */
 - (BOOL)performKeyEquivalent:(NSEvent *)e { (void)e; return NO; }
 
+/* ---- drops from other applications: files from the Finder, links and text ----
+ * AppKit asks for the operation synchronously while WebKit answers asynchronously (the web process runs the
+ * page's dragenter/dragover handlers), so every callback returns the page's latest answer
+ * (WPEView:drop-operation).
+ * The page must see dragover steadily while the pointer rests: chat sites (Discord) take a pause of ~100-150 ms
+ * without dragover as "the drag has gone", hide their upload overlay and answer "none", and AppKit then turns the
+ * release into -draggingExited: (no drop). AppKit on 10.5 repeats -draggingUpdated: only every 135-290 ms while
+ * the pointer rests (measured with a Finder drag), and twice per step while it moves. So WebKit gets a motion on
+ * every pointer move and, from a GLib timer, at least every kDropOverInterval otherwise, which is the dragover
+ * cadence Chrome has; AppKit's repeats in between are dropped. The timer needs the main thread free: see
+ * kSlowPresent for the window server that keeps it busy during drags. Test page: tests/pages/dnd-overlay.html. */
+
+static const gint64 kDropOverInterval = 50000;   /* microseconds */
+
+/* FROSTBYTE_DEBUG_DND=1: every AppKit dragging callback and every answer from the page, with times (ms). */
+static BOOL dndDebug(void)
+{
+    static int on = -1;
+    if (on < 0)
+        on = getenv("FROSTBYTE_DEBUG_DND") && *getenv("FROSTBYTE_DEBUG_DND") == '1';
+    return on;
+}
+
+static void dndLog(const char *what, NSPoint p, NSDragOperation mask, NSDragOperation answer)
+{
+    if (dndDebug())
+        fprintf(stderr, "frostbyte-dnd %8.1f %-8s at %4.0f,%4.0f offered %#lx -> %#lx\n", g_get_monotonic_time() / 1000.0,
+                what, p.x, p.y, (unsigned long)mask, (unsigned long)answer);
+}
+
+static void dndOperationChanged(WPEView *view, GParamSpec *pspec, gpointer data)
+{
+    (void)pspec; (void)data;
+    fprintf(stderr, "frostbyte-dnd %8.1f page answers %#x\n", g_get_monotonic_time() / 1000.0,
+            (unsigned)wpe_view_get_drop_operation(view));
+}
+
+static WPEDragOperation wpeDragOperations(NSDragOperation mask)
+{
+    guint operations = 0;
+    if (mask & (NSDragOperationCopy | NSDragOperationGeneric))
+        operations |= WPE_DRAG_OPERATION_COPY;
+    if (mask & NSDragOperationMove)
+        operations |= WPE_DRAG_OPERATION_MOVE;
+    if (mask & NSDragOperationLink)
+        operations |= WPE_DRAG_OPERATION_LINK;
+    return (WPEDragOperation)operations;
+}
+
+- (NSDragOperation)dropOperation:(id <NSDraggingInfo>)info
+{
+    WPEDragOperation accepted = wpeView ? wpe_view_get_drop_operation(wpeView) : WPE_DRAG_OPERATION_NONE;
+    NSDragOperation operation = (accepted & WPE_DRAG_OPERATION_COPY) ? NSDragOperationCopy
+        : (accepted & WPE_DRAG_OPERATION_MOVE) ? NSDragOperationMove
+        : (accepted & WPE_DRAG_OPERATION_LINK) ? NSDragOperationLink : NSDragOperationNone;
+    NSDragOperation allowed = [info draggingSourceOperationMask];
+    if (operation & allowed)
+        return operation;
+    /* COPY stands for Generic as well (a source that only offers Generic, e.g. with Command held). */
+    return (operation && (allowed & NSDragOperationGeneric)) ? NSDragOperationGeneric : NSDragOperationNone;
+}
+
+static gboolean dropHeartbeat(gpointer data)
+{
+    FBWPEView *view = data;
+    gint64 now = g_get_monotonic_time();
+    /* AppKit repeats itself at least every ~300 ms while a drag is over the view: some 40 ticks (a second of this
+     * timer running, so a main thread blocked elsewhere doesn't count) without it mean the drag is gone without
+     * -draggingExited: (the source quit). End it as a leave; -draggingUpdated: starts over if it was only a stall. */
+    if (!view->wpeView || ++view->dropTicksAlone > 40) {
+        view->dropTimer = 0;
+        if (view->wpeView)
+            wpe_view_drop_leave(view->wpeView);
+        return G_SOURCE_REMOVE;
+    }
+    BOOL due = now - view->dropForwarded >= kDropOverInterval - 5000;
+    if (dndDebug())
+        fprintf(stderr, "frostbyte-dnd %8.1f tick%s\n", now / 1000.0, due ? " -> motion" : "");
+    if (due) {
+        view->dropForwarded = now;
+        wpe_view_drop_motion(view->wpeView, view->dropPoint.x, view->dropPoint.y, view->dropOperations);
+    }
+    return G_SOURCE_CONTINUE;
+}
+
+/* A motion for WebKit, unless it would only repeat the last one within kDropOverInterval. */
+- (void)forwardDropMotion:(NSPoint)p operations:(WPEDragOperation)operations
+{
+    gint64 now = g_get_monotonic_time();
+    if (NSEqualPoints(p, dropPoint) && operations == dropOperations && now - dropForwarded < kDropOverInterval)
+        return;
+    dropPoint = p;
+    dropOperations = operations;
+    dropForwarded = now;
+    wpe_view_drop_motion(wpeView, p.x, p.y, operations);
+}
+
+/* The drop the page catches up for in -performDragOperation:, a motion at a time. */
+static gboolean dropCatchUpTick(gpointer data)
+{
+    FBWPEView *view = data;
+    if (!view->wpeView) {
+        view->dropDeferred = 0;
+        return G_SOURCE_REMOVE;
+    }
+    if (view->dropCatchUp-- > 0) {
+        view->dropForwarded = g_get_monotonic_time();
+        wpe_view_drop_motion(view->wpeView, view->dropPoint.x, view->dropPoint.y, view->dropOperations);
+        return G_SOURCE_CONTINUE;
+    }
+    view->dropDeferred = 0;
+    if (dndDebug())
+        fprintf(stderr, "frostbyte-dnd %8.1f drop (after catching up)\n", g_get_monotonic_time() / 1000.0);
+    wpe_view_drop_perform(view->wpeView, view->dropPoint.x, view->dropPoint.y);
+    return G_SOURCE_REMOVE;
+}
+
+/* A deferred drop still pending when the next drag arrives is delivered first. */
+- (void)finishDeferredDrop
+{
+    if (!dropDeferred)
+        return;
+    g_source_remove(dropDeferred);
+    dropDeferred = 0;
+    if (wpeView)
+        wpe_view_drop_perform(wpeView, dropPoint.x, dropPoint.y);
+}
+
+- (void)endDrop
+{
+    if (dropTimer) {
+        g_source_remove(dropTimer);
+        dropTimer = 0;
+    }
+}
+
+- (NSPoint)dropPoint:(id <NSDraggingInfo>)info
+{
+    NSPoint p = [self convertPoint:[info draggingLocation] fromView:nil];
+    return NSMakePoint(p.x, [self wpeY:p]);
+}
+
+- (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)info
+{
+    if (!wpeView)
+        return NSDragOperationNone;
+    [self finishDeferredDrop];
+    /* Files as the Finder lists them; otherwise a link (a file URL counts as a file) or plain text. Only
+     * files the platform reports become the drop's files: WebKit gives the page access to exactly these. */
+    NSPasteboard *pb = [info draggingPasteboard];
+    NSArray *types = [pb types];
+    GPtrArray *files = g_ptr_array_new();
+    NSString *uriList = nil, *text = nil;
+    if ([types containsObject:NSFilenamesPboardType]) {
+        id list = [pb propertyListForType:NSFilenamesPboardType];
+        if ([list isKindOfClass:[NSArray class]]) {
+            for (id path in list) {
+                if ([path isKindOfClass:[NSString class]] && [path length])
+                    g_ptr_array_add(files, (gpointer)[path fileSystemRepresentation]);
+            }
+        }
+    }
+    if (!files->len && [types containsObject:NSURLPboardType]) {
+        NSURL *url = [NSURL URLFromPasteboard:pb];
+        if ([url isFileURL] && [[url path] length])
+            g_ptr_array_add(files, (gpointer)[[url path] fileSystemRepresentation]);
+        else if (url)
+            uriList = [url absoluteString];
+    }
+    if (!files->len && [types containsObject:NSStringPboardType])
+        text = [pb stringForType:NSStringPboardType];
+    g_ptr_array_add(files, NULL);
+    NSPoint p = [self dropPoint:info];
+    dropPoint = p;
+    dropOperations = wpeDragOperations([info draggingSourceOperationMask]);
+    dropForwarded = g_get_monotonic_time();
+    dropTicksAlone = 0;
+    wpe_view_drop_enter(wpeView, p.x, p.y, dropOperations,
+                        files->len > 1 ? (const char *const *)files->pdata : NULL,
+                        [uriList UTF8String], [text UTF8String]);
+    if (!dropTimer)
+        dropTimer = g_timeout_add(kDropOverInterval / 2000, dropHeartbeat, self);   /* checks twice per interval */
+    g_ptr_array_free(files, TRUE);   /* the paths themselves are autoreleased */
+    NSDragOperation answer = [self dropOperation:info];
+    dndLog("entered", p, [info draggingSourceOperationMask], answer);
+    return answer;
+}
+
+- (NSDragOperation)draggingUpdated:(id <NSDraggingInfo>)info
+{
+    if (!wpeView)
+        return NSDragOperationNone;
+    if (!dropTimer)                    /* the heartbeat gave the drag up for gone (AppKit stalled): start over */
+        return [self draggingEntered:info];
+    NSPoint p = [self dropPoint:info];
+    dropTicksAlone = 0;
+    [self forwardDropMotion:p operations:wpeDragOperations([info draggingSourceOperationMask])];
+    NSDragOperation answer = [self dropOperation:info];
+    dndLog("updated", p, [info draggingSourceOperationMask], answer);
+    return answer;
+}
+
+- (void)draggingExited:(id <NSDraggingInfo>)info
+{
+    dndLog("exited", [self dropPoint:info], [info draggingSourceOperationMask], 0);
+    [self endDrop];
+    if (wpeView)
+        wpe_view_drop_leave(wpeView);
+}
+
+/* AppKit only gets here when our last answer accepted the drop. The page's answer may have changed since (it is
+ * asynchronous): WebKit delivers the drop event and the page decides, as WebKit's Mac and GTK drop targets do. */
+- (BOOL)prepareForDragOperation:(id <NSDraggingInfo>)info
+{
+    dndLog("prepare", [self dropPoint:info], [info draggingSourceOperationMask], [self dropOperation:info]);
+    if (wpeView)
+        return YES;
+    [self endDrop];
+    return NO;
+}
+
+- (BOOL)performDragOperation:(id <NSDraggingInfo>)info
+{
+    if (!wpeView)
+        return NO;
+    NSPoint p = [self dropPoint:info];
+    dndLog("perform", p, [info draggingSourceOperationMask], [self dropOperation:info]);
+    [self endDrop];
+    /* At the release AppKit may hold the main thread for one of its drag cycles (~150 ms measured, every other time)
+     * before it asks for the drop: no dragover reaches the page meanwhile, and a page that times out its drop target
+     * (see kDropOverInterval) has put it away when the drop arrives. Then the page first gets the dragovers it
+     * missed, as in a browser whose dragover never paused, and the drop follows them. */
+    if (g_get_monotonic_time() - dropForwarded > 2 * kDropOverInterval) {
+        dropPoint = p;
+        dropForwarded = g_get_monotonic_time();
+        wpe_view_drop_motion(wpeView, p.x, p.y, dropOperations);
+        dropCatchUp = 2;
+        dropDeferred = g_timeout_add(kDropOverInterval / 1000, dropCatchUpTick, self);
+        return YES;
+    }
+    wpe_view_drop_perform(wpeView, p.x, p.y);
+    return YES;
+}
+
 @end
 
 /* ------------------------------------------------------------------------------------------ */
@@ -536,6 +793,20 @@ static void setActive(WPEToplevel *t, gboolean active)
     state = active ? (WPEToplevelState)(state | WPE_TOPLEVEL_STATE_ACTIVE) : (WPEToplevelState)(state & ~WPE_TOPLEVEL_STATE_ACTIVE);
     wpe_toplevel_state_changed(t, state);
     wpe_toplevel_foreach_view(t, focusCallback, active ? GINT_TO_POINTER(1) : NULL);
+}
+/* Sheets (file panels, alerts) come out of the top of the page area, under the application's own chrome
+ * drawn over the title bar and above the views (tab strip, toolbar), as in Safari: AppKit would attach them
+ * right under the title bar, over the tabs and the address field. */
+- (NSRect)window:(NSWindow *)window willPositionSheet:(id)sheet usingRect:(NSRect)rect
+{
+    (void)sheet;
+    NSView *host = toplevel->viewHost;
+    if (!host || [host window] != window)
+        return rect;
+    NSRect page = [host convertRect:[host bounds] toView:nil];
+    rect.origin.y = NSMaxY(page);
+    rect.size.height = 0;
+    return rect;
 }
 - (void)windowDidBecomeKey:(NSNotification *)n { (void)n; setActive(WPE_TOPLEVEL(toplevel), TRUE); }
 - (void)windowDidResignKey:(NSNotification *)n { (void)n; setActive(WPE_TOPLEVEL(toplevel), FALSE); }
@@ -648,7 +919,26 @@ struct _WPEViewCocoa {
     WPEBuffer *committedBuffer;
     GSource *frameSource;
     gint64 lastFrameTime;
+    gint64 presentEnd;             /* when the last frame was on screen */
+    gint64 dropPresentCycle;       /* during a drop: how long a present waited for the window server, 0 = no wait */
 };
+
+/* While another application's drag is over a window, a window server that composites in software (no Quartz
+ * Extreme) shows a frame only every ~135 ms (measured), and a present that follows the previous one sooner waits
+ * for it inside the backing-store lock (coalesced updates): two frames in a row block the main thread ~270 ms, the
+ * page's dragover stops for that long, and drop targets give up (see -forwardDropMotion:). So during a drop the
+ * frames wait out that cycle on the frame timer instead, where it costs nothing: from the start without Quartz
+ * Extreme, and anywhere once a present has been seen to wait (kSlowPresent). Otherwise nothing changes. */
+static const gint64 kSlowPresent = 40000;               /* microseconds */
+static const gint64 kSoftwareCompositorCycle = 140000;
+
+static BOOL windowServerOnGPU(void)
+{
+    static int onGPU = -1;
+    if (onGPU < 0)
+        onGPU = CGDisplayUsesOpenGLAcceleration(CGMainDisplayID()) ? 1 : 0;
+    return onGPU;
+}
 
 G_DEFINE_FINAL_TYPE(WPEViewCocoa, wpe_view_cocoa, WPE_TYPE_VIEW)
 
@@ -698,6 +988,7 @@ static gboolean frameCallback(gpointer data)
     }
     if (self->committedBuffer) {
         NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        gint64 presentStart = g_get_monotonic_time();
         if (WPE_IS_BUFFER_DMA_BUF(self->committedBuffer)) {
             if (![self->nsview presentDMABuf:WPE_BUFFER_DMA_BUF(self->committedBuffer)])
                 fprintf(stderr, "frostbyte: could not present a shared GPU buffer\n");
@@ -706,6 +997,14 @@ static gboolean frameCallback(gpointer data)
             [self->nsview setFrameImage:imageForBuffer(self->committedBuffer)];
             [self->nsview display];        /* draw now, while the buffer is ours */
         }
+        self->presentEnd = g_get_monotonic_time();
+        gint64 took = self->presentEnd - presentStart;
+        if (!self->nsview->dropTimer && !self->nsview->dropDeferred)
+            self->dropPresentCycle = 0;
+        else if (took >= kSlowPresent && took > self->dropPresentCycle)
+            self->dropPresentCycle = MIN(took, 250000);   /* one window server cycle; an outlier mustn't stall frames */
+        if (dndDebug() && (self->nsview->dropTimer || self->nsview->dropDeferred))
+            fprintf(stderr, "frostbyte-dnd %8.1f present took %.1f ms\n", self->presentEnd / 1000.0, took / 1000.0);
         [pool release];
     }
     if (previous) {
@@ -783,6 +1082,13 @@ static gboolean wpe_view_cocoa_render_buffer(WPEView *view, WPEBuffer *buffer, c
     /* Present at most once per 1/60 s, like the headless backend. */
     gint64 now = g_get_monotonic_time();
     gint64 next = self->lastFrameTime ? self->lastFrameTime + G_USEC_PER_SEC / 60 : now;
+    if (self->nsview->dropTimer || self->nsview->dropDeferred) {   /* see kSlowPresent */
+        gint64 cycle = self->dropPresentCycle;
+        if (!windowServerOnGPU() && cycle < kSoftwareCompositorCycle)
+            cycle = kSoftwareCompositorCycle;
+        if (cycle && next < self->presentEnd + cycle + 10000)
+            next = self->presentEnd + cycle + 10000;
+    }
     self->lastFrameTime = now;
     g_source_set_ready_time(self->frameSource, next <= now ? 0 : next);
     return TRUE;
@@ -848,6 +1154,10 @@ static void wpe_view_cocoa_constructed(GObject *object)
     self->nsview = [[FBWPEView alloc] initWithFrame:NSMakeRect(0, 0, 1024, 700)];
     self->nsview->wpeView = WPE_VIEW(self);
     [self->nsview setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    if (dndDebug())
+        g_signal_connect(object, "notify::drop-operation", G_CALLBACK(dndOperationChanged), NULL);
+    [self->nsview registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, NSURLPboardType,
+                                                                    NSStringPboardType, nil]];
     g_signal_connect(object, "notify::toplevel", G_CALLBACK(viewToplevelChanged), NULL);
     g_signal_connect(object, "notify::visible", G_CALLBACK(viewVisibleChanged), NULL);
 

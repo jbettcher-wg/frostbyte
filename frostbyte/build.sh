@@ -25,7 +25,7 @@ $CC1 $CF -fnext-runtime -fobjc-abi-version=2 -c "$F/platform/wpe-cocoa.m" -o "$O
 $CC1 $CF -c "$F/platform/wpe-cocoa-egl.c" -o "$O/wpe-cocoa-egl.o"
 SHELL_OBJS="$O/fb-webgl-probe.o"
 $CC1 $CF -c "$F/shell/fb-webgl-probe.c" -o "$O/fb-webgl-probe.o"   # the --gl33-probe helper (plain C, libepoxy)
-for m in frostbyte-shell fb-defaults fb-hardware fb-window fb-chrome fb-bookmarks fb-history fb-library fb-omnibox fb-preferences fb-about fb-update; do
+for m in frostbyte-shell fb-defaults fb-hardware fb-window fb-chrome fb-bookmarks fb-history fb-library fb-omnibox fb-preferences fb-about fb-update fb-filechooser; do
     $CC1 $CF -c -fnext-runtime -fobjc-abi-version=2 "$F/shell/$m.m" -o "$O/$m.o"
     SHELL_OBJS="$SHELL_OBJS $O/$m.o"
 done

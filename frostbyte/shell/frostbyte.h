@@ -9,6 +9,7 @@
  *   fb-preferences.m   the Preferences window
  *   fb-about.m         the About window (the frosting window onto the pines)
  *   fb-update.m        Software Update: the signed release manifest, download, verify, replace and relaunch
+ *   fb-filechooser.m   <input type=file>: the NSOpenPanel sheet
  * Copyright (c) 2026 Jordan Bettcher
  * SPDX-License-Identifier: MIT
  */
@@ -386,6 +387,9 @@ extern NSString *const PrefCheckForUpdates;             /* BOOL: check about onc
 void fbUpdateRegisterDefaults(void);                    /* from registerDefaults() */
 void fbUpdateStartup(void);                             /* after the first window: finish an update, schedule checks */
 void fbCheckForUpdates(void);                           /* Check for Updates... */
+
+/* fb-filechooser.m: WebKitWebView::run-file-chooser, user data = the FBTab */
+gboolean fbRunFileChooser(WebKitWebView *view, WebKitFileChooserRequest *request, gpointer tab);
 
 /* fb-preferences.m */
 @interface FBPreferences : NSObject {

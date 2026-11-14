@@ -770,6 +770,7 @@ static FBToolButton *toolButton(FBWindowController *self, NSView *bar, FBIcon ic
     g_signal_connect(view, "ready-to-show", G_CALLBACK(tabReadyToShow), tab);
     g_signal_connect(view, "close", G_CALLBACK(tabCloseRequested), tab);
     g_signal_connect(view, "web-process-terminated", G_CALLBACK(tabProcessTerminated), tab);
+    g_signal_connect(view, "run-file-chooser", G_CALLBACK(fbRunFileChooser), tab);
     g_signal_connect(wpeView, "closed", G_CALLBACK(tabViewClosed), tab);
 
     wpe_view_set_visible(wpeView, FALSE);
@@ -923,6 +924,8 @@ static void nudgeRepaint(FBTab *tab)
         return;
     closing = YES;
     [self retain];
+    if ([window attachedSheet])               /* a file panel answers "cancelled", a question "no" */
+        [NSApp endSheet:[window attachedSheet]];
     [omnibox hide];
     if (omnibox)
         omnibox->owner = nil;               /* a suggestion request may still be on its way */
