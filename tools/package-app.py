@@ -38,10 +38,12 @@ INSTALL_NAME_TOOL = TC + 'install_name_tool'
 PREFIX = '/opt/wpe'
 
 SUFFIXES = {'t4240': '', 'g5': '-g5', 'generic': '-generic'}
-# GStreamer plugins not shipped: the UVD decoder is not built for release, and gstgl's
-# EGL module path is compiled in (/opt/wpe/lib/libEGL.1.dylib); WebKit is built without
-# GStreamer GL, so nothing asks for them.
-SKIP_PLUGINS = {'libgstrdnvd.dylib', 'libgstopengl.dylib'}
+# GStreamer plugins not shipped: gstgl's EGL module path is compiled in
+# (/opt/wpe/lib/libEGL.1.dylib) and WebKit is built without GStreamer GL, so nothing asks for it.
+# libgstrdnvd (the UVD H.264 decoder) is shipped when the stage has it (release builds; this
+# repository doesn't build it). It only activates when the GPU driver (RadeonNI or Firebrand)
+# offers UVD sessions, and is inert otherwise.
+SKIP_PLUGINS = {'libgstopengl.dylib'}
 
 LC_REQ_DYLD = 0x80000000
 LOAD_CMDS = {0xc, 0x18 | LC_REQ_DYLD, 0x1f | LC_REQ_DYLD, 0x20, 0x23 | LC_REQ_DYLD}  # load, weak, reexport, lazy, upward
