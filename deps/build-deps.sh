@@ -311,6 +311,8 @@ pkg_dav1d() {
 # frame ("no valid frames"), so it stays off until fixed (docs/altivec-media-audit.md, AV1).
 FFMPEG_DECODERS=h264,vp8,vp9,aac,mp3,mp3float,opus,vorbis,flac,libdav1d
 FFMPEG_PARSERS=h264,vp8,vp9,av1,aac,mpegaudio,opus,vorbis,flac
+# --cc drops the target's CPU flags (they ride in $CC), so they go in --extra-cflags: --cpu alone gives the generic
+# target plain -mcpu=970, whose fsqrt the e6500 lacks (-mno-powerpc-gpopt is part of LEOPARD_CPU_FLAGS there).
 pkg_ffmpeg() {
     local d=ffmpeg-8.0.3
     unpack $d.tar.xz $d
@@ -318,7 +320,7 @@ pkg_ffmpeg() {
     "$SRC/$d/configure" --prefix=$WPE_PREFIX --enable-cross-compile --target-os=darwin --arch=ppc64 --cpu=$LEOPARD_FFMPEG_CPU \
         --cc="${CC% -m64*}" --cxx="${CXX% -m64*}" --ar="$AR" --nm="$NM" --ranlib="$RANLIB" --strip="$STRIP" \
         --host-cc=gcc --pkg-config=pkg-config \
-        --extra-cflags="-m64 $CFLAGS -Dstatic_assert=_Static_assert" --extra-ldflags="-m64 $LDFLAGS" \
+        --extra-cflags="-m64 $LEOPARD_CPU_FLAGS $CFLAGS -Dstatic_assert=_Static_assert" --extra-ldflags="-m64 $LDFLAGS" \
         --enable-shared --disable-static --enable-pic --disable-autodetect --disable-programs --disable-doc \
         --disable-avdevice --disable-swscale --disable-network --disable-everything \
         --enable-libdav1d --enable-decoder=$FFMPEG_DECODERS --enable-parser=$FFMPEG_PARSERS || return 1
