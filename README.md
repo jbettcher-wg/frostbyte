@@ -20,12 +20,12 @@ and nothing needs to be installed alongside it.
 
 ## Download
 
-Version 0.3.4, from the [v0.3.4 release](https://github.com/jbettcher-wg/frostbyte/releases/tag/v0.3.4):
+Version 0.4, from the [v0.4 release](https://github.com/jbettcher-wg/frostbyte/releases/tag/v0.4):
 
 | File | For |
 |---|---|
-| `FrostByte-0.3.4-G5.dmg` | Power Mac G5 (PowerPC 970, 970FX, 970MP) |
-| `FrostByte-0.3.4-e6500.dmg` | NXP T4240 and other e6500 systems running Mac OS X 10.5 |
+| `FrostByte-0.4-G5.dmg` | Power Mac G5 (PowerPC 970, 970FX, 970MP) |
+| `FrostByte-0.4-e6500.dmg` | NXP T4240 and other e6500 systems running Mac OS X 10.5 |
 
 SHA-256 checksums are in `SHA256SUMS` on the release page. Open the disk image
 and drag FrostByte to Applications.
@@ -34,9 +34,9 @@ From 0.3.4 on, FrostByte checks for new releases itself (FrostByte > Check for
 Updates...) and installs them after checking their signature; earlier versions
 need this one manual update.
 
-**Branches.** `release-0.3` holds the 0.3.x releases and their fixes; `main` is
-where development happens (WebGL for 0.4 is under way there) and may be less
-stable. Build `release-0.3` for the released version.
+**Branches.** `main` holds the current release, 0.4, and its development;
+`release-0.3` holds the 0.3.x releases. FrostByte 0.4 reads and keeps 0.3.4's
+bookmarks, history and settings, so going back to 0.3.4 is always possible.
 
 ## System requirements
 
@@ -46,7 +46,7 @@ FrostByte is a 64-bit (ppc64) program only.
 |---|---|---|
 | System | Mac OS X 10.5.8 (Leopard) | |
 | Processor | a 64-bit PowerPC: PowerPC G5 (970, 970FX, 970MP) or e6500 | a dual-core or dual-processor G5 |
-| Graphics | any | a Quartz Extreme capable graphics card (accelerated compositing; without one, pages are drawn in software and scrolling is slower) |
+| Graphics | any | a Quartz Extreme capable graphics card (accelerated compositing and WebGL; without one, pages are drawn in software, scrolling is slower and WebGL is unavailable) |
 | Disk | about 270 MB | |
 
 It does not run on a G3 or G4 (32-bit PowerPC) or on Intel Macs.
@@ -57,7 +57,7 @@ It does not run on a G3 or G4 (32-bit PowerPC) or on Intel Macs.
 |---|---|
 | Engine | WPE WebKit 2.54.1 with the Leopard/PowerPC port, Skia (with AltiVec paths) |
 | JavaScript | JavaScriptCore: LLInt interpreter, Baseline JIT, DFG and FTL optimising JITs, WebAssembly (in-place interpreter and BBQ JIT) |
-| Graphics | LeopardEGL: EGL 1.5 and OpenGL ES 2 over Leopard's OpenGL |
+| Graphics | LeopardEGL: EGL 1.5 and OpenGL ES 2 over Leopard's OpenGL; WebGL 1 and 2 through ANGLE |
 | Media | GStreamer 1.28.9; FFmpeg 8.0.3 (H.264, VP8, VP9, AAC, MP3, Opus, Vorbis, FLAC decoders); dav1d 1.5.2; libogg 1.3.6, libvorbis 1.3.7; orc 0.4.42 |
 | Networking | libsoup 3.6.5 with nghttp2 1.66.0 (HTTP/2), glib-networking 2.80.1, libpsl 0.21.5 |
 | TLS | GnuTLS 3.8.10 (TLS 1.3), Nettle 3.10.2, GMP 6.3.0, libtasn1 4.20.0; Mozilla's CA certificates |
