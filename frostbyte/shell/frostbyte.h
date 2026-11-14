@@ -84,12 +84,15 @@ gboolean unrefLater(gpointer object);                   /* a GSourceFunc */
 
 /* fb-hardware.m */
 typedef struct {
-    BOOL radeon;          /* the RadeonNI accelerated GL renderer is present */
+    BOOL radeon;          /* the RadeonNI accelerated GL renderer is present (RadeonNI, or Firebrand's alias of it) */
     BOOL sharedBuffers;   /* its LeopardGPU shared-buffer API works (zero-copy frames) */
     char renderer[128];   /* the card: RadeonNI's IORegistry model, else GL_RENDERER; "" if none */
     BOOL uvd;             /* a Radeon framebuffer whose driver carries UVD firmware */
     BOOL uvdSessions;     /* ... and has video decode sessions switched on */
     BOOL accelerated;     /* some accelerated GL renderer, any vendor (G5: Apple's NVIDIA/ATI drivers) */
+    BOOL uvdDecoder;      /* uvdSessions AND this build carries the decoder element (libgstrdnvd) where GStreamer
+                           * looks: only then is video decoded in hardware and are sites steered to H.264 */
+    char driver[16];      /* the Radeon's driver: "Firebrand" or "RadeonNI"; "" when there is no Radeon */
 } FBGraphicsCapabilities;
 extern FBGraphicsCapabilities fbGraphics;               /* detected at startup */
 /* Build profile (frostbyte/build.sh): the g5/generic builds let Automatic graphics pick the GPU tier on any

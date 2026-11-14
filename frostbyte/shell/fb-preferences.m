@@ -252,16 +252,17 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
     [self label:@"Hardware video decoding:" in:v y:y];
     NSPopUpButton *video = [self popup:autoOnOff values:autoOnOffValues key:PrefVideoDecoding in:v y:y width:120];
     [video setAutoenablesItems:NO];
-    [[video itemAtIndex:1] setEnabled:fbGraphics.uvdSessions];                         /* "On" needs UVD */
+    [[video itemAtIndex:1] setEnabled:fbGraphics.uvdDecoder];          /* "On" needs UVD and the decoder element */
     y += 26;
     [self note:[NSString stringWithFormat:@"%@ Now: %@.",
-                fbGraphics.uvdSessions ? @"Radeon UVD detected, with decode sessions (H.264)."
+                fbGraphics.uvdDecoder ? @"Radeon UVD detected, with decode sessions (H.264)."
+                : fbGraphics.uvdSessions ? @"Radeon UVD detected, but this build of FrostByte has no UVD decoder."
                 : fbGraphics.uvd ? @"Radeon UVD firmware detected; its driver has decode sessions off."
                 : @"No UVD video decoder detected.",
                 fbHardwareVideoActive ? @"hardware H.264" : @"CPU decoding"] in:v y:y];
     y += 24;
     [[self checkbox:@"Prefer H.264 so the card decodes it (YouTube)" key:PrefPreferH264 in:v y:y]
-        setEnabled:fbGraphics.uvdSessions];
+        setEnabled:fbGraphics.uvdDecoder];
     y += 30;
     [self label:@"WebGL:" in:v y:y];
     NSPopUpButton *webgl = [self popup:[NSArray arrayWithObjects:@"Off", @"WebGL 1", @"WebGL 1 + 2 (experimental)", nil]
@@ -284,7 +285,7 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
     [v addSubview:retest];
     y += 26;
     [self note:[NSString stringWithFormat:@"Now: %@.%@ Changes apply when FrostByte is next opened.", fbWebGLStatus,
-                !canWebGL1 ? @" Needs an accelerated graphics card." : !canWebGL2 ? @" WebGL 2 needs a Radeon with the RadeonNI driver." : @""]
+                !canWebGL1 ? @" Needs an accelerated graphics card." : !canWebGL2 ? @" WebGL 2 needs a Radeon with the RadeonNI or Firebrand driver." : @""]
               in:v y:y];
     y += 34;
     [self separator:v y:y];

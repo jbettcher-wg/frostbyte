@@ -43,6 +43,10 @@ static void detectVideoDecoder(FBGraphicsCapabilities *caps)
         return;
     io_service_t service;
     while ((service = IOIteratorNext(iter))) {
+        /* Firebrand's framebuffer subclasses RadeonNI's (compatibility), so the class name tells them apart. */
+        io_name_t className;
+        if (!caps->driver[0] && IOObjectGetClass(service, className) == KERN_SUCCESS)
+            g_strlcpy(caps->driver, g_str_has_prefix(className, "Firebrand") ? "Firebrand" : "RadeonNI", sizeof caps->driver);
         CFTypeRef firmware = IORegistryEntryCreateCFProperty(service, CFSTR("FW_UVD"), kCFAllocatorDefault, 0);
         if (firmware) {
             if (CFGetTypeID(firmware) == CFDataGetTypeID() && CFDataGetLength(firmware) > 0)
@@ -76,9 +80,37 @@ static void detectVideoDecoder(FBGraphicsCapabilities *caps)
     IOObjectRelease(iter);
 }
 
+/* The decoder element (libgstrdnvd) ships only in builds that can make it (the e6500 release build; the public
+ * repository can't build it), so a UVD session alone doesn't mean hardware decoding. Looks where this run's
+ * GStreamer looks: GST_PLUGIN_SYSTEM_PATH_1_0 (the bundle's, see setupBundledRuntime) and GST_PLUGIN_PATH_1_0,
+ * else the /opt/wpe prefix's plugin directory. */
+static BOOL uvdElementPresent(void)
+{
+    const char *system = getenv("GST_PLUGIN_SYSTEM_PATH_1_0"), *extra = getenv("GST_PLUGIN_PATH_1_0");
+    char *dirs = g_strdup_printf("%s:%s", system ? system : "/opt/wpe/lib/gstreamer-1.0", extra ? extra : "");
+    gchar **list = g_strsplit(dirs, ":", -1);
+    BOOL found = NO;
+    for (gchar **d = list; *d && !found; d++) {
+        if (!**d)
+            continue;
+        char *path = g_build_filename(*d, "libgstrdnvd.dylib", NULL);
+        found = g_file_test(path, G_FILE_TEST_IS_REGULAR);
+        g_free(path);
+    }
+    g_strfreev(list);
+    g_free(dirs);
+    return found;
+}
+
+/* "Firebrand", "RadeonNI", or "the GPU" for any other accelerated renderer (WebGL status text). */
+static NSString *gpuName(FBGraphicsCapabilities caps)
+{
+    return caps.radeon && caps.driver[0] ? str(caps.driver) : caps.radeon ? @"RadeonNI" : @"the GPU";
+}
+
 static FBGraphicsCapabilities detectGraphics(void)
 {
-    FBGraphicsCapabilities caps = { NO, NO, "", NO, NO, NO };
+    FBGraphicsCapabilities caps = { NO, NO, "", NO, NO, NO, NO, "" };
     CGLRendererInfoObj info = NULL;
     GLint count = 0;
     if (CGLQueryRendererInfo(0xffffffff, &info, &count) == kCGLNoError) {
@@ -94,6 +126,7 @@ static FBGraphicsCapabilities detectGraphics(void)
         CGLDestroyRendererInfo(info);
     }
     detectVideoDecoder(&caps);
+    caps.uvdDecoder = caps.uvdSessions && uvdElementPresent();
     if (!caps.radeon && !(FROSTBYTE_GL_ANY_ACCELERATED && caps.accelerated))
         return caps;
     CGLPixelFormatAttribute radeonAttributes[] = {
@@ -489,14 +522,14 @@ static BOOL decideWebGL(NSUserDefaults *defaults, BOOL gpu, FBGraphicsCapabiliti
         fbWebGLStatus = fbWebGLActive ? @"forced on (LEOPARD_WPE_WEBGL=1)" : @"forced off (LEOPARD_WPE_WEBGL=0)";
         return NO;                                  /* the tester sets LEOPARD_WPE_GL too */
     }
-    /* WebGL preview (0.4-dev): the Hardware pane's switch. On = WebGL 1 on the GPU tier (gl21, any accelerated
-     * renderer); LEOPARD_WPE_WEBGL=1 reaches LeopardEGL, WebKit and ANGLE in every process this run starts. */
+    /* The Hardware pane's switch. On = WebGL 1 on the GPU tier (gl21, any accelerated renderer);
+     * LEOPARD_WPE_WEBGL=1 reaches LeopardEGL, WebKit and ANGLE in every process this run starts. */
     /* "On2": WebGL 1 + 2 on the gl33 tier (OpenGL ES 3.0 over RadeonNI's modern-context bridge). Until the driver
      * reports GL 3.x on big-endian by itself (webgl-plan D11) and resolves MSAA (D7), Mesa's version is forced. */
     if ([[defaults stringForKey:PrefWebGL] caseInsensitiveCompare:@"On2"] == NSOrderedSame) {
         if (!gpu || !caps.radeon) {
             fbWebGLStatus = !gpu ? @"off: needs GPU graphics (set Graphics to Automatic or GPU)"
-                                 : @"WebGL 2 needs the RadeonNI driver; using WebGL 1";
+                                 : @"WebGL 2 needs the RadeonNI or Firebrand driver; using WebGL 1";
             if (!gpu)
                 return NO;
             setenv("LEOPARD_WPE_WEBGL", "1", 1);
@@ -507,7 +540,7 @@ static BOOL decideWebGL(NSUserDefaults *defaults, BOOL gpu, FBGraphicsCapabiliti
         setenv("MESA_GL_VERSION_OVERRIDE", "4.6COMPAT", 0);
         setenv("LEOPARD_GL33_MAX_SAMPLES", "4", 0);
         fbWebGLActive = YES;
-        fbWebGLStatus = @"on (WebGL 1 and 2 on the RadeonNI modern context, experimental)";
+        fbWebGLStatus = [NSString stringWithFormat:@"on (WebGL 1 and 2 on %@, experimental)", gpuName(caps)];
         return YES;                                   /* moves an automatic GPU tier to gl33 */
     }
     if ([[defaults stringForKey:PrefWebGL] caseInsensitiveCompare:@"On"] == NSOrderedSame) {
@@ -517,7 +550,7 @@ static BOOL decideWebGL(NSUserDefaults *defaults, BOOL gpu, FBGraphicsCapabiliti
         }
         setenv("LEOPARD_WPE_WEBGL", "1", 1);
         fbWebGLActive = YES;
-        fbWebGLStatus = @"on (WebGL 1 on the GPU, preview)";
+        fbWebGLStatus = [NSString stringWithFormat:@"on (WebGL 1 on %@)", gpuName(caps)];
         return NO;
     }
     if (!FROSTBYTE_WEBGL_AUTO) {
@@ -533,7 +566,7 @@ static BOOL decideWebGL(NSUserDefaults *defaults, BOOL gpu, FBGraphicsCapabiliti
         return NO;
     }
     if (!caps.radeon) {
-        fbWebGLStatus = @"needs the RadeonNI driver";
+        fbWebGLStatus = @"needs the RadeonNI or Firebrand driver";
         return NO;
     }
     NSString *key = webGLProbeKey();
@@ -596,20 +629,23 @@ void applyStartupPreferences(void)
     fprintf(stderr, "frostbyte: graphics: Radeon %s (%s), shared buffers %s; preference %s, zero-copy %s -> %s%s\n",
             caps.radeon ? "yes" : "no", caps.renderer, caps.sharedBuffers ? "yes" : "no", [mode UTF8String],
             zeroCopy ? "on" : "off", gpu ? "GPU" : "CPU", fbZeroCopyActive ? " (zero-copy)" : "");
-    /* Hardware video decoding: Auto uses UVD when its driver has decode sessions on. An explicit FROSTBYTE_UVD
-     * in the environment wins, as for the GL tier. Off reaches the web process's GStreamer as FROSTBYTE_UVD=0. */
+    /* Hardware video decoding: Auto uses UVD when its driver has decode sessions on and this build carries the
+     * decoder element (caps.uvdDecoder); otherwise video is decoded on the CPU and sites are not steered to H.264.
+     * An explicit FROSTBYTE_UVD in the environment wins, as for the GL tier. Off reaches the web process's
+     * GStreamer as FROSTBYTE_UVD=0. */
     NSString *video = [defaults stringForKey:PrefVideoDecoding];
     const char *forcedUVD = getenv("FROSTBYTE_UVD");
     if (forcedUVD && *forcedUVD)
         fbHardwareVideoActive = strcmp(forcedUVD, "0") != 0;
     else {
-        /* Hardware decoding only where UVD decode sessions exist, whether the choice is On or Automatic. */
-        fbHardwareVideoActive = caps.uvdSessions && [video caseInsensitiveCompare:@"Off"] != NSOrderedSame;
+        /* Hardware decoding only where UVD decode sessions and the decoder element exist, On or Automatic. */
+        fbHardwareVideoActive = caps.uvdDecoder && [video caseInsensitiveCompare:@"Off"] != NSOrderedSame;
         if (!fbHardwareVideoActive)
             setenvFromPreference("FROSTBYTE_UVD", "0");
     }
     fprintf(stderr, "frostbyte: video decoder: UVD %s; preference %s -> %s%s\n",
-            caps.uvdSessions ? "firmware, sessions on" : caps.uvd ? "firmware, sessions off" : "not found",
+            caps.uvdDecoder ? "firmware, sessions on" : caps.uvdSessions ? "sessions on, but this build has no decoder element"
+            : caps.uvd ? "firmware, sessions off" : "not found",
             [video UTF8String], fbHardwareVideoActive ? "hardware H.264" : "software",
             fbHardwareVideoActive && [defaults boolForKey:PrefPreferH264] ? " (sites steered to H.264)" : "");
 
