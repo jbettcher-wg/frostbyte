@@ -42685,6 +42685,26 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/crypto/keys/CryptoKey
  #include "CommonCryptoUtilities.h"
  
  typedef CCRSACryptorRef PlatformRSAKey;
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/dom/DataTransfer.cpp b/Source/WebCore/dom/DataTransfer.cpp
+--- a/Source/WebCore/dom/DataTransfer.cpp	2026-10-02 07:10:08.887806700 -0600
++++ b/Source/WebCore/dom/DataTransfer.cpp	2026-11-14 15:27:00.647708849 -0600
+@@ -266,7 +266,15 @@
+ {
+ #if PLATFORM(COCOA)
+     return !forDrag() || forFileDrag();
+-#elif PLATFORM(GTK) || PLATFORM(WPE)
++#elif PLATFORM(WPE)
++    // FrostByte: webkit.org/b/271957 is resolved for WPE here. A drag's file list is set only by the UI process
++    // from a drop the platform delivered (SelectionData::setFilenames), never from a page's text/uri-list, and
++    // the web process cannot send one back (SelectionData's IPC encoding has no filenames). So a file drag
++    // (DragAndDropFiles: the drag data holds files) may expose its files; paste keeps the rule below.
++    if (forDrag())
++        return forFileDrag();
++    return m_pasteboard && m_pasteboard->fileContentState() == Pasteboard::FileContentState::InMemoryImage;
++#elif PLATFORM(GTK)
+     // File drag access is disabled until https://webkit.org/b/271957 is resolved for GTK/WPE ports.
+     // In-memory image paste does not access files on disk, so it is safe to allow.
+     return !forDrag() && m_pasteboard && m_pasteboard->fileContentState() == Pasteboard::FileContentState::InMemoryImage;
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/dom/Document.cpp b/Source/WebCore/dom/Document.cpp
 --- a/Source/WebCore/dom/Document.cpp	2026-10-02 07:10:08.890806700 -0600
 +++ b/Source/WebCore/dom/Document.cpp	2026-11-13 12:45:04.907515444 -0600
@@ -43237,6 +43257,102 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/audio/Direct
  #include <Accelerate/Accelerate.h>
  #endif
  
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/glib/PasteboardGLib.cpp b/Source/WebCore/platform/glib/PasteboardGLib.cpp
+--- a/Source/WebCore/platform/glib/PasteboardGLib.cpp	2026-10-02 07:10:08.895806600 -0600
++++ b/Source/WebCore/platform/glib/PasteboardGLib.cpp	2026-11-14 15:27:00.648356800 -0600
+@@ -394,7 +394,11 @@
+             types.add(textPlainContentTypeAtom());
+         if (m_selectionData->hasMarkup())
+             types.add(textHTMLContentTypeAtom());
+-        if (m_selectionData->hasURIList())
++        // FrostByte: a drop of local files (filenames set by the UI process) carries their file: URLs in its URI
++        // list for the default action (opening the file), but a page never gets file: URLs from a file drag
++        // (canExposeURLToDOMWhenPasteboardContainsFiles), so don't advertise the type: Chrome and Safari report such a
++        // drop as "Files" only, and sites take text/uri-list for a link dragged off a page (Discord refuses the drop).
++        if (m_selectionData->hasURIList() && !m_selectionData->hasFilenames())
+             types.add("text/uri-list"_s);
+ 
+         return copyToVector(types);
+@@ -418,7 +422,7 @@
+     if (m_selectionData->hasMarkup())
+         types.append(textHTMLContentTypeAtom());
+ 
+-    if (m_selectionData->hasURIList()) {
++    if (m_selectionData->hasURIList() && !m_selectionData->hasFilenames()) {   // see typesSafeForBindings()
+         types.append("text/uri-list"_s);
+         types.append("URL"_s);
+     }
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/glib/SelectionData.cpp b/Source/WebCore/platform/glib/SelectionData.cpp
+--- a/Source/WebCore/platform/glib/SelectionData.cpp	2026-07-27 09:40:38.820387800 -0600
++++ b/Source/WebCore/platform/glib/SelectionData.cpp	2026-11-14 15:27:00.648736506 -0600
+@@ -36,8 +36,11 @@
+         setText(text);
+     if (!markup.isEmpty())
+         setMarkup(markup);
++    // FrostByte: decode the URL as sent. setURL() would invent text and <a href> markup for it, and for a file drop
++    // (the URL is the first dropped file's) getData('text/html') would then hand the page the file's full path.
++    // A sender that wants that text or markup set it before encoding (Pasteboard::write uses setURL()).
+     if (!url.isEmpty())
+-        setURL(url, String());
++        m_url = url;
+     if (!uriList.isEmpty())
+         setURIList(uriList);
+     if (image)
+@@ -71,8 +74,10 @@
+     // Process the input and copy the first valid URL into the url member.
+     // In case no URLs can be found, subsequent calls to getData("URL")
+     // will get an empty string. This is in line with the HTML5 spec (see
+-    // "The DragEvent and DataTransfer interfaces"). Also extract all filenames
+-    // from the URI list.
++    // "The DragEvent and DataTransfer interfaces").
++    // FrostByte: file:// lines no longer become filenames. A page can write text/uri-list itself
++    // (DataTransfer.setData() on a drag it starts), so a file list derived from it let a page drop
++    // file:///etc/passwd on itself and read it (CVE-2025-13947). Filenames come from setFilenames() only.
+     bool setURL = hasURL();
+     for (auto& line : uriListString.split('\n')) {
+         line = line.trim(deprecatedIsSpaceOrNewline);
+@@ -82,16 +87,9 @@
+             continue;
+ 
+         URL url { line };
+-        if (url.isValid()) {
+-            if (!setURL) {
+-                m_url = url;
+-                setURL = true;
+-            }
+-
+-            GUniqueOutPtr<GError> error;
+-            GUniquePtr<gchar> filename(g_filename_from_uri(line.utf8().data(), 0, &error.outPtr()));
+-            if (!error && filename)
+-                m_filenames.append(String::fromUTF8(filename.get()));
++        if (url.isValid() && !setURL) {
++            m_url = url;
++            setURL = true;
+         }
+     }
+ }
+diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/glib/SelectionData.h b/Source/WebCore/platform/glib/SelectionData.h
+--- a/Source/WebCore/platform/glib/SelectionData.h	2026-07-27 09:40:38.821388000 -0600
++++ b/Source/WebCore/platform/glib/SelectionData.h	2026-11-14 15:27:00.649011021 -0600
+@@ -48,11 +48,16 @@
+ 
+     void setURIList(const String&);
+     const String& uriList() const LIFETIME_BOUND { return m_uriList; }
+-    const Vector<String>& filenames() const LIFETIME_BOUND { return m_filenames; }
+     bool hasURIList() const { return !m_uriList.isEmpty(); }
+-    bool hasFilenames() const { return !m_filenames.isEmpty(); }
+     void clearURIList() { m_uriList = emptyString(); }
+ 
++    // The files the user is dragging. Only the UI process sets them, from a drop the platform delivered
++    // (WKWPE::ViewPlatform); they are never derived from a text/uri-list, which a page can write itself,
++    // and SelectionData's IPC encoding does not carry them (webkit.org/b/271957, webkit.org/b/323277).
++    void setFilenames(Vector<String>&& filenames) { m_filenames = WTF::move(filenames); }
++    const Vector<String>& filenames() const LIFETIME_BOUND { return m_filenames; }
++    bool hasFilenames() const { return !m_filenames.isEmpty(); }
++
+     void setImage(RefPtr<Image>&& newImage) { m_image = WTF::move(newImage); }
+     const RefPtr<Image>& image() const { return m_image; }
+     bool hasImage() const { return m_image; }
 diff -ruN --no-dereference -x __pycache__ a/Source/WebCore/platform/graphics/angle/GraphicsContextGLANGLE.cpp b/Source/WebCore/platform/graphics/angle/GraphicsContextGLANGLE.cpp
 --- a/Source/WebCore/platform/graphics/angle/GraphicsContextGLANGLE.cpp	2026-10-02 07:10:08.897806600 -0600
 +++ b/Source/WebCore/platform/graphics/angle/GraphicsContextGLANGLE.cpp	2026-11-13 12:45:35.702529106 -0600
@@ -44326,6 +44442,79 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/C/WKPage
  typedef void (*WKPageDoAfterProcessingAllPendingKeyEventsFunction)(void* functionContext);
  WK_EXPORT void WKPageDoAfterProcessingAllPendingKeyEvents(WKPageRef page, void* context, WKPageDoAfterProcessingAllPendingKeyEventsFunction function);
  
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/glib/WebKitFileChooserRequest.cpp b/Source/WebKit/UIProcess/API/glib/WebKitFileChooserRequest.cpp
+--- a/Source/WebKit/UIProcess/API/glib/WebKitFileChooserRequest.cpp	2026-09-17 15:07:49.919674600 -0600
++++ b/Source/WebKit/UIProcess/API/glib/WebKitFileChooserRequest.cpp	2026-11-14 15:27:00.663923411 -0600
+@@ -67,6 +67,7 @@
+     GRefPtr<GtkFileFilter> filter;
+ #endif
+     GRefPtr<GPtrArray> mimeTypes;
++    GRefPtr<GPtrArray> fileExtensions;
+     GRefPtr<GPtrArray> selectedFiles;
+     bool handledRequest;
+ };
+@@ -233,6 +234,48 @@
+     return reinterpret_cast<gchar**>(request->priv->mimeTypes->pdata);
+ }
+ 
++/**
++ * webkit_file_chooser_request_get_file_extensions:
++ * @request: a #WebKitFileChooserRequest
++ *
++ * Get the file name extensions accepted by the file chooser.
++ *
++ * The HTML input element's 'accept' attribute may list file name extensions
++ * (such as ".pdf") as well as MIME types; webkit_file_chooser_request_get_mime_types()
++ * returns only the MIME types, this function the extensions, lowercase and without
++ * the leading dot. A file is acceptable when it matches either list.
++ *
++ * Returns: (array zero-terminated=1) (transfer none): a %NULL-terminated array of
++ * strings if the 'accept' attribute lists extensions, %NULL otherwise. The array and
++ * its contents are owned by WebKit and should not be modified or freed.
++ *
++ * Since: 2.54 (FrostByte)
++ */
++const gchar* const* webkit_file_chooser_request_get_file_extensions(WebKitFileChooserRequest* request)
++{
++    g_return_val_if_fail(WEBKIT_IS_FILE_CHOOSER_REQUEST(request), nullptr);
++    if (request->priv->fileExtensions)
++        return reinterpret_cast<gchar**>(request->priv->fileExtensions->pdata);
++
++    Ref<API::Array> extensions = request->priv->parameters->acceptFileExtensions();
++    if (!extensions->size())
++        return nullptr;
++
++    request->priv->fileExtensions = adoptGRef(g_ptr_array_new_with_free_func(g_free));
++    for (size_t i = 0; i < extensions->size(); ++i) {
++        RefPtr extension = downcast<API::String>(extensions->at(i));
++        String string = extension->string();
++        if (string.startsWith('.'))
++            string = string.substring(1);
++        if (string.isEmpty())
++            continue;
++        g_ptr_array_add(request->priv->fileExtensions.get(), g_strdup(string.convertToASCIILowercase().utf8().data()));
++    }
++    g_ptr_array_add(request->priv->fileExtensions.get(), nullptr);
++
++    return reinterpret_cast<gchar**>(request->priv->fileExtensions->pdata);
++}
++
+ #if PLATFORM(GTK)
+ /**
+  * webkit_file_chooser_request_get_mime_types_filter:
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/glib/WebKitFileChooserRequest.h.in b/Source/WebKit/UIProcess/API/glib/WebKitFileChooserRequest.h.in
+--- a/Source/WebKit/UIProcess/API/glib/WebKitFileChooserRequest.h.in	2026-07-27 09:40:40.168385700 -0600
++++ b/Source/WebKit/UIProcess/API/glib/WebKitFileChooserRequest.h.in	2026-11-14 15:27:00.664368269 -0600
+@@ -60,6 +60,9 @@
+ webkit_file_chooser_request_get_mime_types_filter (WebKitFileChooserRequest *request);
+ #endif
+ 
++WEBKIT_API const gchar * const *
++webkit_file_chooser_request_get_file_extensions   (WebKitFileChooserRequest *request);
++
+ WEBKIT_API gboolean
+ webkit_file_chooser_request_get_select_multiple   (WebKitFileChooserRequest *request);
+ 
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp b/Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp
 --- a/Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp	2026-09-17 15:07:49.924674500 -0600
 +++ b/Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp	2026-11-13 12:45:35.703182194 -0600
@@ -44357,6 +44546,290 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/glib/Web
      // FIXME: Expose API for MediaSession when the feature is officially non-experimental.
  }
  
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/wpe/PageClientImpl.cpp b/Source/WebKit/UIProcess/API/wpe/PageClientImpl.cpp
+--- a/Source/WebKit/UIProcess/API/wpe/PageClientImpl.cpp	2026-10-02 07:21:29.195483400 -0600
++++ b/Source/WebKit/UIProcess/API/wpe/PageClientImpl.cpp	2026-11-14 15:27:00.649264235 -0600
+@@ -78,6 +78,11 @@
+ {
+     m_view.setDragData(WTF::move(selection), dragOperationMask);
+ }
++
++void PageClientImpl::didPerformDragControllerAction()
++{
++    m_view.didPerformDragControllerAction();
++}
+ #endif
+ 
+ #if USE(LIBWPE)
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/wpe/PageClientImpl.h b/Source/WebKit/UIProcess/API/wpe/PageClientImpl.h
+--- a/Source/WebKit/UIProcess/API/wpe/PageClientImpl.h	2026-07-27 09:40:40.201452500 -0600
++++ b/Source/WebKit/UIProcess/API/wpe/PageClientImpl.h	2026-11-14 15:27:00.649598791 -0600
+@@ -74,6 +74,7 @@
+ #endif
+ #if ENABLE(DRAG_SUPPORT)
+     void startDrag(WebCore::SelectionData&&, OptionSet<WebCore::DragOperation>, RefPtr<WebCore::ShareableBitmap>&& dragImage, WebCore::IntPoint&& dragImageHotspot) override;
++    void didPerformDragControllerAction() override;
+ #endif
+ 
+ #if USE(ATK)
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/wpe/WPEWebView.h b/Source/WebKit/UIProcess/API/wpe/WPEWebView.h
+--- a/Source/WebKit/UIProcess/API/wpe/WPEWebView.h	2026-07-27 09:40:40.202385700 -0600
++++ b/Source/WebKit/UIProcess/API/wpe/WPEWebView.h	2026-11-14 15:27:00.649873795 -0600
+@@ -92,6 +92,7 @@
+ #if ENABLE(DRAG_SUPPORT)
+     void setDragData(WebCore::SelectionData&&, OptionSet<WebCore::DragOperation>);
+     bool updateDrag(const WebKit::NativeWebMouseEvent&);
++    virtual void didPerformDragControllerAction() { }
+ #endif
+     API::ViewClient& client() const { return *m_client; }
+     const WebCore::IntSize& size() const LIFETIME_BOUND { return m_size; }
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/wpe/WPEWebViewPlatform.cpp b/Source/WebKit/UIProcess/API/wpe/WPEWebViewPlatform.cpp
+--- a/Source/WebKit/UIProcess/API/wpe/WPEWebViewPlatform.cpp	2026-10-02 07:21:29.195483400 -0600
++++ b/Source/WebKit/UIProcess/API/wpe/WPEWebViewPlatform.cpp	2026-11-14 15:27:00.650134160 -0600
+@@ -39,9 +39,11 @@
+ #include "ViewSnapshotStore.h"
+ #include "WebPreferences.h"
+ #include <WebCore/Cursor.h>
++#include <WebCore/DragData.h>
+ #include <WebCore/NativeImage.h>
+ #include <WebCore/SystemSettings.h>
+ #include <wtf/glib/GUniquePtr.h>
++#include <wtf/text/StringBuilder.h>
+ 
+ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+ #include <skia/core/SkPixmap.h>
+@@ -126,6 +128,24 @@
+         auto& webView = *reinterpret_cast<ViewPlatform*>(userData);
+         webView.frameDisplayed();
+     }), this);
++#if ENABLE(DRAG_SUPPORT)
++    g_signal_connect(m_wpeView.get(), "drop-enter", G_CALLBACK(+[](WPEView*, gdouble x, gdouble y, WPEDragOperation operations, const char* const* files, const char* uriList, const char* text, gpointer userData) {
++        auto& webView = *reinterpret_cast<ViewPlatform*>(userData);
++        webView.dropEnter(WebCore::IntPoint(x, y), operations, files, uriList, text);
++    }), this);
++    g_signal_connect(m_wpeView.get(), "drop-motion", G_CALLBACK(+[](WPEView*, gdouble x, gdouble y, WPEDragOperation operations, gpointer userData) {
++        auto& webView = *reinterpret_cast<ViewPlatform*>(userData);
++        webView.dropMotion(WebCore::IntPoint(x, y), operations);
++    }), this);
++    g_signal_connect(m_wpeView.get(), "drop-leave", G_CALLBACK(+[](WPEView*, gpointer userData) {
++        auto& webView = *reinterpret_cast<ViewPlatform*>(userData);
++        webView.dropLeave();
++    }), this);
++    g_signal_connect(m_wpeView.get(), "drop-perform", G_CALLBACK(+[](WPEView*, gdouble x, gdouble y, gpointer userData) {
++        auto& webView = *reinterpret_cast<ViewPlatform*>(userData);
++        webView.dropPerform(WebCore::IntPoint(x, y));
++    }), this);
++#endif
+ 
+     createWebPage(configuration);
+     m_pageProxy->setIntrinsicDeviceScaleFactor(wpe_view_get_scale(m_wpeView.get()));
+@@ -359,6 +379,170 @@
+ }
+ #endif // ENABLE(TOUCH_EVENTS)
+ 
++#if ENABLE(DRAG_SUPPORT)
++static OptionSet<WebCore::DragOperation> toDragOperations(WPEDragOperation operations)
++{
++    OptionSet<WebCore::DragOperation> result;
++    if (operations & WPE_DRAG_OPERATION_COPY)
++        result.add(WebCore::DragOperation::Copy);
++    if (operations & WPE_DRAG_OPERATION_MOVE)
++        result.add(WebCore::DragOperation::Move);
++    if (operations & WPE_DRAG_OPERATION_LINK)
++        result.add(WebCore::DragOperation::Link);
++    return result;
++}
++
++static WPEDragOperation toWPEDragOperation(std::optional<WebCore::DragOperation> operation)
++{
++    if (!operation)
++        return WPE_DRAG_OPERATION_NONE;
++    switch (*operation) {
++    case WebCore::DragOperation::Copy:
++    case WebCore::DragOperation::Generic:
++        return WPE_DRAG_OPERATION_COPY;
++    case WebCore::DragOperation::Move:
++        return WPE_DRAG_OPERATION_MOVE;
++    case WebCore::DragOperation::Link:
++        return WPE_DRAG_OPERATION_LINK;
++    case WebCore::DragOperation::Private:
++    case WebCore::DragOperation::Delete:
++        break;
++    }
++    return WPE_DRAG_OPERATION_NONE;
++}
++
++void ViewPlatform::dropEnter(const WebCore::IntPoint& position, WPEDragOperation operations, const char* const* files, const char* uriList, const char* text)
++{
++    if (m_dropData)
++        dropLeave();
++
++    // The files come from the platform (the user is dragging them), so this is the one place that may set a
++    // drag's file names: the web process can't (see SelectionData::setFilenames).
++    WebCore::SelectionData data;
++    Vector<String> filenames;
++    StringBuilder uris;
++    for (auto* file = files; file && *file; ++file) {
++        if (!**file)
++            continue;
++        GUniquePtr<char> uri(g_filename_to_uri(*file, nullptr, nullptr));
++        if (!uri)
++            continue;
++        filenames.append(String::fromUTF8(*file));
++        uris.append(String::fromUTF8(uri.get()), "\r\n"_s);
++    }
++    if (uriList && *uriList)
++        uris.append(String::fromUTF8(uriList));
++    if (!uris.isEmpty())
++        data.setURIList(uris.toString());
++    data.setFilenames(WTF::move(filenames));
++    if (text && *text)
++        data.setText(String::fromUTF8(text));
++
++    m_dropData = WTF::move(data);
++    m_dropPosition = position;
++    m_dropOperations = toDragOperations(operations);
++    m_dropAccepted = std::nullopt;
++    m_dropRefusals = 0;
++    m_dropMotionPending = false;
++    m_dropUpdateInFlight = true;
++    page().resetCurrentDragInformation();
++    WebCore::DragData dragData(&m_dropData.value(), m_dropPosition, m_dropPosition, m_dropOperations);
++    // Until the page answers (its handlers may take a few hundred milliseconds on a slow machine) report what WebKit
++    // does by default with this drag, so the platform's cursor doesn't start out refusing a drop the page will take:
++    // files and links are opened in place of the page, so they get COPY, other drags nothing.
++    std::optional<WebCore::DragOperation> initial;
++    if (m_dropOperations.contains(WebCore::DragOperation::Copy) && (m_dropData->hasFilenames() || m_dropData->hasURL()))
++        initial = WebCore::DragOperation::Copy;
++    wpe_view_set_drop_operation(m_wpeView.get(), toWPEDragOperation(initial));
++    page().dragEntered(dragData);
++}
++
++void ViewPlatform::dropMotion(const WebCore::IntPoint& position, WPEDragOperation operations)
++{
++    if (!m_dropData)
++        return;
++
++    m_dropPosition = position;
++    m_dropOperations = toDragOperations(operations);
++    // One update in flight: the page runs its dragover handlers for each, and a page slower than the pointer (a chat
++    // client on a slow machine) would fall behind on a queue of positions it no longer needs, which also delays what
++    // it shows (an upload overlay). The latest position goes out when the answer comes back.
++    if (m_dropUpdateInFlight) {
++        m_dropMotionPending = true;
++        return;
++    }
++    sendDropUpdate();
++}
++
++void ViewPlatform::sendDropUpdate()
++{
++    m_dropMotionPending = false;
++    m_dropUpdateInFlight = true;
++    WebCore::DragData dragData(&m_dropData.value(), m_dropPosition, m_dropPosition, m_dropOperations);
++    page().dragUpdated(dragData);
++}
++
++void ViewPlatform::dropLeave()
++{
++    if (!m_dropData)
++        return;
++
++    WebCore::DragData dragData(&m_dropData.value(), m_dropPosition, m_dropPosition, { });
++    page().dragExited(dragData);
++    page().resetCurrentDragInformation();
++    m_dropData = std::nullopt;
++}
++
++void ViewPlatform::dropPerform(const WebCore::IntPoint& position)
++{
++    if (!m_dropData)
++        return;
++
++    m_dropPosition = position;
++    WebCore::DragData dragData(&m_dropData.value(), m_dropPosition, m_dropPosition, m_dropOperations);
++    // A drop ends an iteration that fired dragover at the element under the pointer (HTML's drag-and-drop processing
++    // model). WebKit fires only dragenter in an update where that element changed, and a dragenter the page doesn't
++    // cancel leaves the drop to the default action: for files, opening the first one in place of the page. So a drop
++    // right after the page re-rendered under the pointer (a chat site's upload overlay appearing) would navigate away
++    // instead of reaching the page. Two more updates at the drop point make the last one a dragover there.
++    page().dragUpdated(dragData);
++    page().dragUpdated(dragData);
++    page().performDragOperation(dragData, { }, { }, { });
++    m_dropData = std::nullopt;
++}
++
++void ViewPlatform::didPerformDragControllerAction()
++{
++    // Only drops from the platform report back; drags the page started are tracked by View::updateDrag.
++    if (!m_dropData)
++        return;
++    m_dropUpdateInFlight = false;
++
++    // What the platform shows (and decides the release by) follows the page, steadily:
++    //  - the page handled this update (cancelled dragenter or dragover) and chose an operation: it accepts;
++    //  - it handled it and chose none: a refusal, which counts once the page repeats it (a single one may come from
++    //    the element under the pointer changing as the page re-renders);
++    //  - it didn't handle this update at all (an update that only fired dragenter at a new element, which the page
++    //    doesn't cancel): once the page has accepted in this drag its answer stands, otherwise WebKit's default
++    //    action decides (opening dropped files or links, editing, a file input).
++    auto operation = page().currentDragOperation();
++    if (page().currentDragHandlingMethod() == WebCore::DragHandlingMethod::NonDefault) {
++        if (operation) {
++            m_dropAccepted = operation;
++            m_dropRefusals = 0;
++        } else if (++m_dropRefusals >= 2 || !m_dropAccepted)
++            m_dropAccepted = std::nullopt;
++        else
++            operation = m_dropAccepted;
++    } else if (m_dropAccepted)
++        operation = m_dropAccepted;
++    wpe_view_set_drop_operation(m_wpeView.get(), toWPEDragOperation(operation));
++
++    if (m_dropMotionPending)
++        sendDropUpdate();
++}
++#endif // ENABLE(DRAG_SUPPORT)
++
+ gboolean ViewPlatform::handleEvent(WPEEvent* event)
+ {
+     switch (wpe_event_get_event_type(event)) {
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/API/wpe/WPEWebViewPlatform.h b/Source/WebKit/UIProcess/API/wpe/WPEWebViewPlatform.h
+--- a/Source/WebKit/UIProcess/API/wpe/WPEWebViewPlatform.h	2026-07-27 09:40:40.202385700 -0600
++++ b/Source/WebKit/UIProcess/API/wpe/WPEWebViewPlatform.h	2026-11-14 15:27:00.650584277 -0600
+@@ -95,6 +95,16 @@
+ 
+     gboolean handleEvent(WPEEvent*);
+ 
++#if ENABLE(DRAG_SUPPORT)
++    // Drops from the platform (WPEView::drop-*): the counterpart of GTK's DropTarget.
++    void dropEnter(const WebCore::IntPoint&, WPEDragOperation, const char* const* files, const char* uriList, const char* text);
++    void dropMotion(const WebCore::IntPoint&, WPEDragOperation);
++    void dropLeave();
++    void dropPerform(const WebCore::IntPoint&);
++    void sendDropUpdate();
++    void didPerformDragControllerAction() override;
++#endif
++
+     GRefPtr<WPEView> m_wpeView;
+     RefPtr<WebKit::AcceleratedBackingStore> m_backingStore;
+     uint32_t m_displayID { 0 };
+@@ -104,6 +114,15 @@
+ #if ENABLE(FULLSCREEN_API)
+     bool m_viewWasAlreadyInFullScreen { false };
+ #endif
++#if ENABLE(DRAG_SUPPORT)
++    std::optional<WebCore::SelectionData> m_dropData;
++    WebCore::IntPoint m_dropPosition;
++    OptionSet<WebCore::DragOperation> m_dropOperations;
++    std::optional<WebCore::DragOperation> m_dropAccepted;   // the page's last acceptance in this drag
++    unsigned m_dropRefusals { 0 };                          // its explicit refusals since
++    bool m_dropUpdateInFlight { false };                    // a drag update awaits the page's answer
++    bool m_dropMotionPending { false };                     // the pointer moved meanwhile
++#endif
+ };
+ 
+ } // namespace WKWPE
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp b/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp
 --- a/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp	2026-07-27 09:40:40.357385400 -0600
 +++ b/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp	2026-11-13 12:45:04.913016923 -0600
@@ -44419,6 +44892,42 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/Network/Netw
      RELEASE_LOG_ERROR(Process, "%p - NetworkProcessProxy::didClose (Network Process %d crash)", this, connection.remoteProcessID());
  #else
      RELEASE_LOG_ERROR(Process, "%p - NetworkProcessProxy::didClose (Network Process crash)", this);
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/WebPageProxy.cpp b/Source/WebKit/UIProcess/WebPageProxy.cpp
+--- a/Source/WebKit/UIProcess/WebPageProxy.cpp	2026-10-05 13:40:00.982096400 -0600
++++ b/Source/WebKit/UIProcess/WebPageProxy.cpp	2026-11-14 15:27:00.652509254 -0600
+@@ -4319,7 +4319,22 @@
+     for (auto& fileName : dragData.fileNames())
+         protect(legacyMainFrameProcess())->addPreviouslyApprovedFileURL(URL::fileURLWithFileSystemPath(fileName));
+ 
+-#if PLATFORM(GTK) || PLATFORM(WPE)
++#if PLATFORM(WPE)
++    // FrostByte: grant file access for the files of a drop the platform delivered (the UI process set them, see
++    // SelectionData::setFilenames) and nothing else: a page's own drag can name any file:// URL in its
++    // text/uri-list, and must not get read access to it (CVE-2025-13947). On GLib dragData.fileNames() is
++    // always empty; the drop's files live in its SelectionData.
++    if (auto* selectionData = dragData.platformData(); selectionData && selectionData->hasFilenames()) {
++        for (auto& fileName : selectionData->filenames())
++            protect(legacyMainFrameProcess())->addPreviouslyApprovedFileURL(URL::fileURLWithFileSystemPath(fileName));
++        URL url { dragData.asURL() };
++        if (url.protocolIsFile())
++            protect(legacyMainFrameProcess())->assumeReadAccessToBaseURL(*this, url.string(), [] { });
++        protect(protect(websiteDataStore())->networkProcess())->sendWithAsyncReply(Messages::NetworkProcess::AllowFilesAccessFromWebProcess(siteIsolatedProcess().coreProcessIdentifier(), selectionData->filenames()), [] { });
++    }
++
++    performDragControllerAction(DragControllerAction::PerformDragOperation, dragData);
++#elif PLATFORM(GTK)
+     URL url { dragData.asURL() };
+     if (url.protocolIsFile())
+         protect(legacyMainFrameProcess())->assumeReadAccessToBaseURL(*this, url.string(), [] { });
+@@ -4380,7 +4395,7 @@
+     };
+ #if PLATFORM(GTK) || PLATFORM(WPE)
+     ASSERT(dragData.platformData());
+-    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::PerformDragControllerAction(action, dragData.clientPosition(), dragData.globalPosition(), dragData.draggingSourceOperationMask(), *dragData.platformData(), dragData.flags()), WTF::move(completionHandler));
++    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::PerformDragControllerAction(action, dragData.clientPosition(), dragData.globalPosition(), dragData.draggingSourceOperationMask(), *dragData.platformData(), dragData.platformData()->filenames(), dragData.flags()), WTF::move(completionHandler));
+ #else
+     auto filenames = dragData.fileNames();
+ 
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/UIProcess/WebProcessProxy.cpp b/Source/WebKit/UIProcess/WebProcessProxy.cpp
 --- a/Source/WebKit/UIProcess/WebProcessProxy.cpp	2026-10-02 07:10:08.933806700 -0600
 +++ b/Source/WebKit/UIProcess/WebProcessProxy.cpp	2026-11-13 12:45:04.913435280 -0600
@@ -44601,6 +45110,62 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebPage/Coo
          canvas->restore();
  
          if (m_context) {
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebPage/WebPage.cpp b/Source/WebKit/WebProcess/WebPage/WebPage.cpp
+--- a/Source/WebKit/WebProcess/WebPage/WebPage.cpp	2026-10-02 07:21:29.213483600 -0600
++++ b/Source/WebKit/WebProcess/WebPage/WebPage.cpp	2026-11-14 15:27:00.656509319 -0600
+@@ -417,6 +417,10 @@
+ #include <gtk/gtk.h>
+ #endif
+ 
++#if PLATFORM(WPE) && ENABLE(DRAG_SUPPORT)
++#include <WebCore/SelectionData.h>
++#endif
++
+ #if PLATFORM(IOS_FAMILY)
+ #include "InteractionInformationAtPosition.h"
+ #include "InteractionInformationRequest.h"
+@@ -5876,7 +5880,7 @@
+ #if ENABLE(DRAG_SUPPORT)
+ 
+ #if PLATFORM(GTK) || PLATFORM(WPE)
+-void WebPage::performDragControllerAction(DragControllerAction action, const IntPoint& clientPosition, const IntPoint& globalPosition, OptionSet<DragOperation> draggingSourceOperationMask, SelectionData&& selectionData, OptionSet<DragApplicationFlags> flags, CompletionHandler<void(std::optional<DragOperation>, DragHandlingMethod, bool, unsigned, IntRect, IntRect, std::optional<RemoteUserInputEventData>)>&& completionHandler)
++void WebPage::performDragControllerAction(DragControllerAction action, const IntPoint& clientPosition, const IntPoint& globalPosition, OptionSet<DragOperation> draggingSourceOperationMask, SelectionData&& selectionData, Vector<String>&& filenames, OptionSet<DragApplicationFlags> flags, CompletionHandler<void(std::optional<DragOperation>, DragHandlingMethod, bool, unsigned, IntRect, IntRect, std::optional<RemoteUserInputEventData>)>&& completionHandler)
+ {
+     if (!m_page)
+         return completionHandler(std::nullopt, DragHandlingMethod::None, false, 0, { }, { }, std::nullopt);
+@@ -5885,6 +5889,8 @@
+     if (!localMainFrame)
+         return;
+ 
++    // The files being dragged: from the UI process's platform drop target only (see SelectionData::setFilenames).
++    selectionData.setFilenames(WTF::move(filenames));
+     DragData dragData(&selectionData, clientPosition, globalPosition, draggingSourceOperationMask, flags, anyDragDestinationAction(), m_identifier);
+     switch (action) {
+     case DragControllerAction::Entered:
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebPage/WebPage.h b/Source/WebKit/WebProcess/WebPage/WebPage.h
+--- a/Source/WebKit/WebProcess/WebPage/WebPage.h	2026-10-02 07:21:29.214483500 -0600
++++ b/Source/WebKit/WebProcess/WebPage/WebPage.h	2026-11-14 15:27:00.659750711 -0600
+@@ -1428,7 +1428,7 @@
+     void restoreSelectionInFocusedEditableElement();
+ 
+ #if ENABLE(DRAG_SUPPORT) && (PLATFORM(GTK) || PLATFORM(WPE))
+-    void performDragControllerAction(DragControllerAction, const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition, OptionSet<WebCore::DragOperation> draggingSourceOperationMask, WebCore::SelectionData&&, OptionSet<WebCore::DragApplicationFlags>, CompletionHandler<void(std::optional<WebCore::DragOperation>, WebCore::DragHandlingMethod, bool, unsigned, WebCore::IntRect, WebCore::IntRect, std::optional<WebCore::RemoteUserInputEventData>)>&&);
++    void performDragControllerAction(DragControllerAction, const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition, OptionSet<WebCore::DragOperation> draggingSourceOperationMask, WebCore::SelectionData&&, Vector<String>&& filenames, OptionSet<WebCore::DragApplicationFlags>, CompletionHandler<void(std::optional<WebCore::DragOperation>, WebCore::DragHandlingMethod, bool, unsigned, WebCore::IntRect, WebCore::IntRect, std::optional<WebCore::RemoteUserInputEventData>)>&&);
+ #endif
+ 
+ #if ENABLE(DRAG_SUPPORT) && !PLATFORM(GTK) && !PLATFORM(WPE)
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebPage/WebPage.messages.in b/Source/WebKit/WebProcess/WebPage/WebPage.messages.in
+--- a/Source/WebKit/WebProcess/WebPage/WebPage.messages.in	2026-10-02 07:21:29.214483500 -0600
++++ b/Source/WebKit/WebProcess/WebPage/WebPage.messages.in	2026-11-14 15:27:00.660902481 -0600
+@@ -396,7 +396,7 @@
+ 
+     # Drag and drop.
+ #if (PLATFORM(GTK) || PLATFORM(WPE)) && ENABLE(DRAG_SUPPORT)
+-    PerformDragControllerAction(enum:uint8_t WebKit::DragControllerAction action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, OptionSet<WebCore::DragOperation> draggingSourceOperationMask, WebCore::SelectionData selection, OptionSet<WebCore::DragApplicationFlags> flags) -> (enum:uint8_t std::optional<WebCore::DragOperation> dragOperation, enum:uint8_t WebCore::DragHandlingMethod dragHandlingMethod, bool mouseIsOverFileInput, unsigned numberOfItemsToBeAccepted, WebCore::IntRect insertionRect, WebCore::IntRect editableElementRect, struct std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData)
++    PerformDragControllerAction(enum:uint8_t WebKit::DragControllerAction action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, OptionSet<WebCore::DragOperation> draggingSourceOperationMask, WebCore::SelectionData selection, Vector<String> filenames, OptionSet<WebCore::DragApplicationFlags> flags) -> (enum:uint8_t std::optional<WebCore::DragOperation> dragOperation, enum:uint8_t WebCore::DragHandlingMethod dragHandlingMethod, bool mouseIsOverFileInput, unsigned numberOfItemsToBeAccepted, WebCore::IntRect insertionRect, WebCore::IntRect editableElementRect, struct std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData)
+ #endif
+ #if !PLATFORM(GTK) && !PLATFORM(WPE) && ENABLE(DRAG_SUPPORT)
+     PerformDragControllerAction(std::optional<WebCore::FrameIdentifier> frameID, enum:uint8_t WebKit::DragControllerAction action, WebCore::DragData dragData) -> (enum:uint8_t std::optional<WebCore::DragOperation> dragOperation, enum:uint8_t WebCore::DragHandlingMethod dragHandlingMethod, bool mouseIsOverFileInput, unsigned numberOfItemsToBeAccepted, WebCore::IntRect insertionRect, WebCore::IntRect editableElementRect, struct std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData)
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebProcess.cpp b/Source/WebKit/WebProcess/WebProcess.cpp
 --- a/Source/WebKit/WebProcess/WebProcess.cpp	2026-10-02 07:10:08.943806600 -0600
 +++ b/Source/WebKit/WebProcess/WebProcess.cpp	2026-11-13 12:45:04.914161362 -0600
@@ -44613,6 +45178,301 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WebProcess/WebProcess.
      WEBPROCESS_RELEASE_LOG(Loading, "networkProcessConnectionClosed: NetworkProcess (%d) closed its connection (Crashed)", connection ? connection->connection().remoteProcessID() : 0);
  #else
      WEBPROCESS_RELEASE_LOG(Loading, "networkProcessConnectionClosed: NetworkProcess closed its connection (Crashed)");
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WPEPlatform/wpe/WPEView.cpp b/Source/WebKit/WPEPlatform/wpe/WPEView.cpp
+--- a/Source/WebKit/WPEPlatform/wpe/WPEView.cpp	2026-09-17 15:07:49.957674700 -0600
++++ b/Source/WebKit/WPEPlatform/wpe/WPEView.cpp	2026-11-14 15:27:00.661558572 -0600
+@@ -71,6 +71,7 @@
+     bool visible { true };
+     bool mapped;
+     bool hasFocus;
++    WPEDragOperation dropOperation { WPE_DRAG_OPERATION_NONE };
+ 
+     struct {
+         unsigned pressCount { 0 };
+@@ -110,6 +111,7 @@
+     PROP_VISIBLE,
+     PROP_MAPPED,
+     PROP_HAS_FOCUS,
++    PROP_DROP_OPERATION,
+ 
+     N_PROPERTIES
+ };
+@@ -125,6 +127,10 @@
+     EVENT,
+     TOPLEVEL_STATE_CHANGED,
+     PREFERRED_BUFFER_FORMATS_CHANGED,
++    DROP_ENTER,
++    DROP_MOTION,
++    DROP_LEAVE,
++    DROP_PERFORM,
+ 
+     LAST_SIGNAL
+ };
+@@ -185,6 +191,9 @@
+     case PROP_HAS_FOCUS:
+         g_value_set_boolean(value, wpe_view_get_has_focus(view));
+         break;
++    case PROP_DROP_OPERATION:
++        g_value_set_flags(value, wpe_view_get_drop_operation(view));
++        break;
+     default:
+         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
+     }
+@@ -355,6 +364,21 @@
+             FALSE,
+             WEBKIT_PARAM_READABLE);
+ 
++    /**
++     * WPEView:drop-operation:
++     *
++     * What the web content accepts for the drag and drop in progress over the view, if any
++     * (see wpe_view_drop_enter()). The web engine answers asynchronously, so this follows the
++     * pointer with a short delay; it is %WPE_DRAG_OPERATION_NONE when no drop is in progress.
++     */
++    sObjProperties[PROP_DROP_OPERATION] =
++        g_param_spec_flags(
++            "drop-operation",
++            nullptr, nullptr,
++            WPE_TYPE_DRAG_OPERATION,
++            WPE_DRAG_OPERATION_NONE,
++            WEBKIT_PARAM_READABLE);
++
+     g_object_class_install_properties(objectClass, N_PROPERTIES, sObjProperties.data());
+ 
+     /**
+@@ -501,6 +525,76 @@
+         0, nullptr, nullptr,
+         g_cclosure_marshal_generic,
+         G_TYPE_NONE, 0);
++
++    /**
++     * WPEView::drop-enter:
++     * @view: a #WPEView
++     * @x: the x coordinate of the pointer, in view coordinates
++     * @y: the y coordinate of the pointer, in view coordinates
++     * @operations: the #WPEDragOperation<!-- -->s the drag source allows
++     * @files: (array zero-terminated=1) (nullable): the local files being dragged
++     * @uri_list: (nullable): other URIs being dragged, in text/uri-list form
++     * @text: (nullable): plain text being dragged
++     *
++     * Emitted when a drag from the platform enters @view. See wpe_view_drop_enter().
++     */
++    signals[DROP_ENTER] = g_signal_new(
++        "drop-enter",
++        G_TYPE_FROM_CLASS(viewClass),
++        G_SIGNAL_RUN_LAST,
++        0, nullptr, nullptr,
++        g_cclosure_marshal_generic,
++        G_TYPE_NONE, 6,
++        G_TYPE_DOUBLE, G_TYPE_DOUBLE, WPE_TYPE_DRAG_OPERATION, G_TYPE_STRV, G_TYPE_STRING, G_TYPE_STRING);
++
++    /**
++     * WPEView::drop-motion:
++     * @view: a #WPEView
++     * @x: the x coordinate of the pointer, in view coordinates
++     * @y: the y coordinate of the pointer, in view coordinates
++     * @operations: the #WPEDragOperation<!-- -->s the drag source allows
++     *
++     * Emitted when a drag from the platform moves over @view, or periodically while it stays.
++     */
++    signals[DROP_MOTION] = g_signal_new(
++        "drop-motion",
++        G_TYPE_FROM_CLASS(viewClass),
++        G_SIGNAL_RUN_LAST,
++        0, nullptr, nullptr,
++        g_cclosure_marshal_generic,
++        G_TYPE_NONE, 3,
++        G_TYPE_DOUBLE, G_TYPE_DOUBLE, WPE_TYPE_DRAG_OPERATION);
++
++    /**
++     * WPEView::drop-leave:
++     * @view: a #WPEView
++     *
++     * Emitted when a drag from the platform leaves @view, or is cancelled, without a drop.
++     */
++    signals[DROP_LEAVE] = g_signal_new(
++        "drop-leave",
++        G_TYPE_FROM_CLASS(viewClass),
++        G_SIGNAL_RUN_LAST,
++        0, nullptr, nullptr,
++        g_cclosure_marshal_generic,
++        G_TYPE_NONE, 0);
++
++    /**
++     * WPEView::drop-perform:
++     * @view: a #WPEView
++     * @x: the x coordinate of the pointer, in view coordinates
++     * @y: the y coordinate of the pointer, in view coordinates
++     *
++     * Emitted when the drag from the platform is dropped on @view.
++     */
++    signals[DROP_PERFORM] = g_signal_new(
++        "drop-perform",
++        G_TYPE_FROM_CLASS(viewClass),
++        G_SIGNAL_RUN_LAST,
++        0, nullptr, nullptr,
++        g_cclosure_marshal_generic,
++        G_TYPE_NONE, 2,
++        G_TYPE_DOUBLE, G_TYPE_DOUBLE);
+ }
+ 
+ void wpeViewToplevelStateChanged(WPEView* view, WPEToplevelState state)
+@@ -1206,3 +1300,110 @@
+ 
+     return nullptr;
+ }
++
++/**
++ * wpe_view_drop_enter:
++ * @view: a #WPEView
++ * @x: the x coordinate of the pointer, in view coordinates
++ * @y: the y coordinate of the pointer, in view coordinates
++ * @operations: the #WPEDragOperation<!-- -->s the drag source allows
++ * @files: (array zero-terminated=1) (nullable): the local files being dragged, as file system paths
++ * @uri_list: (nullable): other URIs being dragged, in text/uri-list form (no local files)
++ * @text: (nullable): plain text being dragged
++ *
++ * Called by platform implementations when a drag from outside the web content (another application,
++ * the desktop) enters @view. Follow it with wpe_view_drop_motion() while the pointer moves and either
++ * wpe_view_drop_leave() or wpe_view_drop_perform(). The web content's answer arrives later in
++ * #WPEView:drop-operation.
++ *
++ * @files grants the web content access to those files when they are dropped: pass only files the
++ * user is actually dragging, as reported by the platform.
++ */
++void wpe_view_drop_enter(WPEView* view, gdouble x, gdouble y, WPEDragOperation operations, const char* const* files, const char* uriList, const char* text)
++{
++    g_return_if_fail(WPE_IS_VIEW(view));
++
++    wpe_view_set_drop_operation(view, WPE_DRAG_OPERATION_NONE);
++    g_signal_emit(view, signals[DROP_ENTER], 0, x, y, operations, files, uriList, text);
++}
++
++/**
++ * wpe_view_drop_motion:
++ * @view: a #WPEView
++ * @x: the x coordinate of the pointer, in view coordinates
++ * @y: the y coordinate of the pointer, in view coordinates
++ * @operations: the #WPEDragOperation<!-- -->s the drag source allows
++ *
++ * Called by platform implementations when the drag that entered @view moves over it, and may be
++ * called periodically while the pointer stays still.
++ */
++void wpe_view_drop_motion(WPEView* view, gdouble x, gdouble y, WPEDragOperation operations)
++{
++    g_return_if_fail(WPE_IS_VIEW(view));
++
++    g_signal_emit(view, signals[DROP_MOTION], 0, x, y, operations);
++}
++
++/**
++ * wpe_view_drop_leave:
++ * @view: a #WPEView
++ *
++ * Called by platform implementations when the drag that entered @view leaves it or is cancelled.
++ */
++void wpe_view_drop_leave(WPEView* view)
++{
++    g_return_if_fail(WPE_IS_VIEW(view));
++
++    g_signal_emit(view, signals[DROP_LEAVE], 0);
++    wpe_view_set_drop_operation(view, WPE_DRAG_OPERATION_NONE);
++}
++
++/**
++ * wpe_view_drop_perform:
++ * @view: a #WPEView
++ * @x: the x coordinate of the pointer, in view coordinates
++ * @y: the y coordinate of the pointer, in view coordinates
++ *
++ * Called by platform implementations when the drag that entered @view is dropped on it.
++ */
++void wpe_view_drop_perform(WPEView* view, gdouble x, gdouble y)
++{
++    g_return_if_fail(WPE_IS_VIEW(view));
++
++    g_signal_emit(view, signals[DROP_PERFORM], 0, x, y);
++    wpe_view_set_drop_operation(view, WPE_DRAG_OPERATION_NONE);
++}
++
++/**
++ * wpe_view_get_drop_operation:
++ * @view: a #WPEView
++ *
++ * Get the operation the web content accepts for the drop in progress over @view.
++ *
++ * Returns: a #WPEDragOperation, %WPE_DRAG_OPERATION_NONE when the drop would be refused
++ */
++WPEDragOperation wpe_view_get_drop_operation(WPEView* view)
++{
++    g_return_val_if_fail(WPE_IS_VIEW(view), WPE_DRAG_OPERATION_NONE);
++
++    return view->priv->dropOperation;
++}
++
++/**
++ * wpe_view_set_drop_operation:
++ * @view: a #WPEView
++ * @operation: a #WPEDragOperation
++ *
++ * Set the operation the web content accepts for the drop in progress over @view.
++ * This is called by the web engine.
++ */
++void wpe_view_set_drop_operation(WPEView* view, WPEDragOperation operation)
++{
++    g_return_if_fail(WPE_IS_VIEW(view));
++
++    if (view->priv->dropOperation == operation)
++        return;
++
++    view->priv->dropOperation = operation;
++    g_object_notify_by_pspec(G_OBJECT(view), sObjProperties[PROP_DROP_OPERATION]);
++}
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/WPEPlatform/wpe/WPEView.h b/Source/WebKit/WPEPlatform/wpe/WPEView.h
+--- a/Source/WebKit/WPEPlatform/wpe/WPEView.h	2026-07-27 09:40:40.417385300 -0600
++++ b/Source/WebKit/WPEPlatform/wpe/WPEView.h	2026-11-14 15:27:00.662122451 -0600
+@@ -156,6 +156,41 @@
+ WPE_API WPEGestureController *wpe_view_get_gesture_controller       (WPEView            *view);
+ WPE_API WPEViewAccessible    *wpe_view_get_accessible               (WPEView            *view);
+ 
++/**
++ * WPEDragOperation:
++ * @WPE_DRAG_OPERATION_NONE: no operation, the drop is refused
++ * @WPE_DRAG_OPERATION_COPY: the data is copied
++ * @WPE_DRAG_OPERATION_MOVE: the data is moved
++ * @WPE_DRAG_OPERATION_LINK: the data is linked
++ *
++ * Operations of a drag and drop from the platform into a #WPEView.
++ */
++typedef enum {
++    WPE_DRAG_OPERATION_NONE = 0,
++    WPE_DRAG_OPERATION_COPY = (1 << 0),
++    WPE_DRAG_OPERATION_MOVE = (1 << 1),
++    WPE_DRAG_OPERATION_LINK = (1 << 2)
++} WPEDragOperation;
++
++WPE_API void                  wpe_view_drop_enter                   (WPEView            *view,
++                                                                     gdouble             x,
++                                                                     gdouble             y,
++                                                                     WPEDragOperation    operations,
++                                                                     const char * const *files,
++                                                                     const char         *uri_list,
++                                                                     const char         *text);
++WPE_API void                  wpe_view_drop_motion                  (WPEView            *view,
++                                                                     gdouble             x,
++                                                                     gdouble             y,
++                                                                     WPEDragOperation    operations);
++WPE_API void                  wpe_view_drop_leave                   (WPEView            *view);
++WPE_API void                  wpe_view_drop_perform                 (WPEView            *view,
++                                                                     gdouble             x,
++                                                                     gdouble             y);
++WPE_API WPEDragOperation      wpe_view_get_drop_operation           (WPEView            *view);
++WPE_API void                  wpe_view_set_drop_operation           (WPEView            *view,
++                                                                     WPEDragOperation    operation);
++
+ G_END_DECLS
+ 
+ #endif /* WPEView_h */
 diff -ruN --no-dereference -x __pycache__ a/Source/WTF/CMakeLists.txt b/Source/WTF/CMakeLists.txt
 --- a/Source/WTF/CMakeLists.txt	2026-07-27 09:40:36.073210000 -0600
 +++ b/Source/WTF/CMakeLists.txt	2026-11-13 12:45:04.914413486 -0600
