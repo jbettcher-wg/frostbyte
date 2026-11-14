@@ -19,7 +19,7 @@ Errors (exit status 1):
 Warnings: compiled-in /opt/wpe strings inside binaries (FrostByte overrides those defaults through
 the environment at startup; listed so a new one gets noticed), references to /usr/lib/libiconv.
 """
-import argparse, os, re, struct, subprocess, sys
+import argparse, os, re, struct, subprocess, sys, tempfile
 
 # The 10.5 SDK: --sdk, else $LEOPARD_SDK (toolchain/wpe-env.sh exports it).
 SDK = os.environ.get('LEOPARD_SDK', '')
@@ -146,7 +146,30 @@ def isa_scan(path, isa):
     # the bctr. llvm-objdump decodes them too: 0xffffxxxx is an opcode-63 word (xs*qp, fcpsgn...),
     # 0x0000xxxx an illegal one. No real instruction the scan cares about has 0x0000 or 0xffff
     # as its high halfword, so those words are skipped.
-    r = subprocess.run(['llvm-objdump', '-d', '--mcpu=pwr7', path], capture_output=True, text=True)
+    # llvm-objdump rejects a ppc64 LC_UNIXTHREAD ("unknown cputype"), so executables are scanned as a copy with
+    # that command relabelled LC_IDENT, which it skips. A file it still can't read is an error, never a pass.
+    with open(path, 'rb') as f:
+        d = bytearray(f.read())
+    target, tmp = path, None
+    if struct.unpack('>I', d[12:16])[0] == MH_EXECUTE:
+        ncmds, = struct.unpack('>I', d[16:20])
+        o = 32
+        for _ in range(ncmds):
+            c, size = struct.unpack('>II', d[o:o + 8])
+            if c == LC_UNIXTHREAD:
+                d[o:o + 4] = struct.pack('>I', 0x8)
+            o += size
+        fd, tmp = tempfile.mkstemp(suffix='.isa-scan')
+        os.write(fd, bytes(d))
+        os.close(fd)
+        target = tmp
+    try:
+        r = subprocess.run(['llvm-objdump', '-d', '--mcpu=pwr7', target], capture_output=True, text=True)
+    finally:
+        if tmp:
+            os.unlink(tmp)
+    if r.returncode != 0 or not r.stdout.strip():
+        return {'(llvm-objdump could not disassemble it: ' + (r.stderr.strip().splitlines() or ['no output'])[-1][-80:] + ')': 1}
     bad = {}
     forbidden = NOT_ON_970 | (NOT_ON_E6500_TOO if isa == 'generic' else set())
     for line in r.stdout.splitlines():
