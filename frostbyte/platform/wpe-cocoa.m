@@ -810,6 +810,24 @@ static void setActive(WPEToplevel *t, gboolean active)
 }
 - (void)windowDidBecomeKey:(NSNotification *)n { (void)n; setActive(WPE_TOPLEVEL(toplevel), TRUE); }
 - (void)windowDidResignKey:(NSNotification *)n { (void)n; setActive(WPE_TOPLEVEL(toplevel), FALSE); }
+/* After an NSOpenPanel sheet ends, 10.5 leaves the window it was on without key status (grey title-bar buttons,
+ * no keyboard focus) until it is clicked. Take it back once AppKit has finished with the sheet (the didEnd
+ * handler orders the panel out after this notification): from a GLib idle, if the application is still active and
+ * the window is still showing with no other sheet. */
+static gboolean rekeyAfterSheet(gpointer data)
+{
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSWindow *w = data;
+    if ([NSApp isActive] && [w isVisible] && ![w attachedSheet] && ![w isKeyWindow])
+        [w makeKeyWindow];
+    [w release];
+    [pool release];
+    return G_SOURCE_REMOVE;
+}
+- (void)windowDidEndSheet:(NSNotification *)n
+{
+    g_idle_add(rekeyAfterSheet, [[n object] retain]);
+}
 @end
 
 static void wpe_toplevel_cocoa_constructed(GObject *object)
