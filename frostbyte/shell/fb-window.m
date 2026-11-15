@@ -561,6 +561,16 @@ static FBToolButton *toolButton(FBWindowController *self, NSView *bar, FBIcon ic
 - (void)dealloc
 {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    /* closeWindow detaches the bars; whatever path skipped it, the tab bar (kept by the window's frame view)
+     * must not animate, draw or take clicks through this controller any more. */
+    if (tabBar) {
+        if (tabBar->spinner) {
+            g_source_remove(tabBar->spinner);
+            tabBar->spinner = 0;
+        }
+        tabBar->owner = nil;
+        [tabBar removeFromSuperview];
+    }
     [tabs release];
     [tabBar release];
     [toolbar release];

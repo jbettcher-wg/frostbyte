@@ -946,10 +946,16 @@ static gboolean spinTick(gpointer data);
 
 @end
 
+/* The bar's dealloc removes this timer; a bar whose window controller has gone (owner nil) stops it here. */
 static gboolean spinTick(gpointer data)
 {
+    FBTabBar *bar = data;
+    if (!bar->owner) {
+        bar->spinner = 0;
+        return G_SOURCE_REMOVE;
+    }
     FB_POOL_BEGIN;
-    [(FBTabBar *)data spin];
+    [bar spin];
     FB_POOL_END;
     return G_SOURCE_CONTINUE;
 }

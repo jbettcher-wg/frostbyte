@@ -18,9 +18,25 @@
 static GMainLoop *s_loop;
 static void shutDownFrostByte(BOOL releaseDisplay);
 
+/* Start-up order. AppKit can deliver links or files, and report the end of its launch
+ * (applicationDidFinishLaunching:), before main() has everything a window needs (the windows list, appearance,
+ * bookmarks, history, downloads, menus): finishing the launch inside wpe_display_connect() is enough. Until main()
+ * is done they wait here. */
+static BOOL s_setUp;                     /* main() is ready for windows */
+static BOOL s_launchFinished;            /* applicationDidFinishLaunching: has been */
+static NSMutableArray *s_waiting;        /* links and file URLs that came before s_setUp */
+
 /* A link or file another application hands over: a new tab in the front window, or a new window. */
 static void openFromOutside(NSString *text)
 {
+    if (!s_setUp) {
+        if ([text length]) {
+            if (!s_waiting)
+                s_waiting = [[NSMutableArray alloc] init];
+            [s_waiting addObject:text];
+        }
+        return;
+    }
     char *url = [text length] ? urlForLocationText([text UTF8String]) : NULL;
     if (!url)
         return;
@@ -205,11 +221,13 @@ static NSString *fileURLString(NSString *path)
 }
 
 /* The launch's Apple event has been handled. If it opened nothing (a plain launch, a relaunch) and no URL
- * came on the command line, open the window the preferences say. */
+ * came on the command line, open the window the preferences say; before main() is ready, main() does. */
 - (void)applicationDidFinishLaunching:(NSNotification *)n
 {
     (void)n;
-    if (![fbWindows count])
+    s_launchFinished = YES;
+    fprintf(stderr, "frostbyte: launch finished %s\n", s_setUp ? "after set-up" : "during set-up (windows wait for it)");
+    if (s_setUp && ![fbWindows count])
         openWindow(NULL);
 }
 
@@ -221,7 +239,7 @@ static NSString *fileURLString(NSString *path)
 - (BOOL)applicationShouldHandleReopen:(NSApplication *)app hasVisibleWindows:(BOOL)visible
 {
     (void)app;
-    if (!visible && ![fbWindows count])
+    if (s_setUp && !visible && ![fbWindows count])
         openWindow(NULL);
     return YES;
 }
@@ -383,8 +401,13 @@ int main(int argc, char **argv)
     s_loop = g_main_loop_new(NULL, FALSE);
 
     /* The delegate before the display connects: connecting finishes AppKit's launch, which sends it
-     * applicationWillFinishLaunching: (the GetURL handler goes in there). */
+     * applicationWillFinishLaunching: (the GetURL handler goes in there) and may already send
+     * applicationDidFinishLaunching:. Windows wait for the end of main()'s set-up (s_setUp). */
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    fbWindows = [[NSMutableArray alloc] init];
+    /* main() reads the command line itself (a URL); AppKit would also open every argument as a file. */
+    [[NSUserDefaults standardUserDefaults] registerDefaults:
+        [NSDictionary dictionaryWithObject:@"NO" forKey:@"NSTreatUnknownArgumentsAsOpen"]];
     [NSApplication sharedApplication];
     FBAppController *controller = [[FBAppController alloc] init];
     [NSApp setDelegate:controller];
@@ -419,13 +442,23 @@ int main(int argc, char **argv)
         [NSApp setApplicationIconImage:icon];
         g_timeout_add(1500, reapplyIcon, icon);
     }
-    fbWindows = [[NSMutableArray alloc] init];
     loadBookmarks();
     loadHistory();
     setUpDownloads();
     buildMenus(controller);
+    /* Ready for windows: the command line's URL, then what other applications sent meanwhile, then the home
+     * window if AppKit's launch has already finished with nothing opened (otherwise
+     * applicationDidFinishLaunching: decides). */
+    s_setUp = YES;
     if (url)
-        openWindow(url);             /* otherwise at the launch's Apple event or applicationDidFinishLaunching: */
+        openWindow(url);
+    NSArray *waiting = s_waiting;
+    s_waiting = nil;
+    for (NSString *item in waiting)
+        openFromOutside(item);
+    [waiting release];
+    if (s_launchFinished && ![fbWindows count])
+        openWindow(NULL);
     fbUpdateStartup();
     [pool release];
 
