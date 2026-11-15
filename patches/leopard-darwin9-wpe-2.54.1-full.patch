@@ -43993,6 +43993,27 @@ diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/Network
          Ref ipcConnection = connection->connection();
          auto remoteProcessID = ipcConnection->remoteProcessID();
          // Connection is not available.
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/NetworkResourceLoader.cpp b/Source/WebKit/NetworkProcess/NetworkResourceLoader.cpp
+--- a/Source/WebKit/NetworkProcess/NetworkResourceLoader.cpp	2026-09-17 15:06:42.159497300 -0600
++++ b/Source/WebKit/NetworkProcess/NetworkResourceLoader.cpp	2026-11-14 19:22:13.531076288 -0600
+@@ -1912,7 +1912,16 @@
+     LOG(NetworkCache, "(NetworkProcess) Executing cached redirect");
+ 
+     m_isWaitingContinueWillSendRequestForCachedRedirect = true;
+-    willSendRedirectedRequest(WTF::move(request), ResourceRequest { *entry->redirectRequest() }, ResourceResponse { entry->response() }, [](auto) { });
++    // Build the redirected request from this load's request, as a network redirect does; only the
++    // destination comes from the cache. The cache key has no requester or destination, so the stored
++    // request may belong to another kind of load of the same URL (youtube.com's page fetch()es
++    // https://youtube.com/, which replaces the navigation's cached 301). Replaying it verbatim turned
++    // the next navigation into that fetch (requester Fetch, its Sec-Fetch-* and cache headers, its
++    // first party): a service worker then skipped ContinueDidReceiveResponse, and a COOP process swap
++    // gave the new process an empty response.
++    auto redirectRequest = request.redirectedRequest(entry->response(), parameters().shouldClearReferrerOnHTTPSToHTTPRedirect);
++    redirectRequest.setURL(URL { entry->redirectRequest()->url() });
++    willSendRedirectedRequest(WTF::move(request), WTF::move(redirectRequest), ResourceResponse { entry->response() }, [](auto) { });
+ }
+ 
+ IPC::Connection* NetworkResourceLoader::messageSenderConnection() const
 diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/webrtc/NetworkMDNSRegister.cpp b/Source/WebKit/NetworkProcess/webrtc/NetworkMDNSRegister.cpp
 --- a/Source/WebKit/NetworkProcess/webrtc/NetworkMDNSRegister.cpp	2026-07-27 09:40:39.804246700 -0600
 +++ b/Source/WebKit/NetworkProcess/webrtc/NetworkMDNSRegister.cpp	2026-11-13 12:45:04.911037751 -0600
