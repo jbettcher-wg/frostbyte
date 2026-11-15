@@ -1,0 +1,37 @@
+NetworkResourceLoader: a cached redirect continues with this load's request, not the stored one
+
+Applies to WebKitGTK and WPE WebKit 2.54.1 (patch -p1); already part of
+leopard-darwin9-wpe-2.54.1-full.patch, so ./build.sh fetch does not apply this file.
+
+A disk-cached redirect was replayed with the request stored in the cache entry. The entry's key
+has no requester or destination, so the stored request can come from another kind of load of
+the same URL: youtube.com's page fetch()es https://youtube.com/, and its 301 replaces the one
+the navigation stored. The next navigation to youtube.com then continued as that fetch
+(requester Fetch, Sec-Fetch-Mode: cors, its cache headers and first party). YouTube's service
+worker took the navigation as a subresource (no ContinueDidReceiveResponse), and the COOP
+browsing-context-group switch resumed the parked loader in the new process with an empty
+ResourceResponse: a blank page, or an empty download in browsers that download unsupported types.
+Build the redirected request from the current request, as a network redirect does, and take
+only the destination URL from the cache.
+
+diff -ruN --no-dereference -x __pycache__ a/Source/WebKit/NetworkProcess/NetworkResourceLoader.cpp b/Source/WebKit/NetworkProcess/NetworkResourceLoader.cpp
+--- a/Source/WebKit/NetworkProcess/NetworkResourceLoader.cpp
++++ b/Source/WebKit/NetworkProcess/NetworkResourceLoader.cpp
+@@ -1912,7 +1912,16 @@
+     LOG(NetworkCache, "(NetworkProcess) Executing cached redirect");
+ 
+     m_isWaitingContinueWillSendRequestForCachedRedirect = true;
+-    willSendRedirectedRequest(WTF::move(request), ResourceRequest { *entry->redirectRequest() }, ResourceResponse { entry->response() }, [](auto) { });
++    // Build the redirected request from this load's request, as a network redirect does; only the
++    // destination comes from the cache. The cache key has no requester or destination, so the stored
++    // request may belong to another kind of load of the same URL (youtube.com's page fetch()es
++    // https://youtube.com/, which replaces the navigation's cached 301). Replaying it verbatim turned
++    // the next navigation into that fetch (requester Fetch, its Sec-Fetch-* and cache headers, its
++    // first party): a service worker then skipped ContinueDidReceiveResponse, and a COOP process swap
++    // gave the new process an empty response.
++    auto redirectRequest = request.redirectedRequest(entry->response(), parameters().shouldClearReferrerOnHTTPSToHTTPRedirect);
++    redirectRequest.setURL(URL { entry->redirectRequest()->url() });
++    willSendRedirectedRequest(WTF::move(request), WTF::move(redirectRequest), ResourceResponse { entry->response() }, [](auto) { });
+ }
+ 
+ IPC::Connection* NetworkResourceLoader::messageSenderConnection() const

@@ -18,3 +18,7 @@ tarball or a patch changes.
 To change WebKit: edit `build/src/wpewebkit-2.54.1`, build, then run
 `tools/regen-wpe-patch.sh` and commit the patch. What each part of the port does
 and why is in the comments the patch adds.
+
+`upstream/` holds fixes to plain WebKit (not specific to this port) as standalone
+patches against the 2.54.1 release, for sending upstream. Each is already part of
+the full patch; `./build.sh fetch` does not apply them.
