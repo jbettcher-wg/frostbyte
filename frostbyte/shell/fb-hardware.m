@@ -168,9 +168,14 @@ static void setenvFromPreference(const char *name, const char *value)
  * damaged entry is dropped and rebuilt on its own; Empty Cache is never needed for correctness. Otherwise WebKit
  * deletes nothing: the size cap is ours, applied at startup. Any future private-browsing window must not get this
  * variable. */
+static NSString *cachesDirectory(void)
+{
+    return [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches/org.frostbyte.FrostByte"];
+}
+
 NSString *fbBytecodeCacheDirectory(void)
 {
-    return [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches/org.frostbyte.FrostByte/JSCBytecode"];
+    return [cachesDirectory() stringByAppendingPathComponent:@"JSCBytecode"];
 }
 
 static NSArray *cacheEntries(unsigned long long *total)
@@ -334,7 +339,7 @@ static void setupBundledRuntime(void)
         setenv("GST_PLUGIN_PATH_1_0", "", 1);      /* only the bundle's plugins */
     /* GStreamer's registry caches plugin paths: one per bundle location, so another copy (or the /opt/wpe
      * install) never hands this one stale paths. */
-    NSString *caches = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches/org.frostbyte.FrostByte"];
+    NSString *caches = cachesDirectory();
     [[NSFileManager defaultManager] createDirectoryAtPath:caches withIntermediateDirectories:YES attributes:nil error:NULL];
     setBundlePath("GST_REGISTRY_1_0", [caches stringByAppendingPathComponent:
         [NSString stringWithFormat:@"gstreamer-registry-%08lx.bin", (unsigned long)[contents hash]]], NO);
@@ -588,8 +593,58 @@ static BOOL decideWebGL(NSUserDefaults *defaults, BOOL gpu, FBGraphicsCapabiliti
     return passed;
 }
 
+/* The caches that belong to one build: the JavaScript bytecode cache and the GStreamer plugin registry. WebKit
+ * names bytecode files after its own build and GStreamer checks each plugin's size and date, yet after updating
+ * to 0.4 a page loaded only once the bytecode cache was emptied by hand. So the build that last ran is recorded
+ * beside these caches (the app's version and WebKit's LC_UUID), and a different build empties them once before
+ * any WebKit process starts. Cookies, website data, history and bookmarks are not touched. */
+static NSString *webKitBuildUUID(void)
+{
+    Dl_info info;
+    if (!dladdr((const void *)webkit_get_major_version, &info) || !info.dli_fbase)
+        return @"?";
+    const struct mach_header_64 *header = info.dli_fbase;
+    if (header->magic != MH_MAGIC_64)
+        return @"?";
+    const struct load_command *command = (const struct load_command *)(header + 1);
+    for (uint32_t i = 0; i < header->ncmds; i++) {
+        if (command->cmd == LC_UUID) {
+            const uint8_t *u = ((const struct uuid_command *)command)->uuid;
+            NSMutableString *s = [NSMutableString string];
+            for (int k = 0; k < 16; k++)
+                [s appendFormat:@"%02X", u[k]];
+            return s;
+        }
+        command = (const struct load_command *)((const char *)command + command->cmdsize);
+    }
+    return @"?";
+}
+
+static void emptyCachesOfAnotherBuild(void)
+{
+    NSString *caches = cachesDirectory();
+    NSString *record = [caches stringByAppendingPathComponent:@"LastBuild"];
+    NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] ?: str(FROSTBYTE_VERSION);
+    NSString *build = [NSString stringWithFormat:@"%@ %@", version, webKitBuildUUID()];
+    NSString *last = [[NSString stringWithContentsOfFile:record encoding:NSUTF8StringEncoding error:NULL]
+                      stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if ([last isEqualToString:build])
+        return;
+    unsigned long long bytecode = fbBytecodeCacheSize();
+    fbEmptyBytecodeCache();
+    int registries = 0;
+    for (NSString *name in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:caches error:NULL])
+        if ([name hasPrefix:@"gstreamer-registry-"] && !unlink([[caches stringByAppendingPathComponent:name] fileSystemRepresentation]))
+            registries++;
+    [[NSFileManager defaultManager] createDirectoryAtPath:caches withIntermediateDirectories:YES attributes:nil error:NULL];
+    [[build stringByAppendingString:@"\n"] writeToFile:record atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+    fprintf(stderr, "frostbyte: new build (%s, last run: %s): emptied the bytecode cache (%.1f MB) and %d GStreamer registr%s\n",
+            [build UTF8String], last ? [last UTF8String] : "unknown", bytecode / 1048576.0, registries, registries == 1 ? "y" : "ies");
+}
+
 void applyStartupPreferences(void)
 {
+    emptyCachesOfAnotherBuild();         /* before anything that uses them */
     raiseDescriptorLimit();
     setupBundledRuntime();
     setupDataDirs();
