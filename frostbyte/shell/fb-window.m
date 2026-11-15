@@ -155,11 +155,66 @@ static WebKitWebView *tabCreate(WebKitWebView *v, WebKitNavigationAction *a, gpo
     return created ? created->webView : NULL;
 }
 
+/* A main-frame response with no URL, no status and no MIME type is not a document. WebKit 2.54.1 made one when it
+ * replayed a disk-cached redirect with another load's request and a service worker and a COOP process swap followed
+ * (youtube.com typed after a visit; fixed in WebKit's NetworkResourceLoader). As a download it became an empty file
+ * named "download" next to a blank page. Load the address once more instead; a second empty answer within 10 s gets
+ * an error page, not a loop. */
+static BOOL isEmptyResponse(WebKitURIResponse *response)
+{
+    const char *uri = webkit_uri_response_get_uri(response);
+    const char *mime = webkit_uri_response_get_mime_type(response);
+    return !webkit_uri_response_get_status_code(response) && (!uri || !*uri) && (!mime || !*mime);
+}
+
+struct EmptyResponseRecovery {
+    WebKitWebView *view;              /* referenced */
+    char *uri;
+    BOOL errorPage;
+};
+
+static gboolean recoverFromEmptyResponse(gpointer data)
+{
+    struct EmptyResponseRecovery *r = data;
+    FB_POOL_BEGIN;
+    BOOL live = NO;                   /* the tab may have closed meanwhile */
+    for (FBWindowController *c in fbWindows)
+        for (FBTab *t in c->tabs)
+            live = live || t->webView == r->view;
+    if (live && r->errorPage) {
+        char *escaped = g_markup_escape_text(r->uri, -1);
+        char *html = g_strdup_printf("<!doctype html><title>Page not loaded</title>"
+            "<body style=\"font: 13px 'Lucida Grande', sans-serif; margin: 40px\"><h3>The page didn't load</h3>"
+            "<p>The answer for <b>%s</b> was empty, twice in a row. Reload to try again.</p></body>", escaped);
+        webkit_web_view_load_alternate_html(r->view, html, r->uri, NULL);
+        g_free(html);
+        g_free(escaped);
+    } else if (live)
+        webkit_web_view_load_uri(r->view, r->uri);
+    FB_POOL_END;
+    g_object_unref(r->view);
+    g_free(r->uri);
+    g_free(r);
+    return G_SOURCE_REMOVE;
+}
+
+static void scheduleEmptyResponseRecovery(WebKitWebView *v, const char *uri)
+{
+    gint64 now = g_get_monotonic_time() / G_USEC_PER_SEC + 1;
+    gint64 last = (gint64)GPOINTER_TO_SIZE(g_object_get_data(G_OBJECT(v), "fb-empty-response-at"));
+    g_object_set_data(G_OBJECT(v), "fb-empty-response-at", GSIZE_TO_POINTER((gsize)now));
+    struct EmptyResponseRecovery *r = g_new0(struct EmptyResponseRecovery, 1);
+    r->view = g_object_ref(v);
+    r->uri = g_strdup(uri);
+    r->errorPage = last && now - last < 10;
+    fprintf(stderr, "frostbyte: empty response for %s: %s\n", uri, r->errorPage ? "error page" : "loading it again");
+    g_timeout_add(300, recoverFromEmptyResponse, r);   /* after WebKit has dropped the ignored response */
+}
+
 /* Cmd-click or middle-click on a link: open it in a new tab, in the background unless the
  * preferences say otherwise (Shift reverses it, as in Camino). Responses the page can't show: download. */
 static gboolean tabDecidePolicy(WebKitWebView *v, WebKitPolicyDecision *decision, WebKitPolicyDecisionType type, gpointer d)
 {
-    (void)v;
     /* What the page can't show becomes a download (WebKit's default would drop it). */
     if (type == WEBKIT_POLICY_DECISION_TYPE_RESPONSE) {
         WebKitResponsePolicyDecision *r = WEBKIT_RESPONSE_POLICY_DECISION(decision);
@@ -167,6 +222,16 @@ static gboolean tabDecidePolicy(WebKitWebView *v, WebKitPolicyDecision *decision
         if (webkit_response_policy_decision_is_main_frame_main_resource(r)
             && !webkit_response_policy_decision_is_mime_type_supported(r)
             && webkit_uri_response_get_status_code(response) != 204) {
+            if (isEmptyResponse(response)) {
+                WebKitURIRequest *request = webkit_response_policy_decision_get_request(r);
+                const char *uri = request ? webkit_uri_request_get_uri(request) : NULL;
+                if (!uri || !*uri)
+                    uri = webkit_web_view_get_uri(v);
+                webkit_policy_decision_ignore(decision);
+                if (uri && *uri)
+                    scheduleEmptyResponseRecovery(v, uri);
+                return TRUE;
+            }
             webkit_policy_decision_download(decision);
             return TRUE;
         }
