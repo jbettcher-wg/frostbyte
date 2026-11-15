@@ -2,7 +2,8 @@
  * FrostByte browser shell, after Camino: browser windows with a tab strip in the title bar, a
  * toolbar (back, forward, reload, the combined address + search field, downloads, history, the
  * FrostByte menu), a bookmarks bar, a status bubble or bar, a Light / Dark appearance with an accent
- * colour, a Preferences window and the usual menus.
+ * colour, a Preferences window and the usual menus. It can be the Mac's default web browser: links and
+ * local pages from other applications open in it.
  *   FrostByte [url]
  * Preferences are NSUserDefaults (org.frostbyte.FrostByte), all registered in registerDefaults().
  * Environment (debugging; each wins over its preference): FROSTBYTE_SEARCH_URL ("%s" = escaped
@@ -16,6 +17,31 @@
 
 static GMainLoop *s_loop;
 static void shutDownFrostByte(BOOL releaseDisplay);
+
+/* A link or file another application hands over: a new tab in the front window, or a new window. */
+static void openFromOutside(NSString *text)
+{
+    char *url = [text length] ? urlForLocationText([text UTF8String]) : NULL;
+    if (!url)
+        return;
+    if (g_ascii_strncasecmp(url, "javascript:", 11)) {   /* no script from outside */
+        FBWindowController *c = frontBrowserWindow();
+        if (c) {
+            [c addTabWithURL:url relatedTo:NULL select:YES];
+            [c show];
+        } else
+            openWindow(url);
+    }
+    g_free(url);
+}
+
+static NSString *fileURLString(NSString *path)
+{
+    NSString *s = [[NSURL fileURLWithPath:path] absoluteString];
+    if ([s hasPrefix:@"file://localhost/"])          /* 10.5's form; the address field shows file:/// */
+        s = [@"file:///" stringByAppendingString:[s substringFromIndex:17]];
+    return s;
+}
 
 /* ---- application controller: menus; actions go to the key window's controller ---- */
 
@@ -148,6 +174,48 @@ static void shutDownFrostByte(BOOL releaseDisplay);
         return [c pageHasFocus];
     return [c validateAction:a];
 }
+
+/* ---- FrostByte as the Mac's web browser: links (GetURL) and local files (Open, Open With) from other
+ * applications. Info.plist claims http, https and web documents; Preferences > General makes it the default.
+ * AppKit handles the launch's own Apple event at the first event pump, then sends applicationDidFinishLaunching:. */
+
+- (void)applicationWillFinishLaunching:(NSNotification *)n
+{
+    (void)n;
+    [[NSAppleEventManager sharedAppleEventManager] setEventHandler:self andSelector:@selector(getURL:withReplyEvent:)
+                                                     forEventClass:kInternetEventClass andEventID:kAEGetURL];
+}
+
+- (void)getURL:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply
+{
+    (void)reply;
+    NSAppleEventDescriptor *d = [event paramDescriptorForKeyword:keyDirectObject];
+    if ([d descriptorType] == typeAEList)
+        for (NSInteger i = 1; i <= [d numberOfItems]; i++)
+            openFromOutside([[d descriptorAtIndex:i] stringValue]);
+    else
+        openFromOutside([d stringValue]);
+}
+
+- (void)application:(NSApplication *)app openFiles:(NSArray *)paths
+{
+    for (NSString *path in paths)
+        openFromOutside(fileURLString(path));
+    [app replyToOpenOrPrint:NSApplicationDelegateReplySuccess];
+}
+
+/* The launch's Apple event has been handled. If it opened nothing (a plain launch, a relaunch) and no URL
+ * came on the command line, open the window the preferences say. */
+- (void)applicationDidFinishLaunching:(NSNotification *)n
+{
+    (void)n;
+    if (![fbWindows count])
+        openWindow(NULL);
+}
+
+/* AppKit's untitled document, at launch and on reopen with no windows: FrostByte has none (its windows come
+ * from applicationDidFinishLaunching: and applicationShouldHandleReopen:). */
+- (BOOL)applicationShouldOpenUntitledFile:(NSApplication *)app { (void)app; return NO; }
 
 /* Dock icon clicked with no windows open. */
 - (BOOL)applicationShouldHandleReopen:(NSApplication *)app hasVisibleWindows:(BOOL)visible
@@ -298,7 +366,7 @@ static gboolean reapplyIcon(gpointer icon)
 int main(int argc, char **argv)
 {
     /* First non-option argument is a URL to open. Skip the Finder/Dock's -psn_0_<n> process serial
-     * number and any other -options, so a normal launch opens the homepage. */
+     * number and any other -options: without a URL, the launch's Apple event decides what opens. */
     /* The WebGL capability probe (fb-webgl-probe.c): a helper run of this executable, without AppKit. */
     if (argc > 1 && !strcmp(argv[1], "--gl33-probe"))
         return fbWebGLProbeMain();
@@ -314,6 +382,13 @@ int main(int argc, char **argv)
     }
     s_loop = g_main_loop_new(NULL, FALSE);
 
+    /* The delegate before the display connects: connecting finishes AppKit's launch, which sends it
+     * applicationWillFinishLaunching: (the GetURL handler goes in there). */
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    [NSApplication sharedApplication];
+    FBAppController *controller = [[FBAppController alloc] init];
+    [NSApp setDelegate:controller];
+
     GError *error = NULL;
     fbDisplay = wpe_display_cocoa_new();
     if (!wpe_display_connect(fbDisplay, &error)) {
@@ -327,7 +402,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     setPageDarkMode();               /* prefers-color-scheme follows the appearance */
     /* site icons for the tabs (off by default in WebKit) */
     webkit_website_data_manager_set_favicons_enabled(
@@ -349,10 +423,9 @@ int main(int argc, char **argv)
     loadBookmarks();
     loadHistory();
     setUpDownloads();
-    FBAppController *controller = [[FBAppController alloc] init];
-    [NSApp setDelegate:controller];
     buildMenus(controller);
-    openWindow(url);
+    if (url)
+        openWindow(url);             /* otherwise at the launch's Apple event or applicationDidFinishLaunching: */
     fbUpdateStartup();
     [pool release];
 

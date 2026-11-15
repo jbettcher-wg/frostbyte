@@ -129,8 +129,23 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
 
 - (NSView *)generalPane
 {
-    NSView *v = [self paneWithHeight:296];
+    NSView *v = [self paneWithHeight:378];
     CGFloat y = 20;
+    [self label:@"Default web browser:" in:v y:y];
+    defaultBrowserButton = [[[NSButton alloc] initWithFrame:NSZeroRect] autorelease];
+    [defaultBrowserButton setBezelStyle:NSRoundedBezelStyle];
+    [defaultBrowserButton setTitle:@"Make FrostByte the Default Browser"];
+    [defaultBrowserButton sizeToFit];
+    [defaultBrowserButton setFrame:NSMakeRect(kControlX - 6, y - 6, NSWidth([defaultBrowserButton frame]) + 12, 32)];
+    [defaultBrowserButton setTarget:self];
+    [defaultBrowserButton setAction:@selector(makeDefaultBrowser:)];
+    [v addSubview:defaultBrowserButton];
+    y += 30;
+    defaultBrowserNote = [self text:@"" in:v frame:NSMakeRect(kControlX + 2, y, kPaneWidth - kControlX - 20, 16)
+                              align:NSLeftTextAlignment small:YES];
+    y += 28;
+    [self separator:v y:y];
+    y += 24;
     [self label:@"Home page:" in:v y:y];
     homeField = [self field:PrefHomePage in:v y:y width:250];
     NSButton *use = [[[NSButton alloc] initWithFrame:NSMakeRect(kControlX + 256, y - 4, 124, 30)] autorelease];
@@ -355,13 +370,84 @@ static NSString *const PaneGeneral = @"General", *const PaneTabs = @"Tabs", *con
     [window center];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(defaultsChanged:)
                                                  name:NSUserDefaultsDidChangeNotification object:nil];
+    /* the default browser may have been changed elsewhere (Safari's preferences, another browser) */
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appBecameActive:)
+                                                 name:NSApplicationDidBecomeActiveNotification object:nil];
     return self;
 }
 
 - (void)show
 {
     [self refresh];
+    [self updateDefaultBrowser];
     [window makeKeyAndOrderFront:nil];
+}
+
+- (void)appBecameActive:(NSNotification *)n { (void)n; if ([window isVisible]) [self updateDefaultBrowser]; }
+
+/* ---- the default web browser (Launch Services; the 10.4 API) ---- */
+
+/* The application that opens <scheme> links now, as Launch Services decides (the user's choice, else the
+ * applications' claims): its bundle identifier and the name the Finder shows. NO if there is none. */
+static BOOL webLinkHandler(NSString *scheme, NSString **ident, NSString **name)
+{
+    NSURL *link = [NSURL URLWithString:[scheme stringByAppendingString:@"://www.example.com/"]];
+    CFURLRef app = NULL;
+    if (LSGetApplicationForURL((CFURLRef)link, kLSRolesAll, NULL, &app) != noErr || !app)
+        return NO;
+    CFDictionaryRef info = CFBundleCopyInfoDictionaryForURL(app);
+    *ident = info ? [[[(NSDictionary *)info objectForKey:@"CFBundleIdentifier"] retain] autorelease] : nil;
+    if (info)
+        CFRelease(info);
+    CFStringRef display = NULL;
+    *name = nil;
+    if (LSCopyDisplayNameForURL(app, &display) == noErr && display) {
+        *name = [(NSString *)display autorelease];
+        if ([[*name pathExtension] caseInsensitiveCompare:@"app"] == NSOrderedSame)
+            *name = [*name stringByDeletingPathExtension];
+    }
+    CFRelease(app);
+    return YES;
+}
+
+- (void)updateDefaultBrowser
+{
+    NSString *me = [[NSBundle mainBundle] bundleIdentifier];   /* nil for a bare executable */
+    NSString *other = nil;
+    BOOL isDefault = me != nil;
+    for (NSString *scheme in [NSArray arrayWithObjects:@"http", @"https", nil]) {
+        NSString *ident = nil, *name = nil;
+        if (webLinkHandler(scheme, &ident, &name) && me && ident && [ident caseInsensitiveCompare:me] == NSOrderedSame)
+            continue;
+        isDefault = NO;
+        if (!other)
+            other = name;
+    }
+    [defaultBrowserButton setEnabled:me && !isDefault];
+    [defaultBrowserNote setStringValue:
+        !me ? @"Only the FrostByte application can be the default browser."
+        : isDefault ? @"FrostByte is your default web browser."
+        : other ? [NSString stringWithFormat:@"Links from other applications open in %@.", other]
+        : @"No default web browser is set."];
+}
+
+/* What Safari's "Default web browser" choice does for links, plus local web pages (.html, .xhtml). */
+- (void)makeDefaultBrowser:(id)sender
+{
+    (void)sender;
+    CFStringRef me = (CFStringRef)[[NSBundle mainBundle] bundleIdentifier];
+    if (!me)
+        return;
+    OSStatus err = LSSetDefaultHandlerForURLScheme(CFSTR("http"), me);
+    if (!err)
+        err = LSSetDefaultHandlerForURLScheme(CFSTR("https"), me);
+    if (!err)
+        err = LSSetDefaultRoleHandlerForContentType(CFSTR("public.html"), kLSRolesAll, me);
+    if (!err)
+        err = LSSetDefaultRoleHandlerForContentType(CFSTR("public.xhtml"), kLSRolesAll, me);
+    [self updateDefaultBrowser];
+    if (err)
+        [defaultBrowserNote setStringValue:[NSString stringWithFormat:@"Mac OS X didn't take the change (error %d).", (int)err]];
 }
 
 /* controls <- defaults */

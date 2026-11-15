@@ -1609,6 +1609,16 @@ FBWindowController *controllerForWindow(NSWindow *w)
     return nil;
 }
 
+FBWindowController *frontBrowserWindow(void)
+{
+    for (NSWindow *w in [NSApp orderedWindows]) {
+        FBWindowController *c = controllerForWindow(w);
+        if (c && [w isVisible] && ![w isMiniaturized])
+            return c;
+    }
+    return nil;
+}
+
 /* A browser window with no tabs yet (the caller adds them and shows it). */
 FBWindowController *newBrowserWindow(void)
 {

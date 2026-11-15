@@ -181,6 +181,7 @@ NSImage *iconFromPageIcons(WebKitImageList *list, BOOL *dark);           /* fb-w
 extern WPEDisplay *fbDisplay;
 extern NSMutableArray *fbWindows;                       /* FBWindowController, open windows */
 FBWindowController *controllerForWindow(NSWindow *w);
+FBWindowController *frontBrowserWindow(void);           /* the frontmost visible, unminimized one, or nil */
 FBWindowController *newBrowserWindow(void);             /* no tabs yet: the caller adds them and shows it */
 FBWindowController *openWindow(const char *url);        /* NULL: what the preferences say */
 void setPageDarkMode(void);
@@ -401,6 +402,8 @@ gboolean fbRunFileChooser(WebKitWebView *view, WebKitFileChooserRequest *request
     NSMutableArray *bound;               /* { control, key, value? } */
     NSTextField *cacheNote;              /* Hardware pane: bytecode cache size */
     NSTextField *homeField, *customSearchField;
+    NSButton *defaultBrowserButton;      /* General pane: Make FrostByte the Default Browser */
+    NSTextField *defaultBrowserNote;     /* ... and which browser is the default now */
     NSString *currentPane;
 }
 + (FBPreferences *)shared;
@@ -408,6 +411,7 @@ gboolean fbRunFileChooser(WebKitWebView *view, WebKitFileChooserRequest *request
 - (void)refresh;
 - (void)selectPane:(NSString *)ident animate:(BOOL)animate;
 - (void)updateCacheNote;
+- (void)updateDefaultBrowser;
 @end
 
 #endif

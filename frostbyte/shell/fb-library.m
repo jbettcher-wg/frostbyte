@@ -7,20 +7,9 @@
  */
 #include "frostbyte.h"
 
-/* The browser window in front, if any. */
-static FBWindowController *frontController(void)
-{
-    for (NSWindow *w in [NSApp orderedWindows]) {
-        FBWindowController *c = controllerForWindow(w);
-        if (c && [w isVisible] && ![w isMiniaturized])
-            return c;
-    }
-    return nil;
-}
-
 static void openURLInFront(NSString *url, BOOL newTab)
 {
-    FBWindowController *c = frontController();
+    FBWindowController *c = frontBrowserWindow();
     if (!c) {
         openWindow([url UTF8String]);
         return;
